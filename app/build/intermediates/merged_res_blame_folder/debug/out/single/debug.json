@@ -1,0 +1,54 @@
+[
+    {
+        "merged": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-merged_res-74:\\drawable_ic_skip_forward_15.xml.flat",
+        "source": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-main-76:\\drawable\\ic_skip_forward_15.xml"
+    },
+    {
+        "merged": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-merged_res-74:\\drawable_ic_pause.xml.flat",
+        "source": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-main-76:\\drawable\\ic_pause.xml"
+    },
+    {
+        "merged": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-merged_res-74:\\drawable_ic_notification.xml.flat",
+        "source": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-main-76:\\drawable\\ic_notification.xml"
+    },
+    {
+        "merged": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-merged_res-74:\\drawable_ic_previous.xml.flat",
+        "source": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-main-76:\\drawable\\ic_previous.xml"
+    },
+    {
+        "merged": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-merged_res-74:\\mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-main-76:\\mipmap-anydpi-v26\\ic_launcher_round.xml"
+    },
+    {
+        "merged": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-merged_res-74:\\mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-main-76:\\mipmap-anydpi-v26\\ic_launcher.xml"
+    },
+    {
+        "merged": "com.tiddlywikibrowser.app-merged_res-74:/drawable_ic_notification.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-76:/drawable/ic_notification.xml"
+    },
+    {
+        "merged": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-merged_res-74:\\drawable_ic_launcher_foreground.xml.flat",
+        "source": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-main-76:\\drawable\\ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "com.tiddlywikibrowser.app-merged_res-74:/drawable_ic_pause.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-76:/drawable/ic_pause.xml"
+    },
+    {
+        "merged": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-merged_res-74:\\drawable_ic_next.xml.flat",
+        "source": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-main-76:\\drawable\\ic_next.xml"
+    },
+    {
+        "merged": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-merged_res-74:\\drawable_ic_skip_backward_15.xml.flat",
+        "source": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-main-76:\\drawable\\ic_skip_backward_15.xml"
+    },
+    {
+        "merged": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-merged_res-74:\\drawable_ic_play.xml.flat",
+        "source": "C:\\Users\\tetuo\\.gradle\\daemon\\8.10.2\\com.tiddlywikibrowser.app-main-76:\\drawable\\ic_play.xml"
+    },
+    {
+        "merged": "com.tiddlywikibrowser.app-merged_res-74:/drawable_ic_previous.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-76:/drawable/ic_previous.xml"
+    }
+]

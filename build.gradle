@@ -1,0 +1,41 @@
+
+
+buildscript {
+    ext {
+        compose_version = '1.9.20'  // Update to match Kotlin version
+        compose_compiler_version = '1.5.4'  // Update to match Kotlin version
+        kotlin_version = '1.9.0'  // Use Kotlin 1.9.0
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.2.0'  // Update to a newer version
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+plugins {
+    id 'com.android.application' version '8.2.0' apply false  // Update to a newer version
+    id 'com.android.library' version '8.2.0' apply false  // Update to a newer version
+    id 'org.jetbrains.kotlin.android' version "$kotlin_version" apply false
+}
+
+allprojects {
+    tasks.withType(JavaCompile).configureEach {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions {
+            jvmTarget = '17'
+            freeCompilerArgs += ['-opt-in=kotlin.RequiresOptIn']
+        }
+    }
+}
+
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}

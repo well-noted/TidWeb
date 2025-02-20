@@ -1,0 +1,42 @@
+[
+    {
+        "merged": "com.tiddlywikibrowser.app-merged_res-71:/drawable_ic_skip_backward_15.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/drawable/ic_skip_backward_15.xml"
+    },
+    {
+        "merged": "com.tiddlywikibrowser.app-merged_res-71:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "com.tiddlywikibrowser.app-merged_res-71:/drawable_ic_skip_forward_15.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/drawable/ic_skip_forward_15.xml"
+    },
+    {
+        "merged": "com.tiddlywikibrowser.app-merged_res-71:/drawable_ic_next.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/drawable/ic_next.xml"
+    },
+    {
+        "merged": "com.tiddlywikibrowser.app-merged_res-71:/drawable_ic_play.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/drawable/ic_play.xml"
+    },
+    {
+        "merged": "com.tiddlywikibrowser.app-merged_res-71:/drawable_ic_pause.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/drawable/ic_pause.xml"
+    },
+    {
+        "merged": "com.tiddlywikibrowser.app-merged_res-71:/drawable_ic_previous.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/drawable/ic_previous.xml"
+    },
+    {
+        "merged": "com.tiddlywikibrowser.app-merged_res-71:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.tiddlywikibrowser.app-merged_res-71:/drawable_ic_notification.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/drawable/ic_notification.xml"
+    },
+    {
+        "merged": "com.tiddlywikibrowser.app-merged_res-71:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/mipmap-anydpi-v26/ic_launcher.xml"
+    }
+]

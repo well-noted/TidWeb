@@ -1,0 +1,576 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<incidents format="6" by="lint 8.2.0" type="incidents">
+
+    <incident
+        id="AppLinkUrlError"
+        severity="error"
+        message="Missing data element">
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*manifest*0}"
+            line="38"
+            column="13"
+            startOffset="1836"
+            endLine="42"
+            endColumn="29"
+            endOffset="2107"/>
+    </incident>
+
+    <incident
+        id="MonochromeLauncherIcon"
+        severity="warning"
+        message="The application adaptive icon is missing a monochrome tag">
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/mipmap-anydpi-v26/ic_launcher.xml"
+            line="2"
+            column="1"
+            startOffset="40"
+            endLine="5"
+            endColumn="17"
+            endOffset="271"/>
+    </incident>
+
+    <incident
+        id="MonochromeLauncherIcon"
+        severity="warning"
+        message="The application adaptive roundIcon is missing a monochrome tag">
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/mipmap-anydpi-v26/ic_launcher_round.xml"
+            line="2"
+            column="1"
+            startOffset="40"
+            endLine="5"
+            endColumn="17"
+            endOffset="271"/>
+    </incident>
+
+    <incident
+        id="StaticFieldLeak"
+        severity="warning"
+        message="This field leaks a context object">
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+            line="130"
+            column="21"
+            startOffset="5296"
+            endLine="130"
+            endColumn="49"
+            endOffset="5324"/>
+    </incident>
+
+    <incident
+        id="SuspiciousIndentation"
+        severity="error"
+        message="Suspicious indentation: This is indented but is not continuing the previous expression (`showMenu = false`...)">
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+            line="1083"
+            column="24"
+            startOffset="43346"
+            endLine="1083"
+            endColumn="58"
+            endOffset="43380"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+            line="1082"
+            column="17"
+            startOffset="43289"
+            endLine="1082"
+            endColumn="33"
+            endOffset="43305"
+            message="Previous statement here"/>
+    </incident>
+
+    <incident
+        id="UnsafeOptInUsageError"
+        severity="error"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <fix-alternatives>
+            <fix-replace
+                description="Add &apos;@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)&apos; annotation to &apos;WikiView&apos;"
+                oldString="_lint_insert_begin_"
+                replacement="@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class) "
+                shortenNames="true">
+                <range
+                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+                    startOffset="51958"
+                    endOffset="52008"/>
+            </fix-replace>
+            <fix-replace
+                description="Add &apos;@androidx.media3.common.util.UnstableApi&apos; annotation to &apos;WikiView&apos;"
+                oldString="_lint_insert_begin_"
+                replacement="@androidx.media3.common.util.UnstableApi "
+                shortenNames="true">
+                <range
+                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+                    startOffset="51958"
+                    endOffset="52008"/>
+            </fix-replace>
+            <fix-replace
+                description="Add &apos;@androidx.media3.common.util.UnstableApi&apos; annotation to containing class &apos;MainActivityKt&apos;"
+                oldString="_lint_insert_begin_"
+                replacement="@androidx.media3.common.util.UnstableApi "
+                shortenNames="true">
+                <range
+                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+                    startOffset="0"
+                    endOffset="0"/>
+            </fix-replace>
+        </fix-alternatives>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+            line="1334"
+            column="73"
+            startOffset="55181"
+            endLine="1335"
+            endColumn="9"
+            endOffset="55198"/>
+    </incident>
+
+    <incident
+        id="UnsafeOptInUsageError"
+        severity="error"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <fix-alternatives>
+            <fix-replace
+                description="Add &apos;@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)&apos; annotation to &apos;WikiView&apos;"
+                oldString="_lint_insert_begin_"
+                replacement="@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class) "
+                shortenNames="true">
+                <range
+                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+                    startOffset="51958"
+                    endOffset="52008"/>
+            </fix-replace>
+            <fix-replace
+                description="Add &apos;@androidx.media3.common.util.UnstableApi&apos; annotation to &apos;WikiView&apos;"
+                oldString="_lint_insert_begin_"
+                replacement="@androidx.media3.common.util.UnstableApi "
+                shortenNames="true">
+                <range
+                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+                    startOffset="51958"
+                    endOffset="52008"/>
+            </fix-replace>
+            <fix-replace
+                description="Add &apos;@androidx.media3.common.util.UnstableApi&apos; annotation to containing class &apos;MainActivityKt&apos;"
+                oldString="_lint_insert_begin_"
+                replacement="@androidx.media3.common.util.UnstableApi "
+                shortenNames="true">
+                <range
+                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+                    startOffset="0"
+                    endOffset="0"/>
+            </fix-replace>
+        </fix-alternatives>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+            line="1336"
+            column="16"
+            startOffset="55238"
+            endLine="1336"
+            endColumn="37"
+            endOffset="55259"/>
+    </incident>
+
+    <incident
+        id="UnsafeOptInUsageError"
+        severity="error"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <fix-alternatives>
+            <fix-replace
+                description="Add &apos;@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)&apos; annotation to &apos;WikiView&apos;"
+                oldString="_lint_insert_begin_"
+                replacement="@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class) "
+                shortenNames="true">
+                <range
+                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+                    startOffset="51958"
+                    endOffset="52008"/>
+            </fix-replace>
+            <fix-replace
+                description="Add &apos;@androidx.media3.common.util.UnstableApi&apos; annotation to &apos;WikiView&apos;"
+                oldString="_lint_insert_begin_"
+                replacement="@androidx.media3.common.util.UnstableApi "
+                shortenNames="true">
+                <range
+                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+                    startOffset="51958"
+                    endOffset="52008"/>
+            </fix-replace>
+            <fix-replace
+                description="Add &apos;@androidx.media3.common.util.UnstableApi&apos; annotation to containing class &apos;MainActivityKt&apos;"
+                oldString="_lint_insert_begin_"
+                replacement="@androidx.media3.common.util.UnstableApi "
+                shortenNames="true">
+                <range
+                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+                    startOffset="0"
+                    endOffset="0"/>
+            </fix-replace>
+        </fix-alternatives>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+            line="1337"
+            column="34"
+            startOffset="55299"
+            endLine="1338"
+            endColumn="8"
+            endOffset="55325"/>
+    </incident>
+
+    <incident
+        id="StaticFieldLeak"
+        severity="warning"
+        message="Do not place Android context classes in static fields (static reference to `WikiViewModel` which has field `context` pointing to `Context`); this is a memory leak">
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+            line="560"
+            column="9"
+            startOffset="20468"
+            endLine="560"
+            endColumn="61"
+            endOffset="20520"/>
+    </incident>
+
+    <incident
+        id="ObsoleteSdkInt"
+        severity="warning"
+        message="Unnecessary; SDK_INT is always >= 24">
+        <fix-data conditional="true"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+            line="900"
+            column="24"
+            startOffset="36926"
+            endLine="901"
+            endColumn="31"
+            endOffset="36972"/>
+    </incident>
+
+    <incident
+        id="OldTargetApi"
+        severity="warning"
+        message="Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the android.os.Build.VERSION_CODES javadoc for details.">
+        <fix-replace
+            description="Update targetSdkVersion to 35"
+            oldString="34"
+            replacement="35"/>
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="13"
+            column="9"
+            startOffset="255"
+            endLine="13"
+            endColumn="21"
+            endOffset="267"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.compose:compose-bom than 2023.08.00 is available: 2025.02.00">
+        <fix-replace
+            description="Change to 2025.02.00"
+            family="Update versions"
+            oldString="2023.08.00"
+            replacement="2025.02.00"/>
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="50"
+            column="29"
+            startOffset="1091"
+            endLine="50"
+            endColumn="70"
+            endOffset="1132"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.compose:compose-bom than 2023.08.00 is available: 2025.02.00">
+        <fix-replace
+            description="Change to 2025.02.00"
+            family="Update versions"
+            oldString="2023.08.00"
+            replacement="2025.02.00"/>
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="51"
+            column="40"
+            startOffset="1174"
+            endLine="51"
+            endColumn="81"
+            endOffset="1215"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of org.jetbrains.kotlin:kotlin-bom than 1.9.0 is available: 1.9.20">
+        <fix-replace
+            description="Change to 1.9.20"
+            family="Update versions"
+            oldString="1.9.0"
+            replacement="1.9.20"/>
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="53"
+            column="29"
+            startOffset="1252"
+            endLine="53"
+            endColumn="68"
+            endOffset="1291"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.core:core-ktx than 1.12.0 is available: 1.15.0">
+        <fix-replace
+            description="Change to 1.15.0"
+            family="Update versions"
+            oldString="1.12.0"
+            replacement="1.15.0"/>
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="55"
+            column="20"
+            startOffset="1319"
+            endLine="55"
+            endColumn="51"
+            endOffset="1350"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.6.2 is available: 2.8.7">
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="56"
+            column="20"
+            startOffset="1371"
+            endLine="56"
+            endColumn="81"
+            endOffset="1432"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.6.2 is available: 2.8.7">
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="57"
+            column="20"
+            startOffset="1453"
+            endLine="57"
+            endColumn="87"
+            endOffset="1520"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.activity:activity-compose than 1.8.1 is available: 1.10.0">
+        <fix-replace
+            description="Change to 1.10.0"
+            family="Update versions"
+            oldString="1.8.1"
+            replacement="1.10.0"/>
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="58"
+            column="20"
+            startOffset="1541"
+            endLine="58"
+            endColumn="62"
+            endOffset="1583"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.datastore:datastore-preferences than 1.0.0 is available: 1.1.2">
+        <fix-replace
+            description="Change to 1.1.2"
+            family="Update versions"
+            oldString="1.0.0"
+            replacement="1.1.2"/>
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="71"
+            column="20"
+            startOffset="2212"
+            endLine="71"
+            endColumn="68"
+            endOffset="2260"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.appcompat:appcompat than 1.6.1 is available: 1.7.0">
+        <fix-replace
+            description="Change to 1.7.0"
+            family="Update versions"
+            oldString="1.6.1"
+            replacement="1.7.0"/>
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="72"
+            column="20"
+            startOffset="2281"
+            endLine="72"
+            endColumn="56"
+            endOffset="2317"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of com.google.android.material:material than 1.11.0 is available: 1.12.0">
+        <fix-replace
+            description="Change to 1.12.0"
+            family="Update versions"
+            oldString="1.11.0"
+            replacement="1.12.0"/>
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="74"
+            column="20"
+            startOffset="2414"
+            endLine="74"
+            endColumn="65"
+            endOffset="2459"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-savedstate than 2.6.2 is available: 2.8.7">
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="75"
+            column="20"
+            startOffset="2480"
+            endLine="75"
+            endColumn="90"
+            endOffset="2550"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.webkit:webkit than 1.8.0 is available: 1.12.1">
+        <fix-replace
+            description="Change to 1.12.1"
+            family="Update versions"
+            oldString="1.8.0"
+            replacement="1.12.1"/>
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="77"
+            column="20"
+            startOffset="2634"
+            endLine="77"
+            endColumn="50"
+            endOffset="2664"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.navigation:navigation-compose than 2.7.5 is available: 2.8.7">
+        <fix-replace
+            description="Change to 2.8.7"
+            family="Update versions"
+            oldString="2.7.5"
+            replacement="2.8.7"/>
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="78"
+            column="20"
+            startOffset="2685"
+            endLine="78"
+            endColumn="66"
+            endOffset="2731"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.media3:media3-exoplayer than 1.2.0 is available: 1.5.1">
+        <fix-replace
+            description="Change to 1.5.1"
+            family="Update versions"
+            oldString="1.2.0"
+            replacement="1.5.1"/>
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="86"
+            column="20"
+            startOffset="3115"
+            endLine="86"
+            endColumn="60"
+            endOffset="3155"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.media3:media3-ui than 1.2.0 is available: 1.5.1">
+        <fix-replace
+            description="Change to 1.5.1"
+            family="Update versions"
+            oldString="1.2.0"
+            replacement="1.5.1"/>
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="87"
+            column="20"
+            startOffset="3176"
+            endLine="87"
+            endColumn="53"
+            endOffset="3209"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.media3:media3-common than 1.2.0 is available: 1.5.1">
+        <fix-replace
+            description="Change to 1.5.1"
+            family="Update versions"
+            oldString="1.2.0"
+            replacement="1.5.1"/>
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="88"
+            column="20"
+            startOffset="3230"
+            endLine="88"
+            endColumn="57"
+            endOffset="3267"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.media3:media3-session than 1.2.0 is available: 1.5.1">
+        <fix-replace
+            description="Change to 1.5.1"
+            family="Update versions"
+            oldString="1.2.0"
+            replacement="1.5.1"/>
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="89"
+            column="20"
+            startOffset="3288"
+            endLine="89"
+            endColumn="58"
+            endOffset="3326"/>
+    </incident>
+
+</incidents>

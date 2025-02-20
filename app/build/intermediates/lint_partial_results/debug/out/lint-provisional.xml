@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<incidents format="6" by="lint 8.2.0" type="conditional_incidents">
+
+    <incident
+        id="ScopedStorage"
+        severity="warning"
+        message="">
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*manifest*0}"
+            line="5"
+            column="36"
+            startOffset="294"
+            endLine="5"
+            endColumn="77"
+            endOffset="335"/>
+        <map>
+            <entry
+                name="maxSdkVersion"
+                int="28"/>
+            <entry
+                name="read"
+                boolean="false"/>
+        </map>
+    </incident>
+
+    <incident
+        id="ScopedStorage"
+        severity="warning"
+        message="">
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*manifest*0}"
+            line="7"
+            column="36"
+            startOffset="412"
+            endLine="7"
+            endColumn="76"
+            endOffset="452"/>
+        <map>
+            <entry
+                name="maxSdkVersion"
+                int="32"/>
+            <entry
+                name="read"
+                boolean="true"/>
+        </map>
+    </incident>
+
+    <incident
+        id="NewApi"
+        severity="error"
+        message="">
+        <fix-data minSdk="ffffffffff800000" requiresApi="fffffffffc000000"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values/themes.xml"
+            line="7"
+            column="15"
+            startOffset="379"
+            endLine="7"
+            endColumn="54"
+            endOffset="418"/>
+        <map>
+            <api-levels id="minSdk"
+                value="ffffffffff800000"/>
+            <api-levels id="requiresApi"
+                value="fffffffffc000000"/>
+            <entry
+                name="message"
+                string="`android:windowLightNavigationBar` requires API level 27 (current min is %1$s)"/>
+        </map>
+    </incident>
+
+    <incident
+        id="NewApi"
+        severity="error"
+        message="">
+        <fix-data minSdk="ffffffffff800000" requiresApi="fffffffffc000000"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values-night/themes.xml"
+            line="7"
+            column="15"
+            startOffset="379"
+            endLine="7"
+            endColumn="54"
+            endOffset="418"/>
+        <map>
+            <api-levels id="minSdk"
+                value="ffffffffff800000"/>
+            <api-levels id="requiresApi"
+                value="fffffffffc000000"/>
+            <entry
+                name="message"
+                string="`android:windowLightNavigationBar` requires API level 27 (current min is %1$s)"/>
+        </map>
+    </incident>
+
+    <incident
+        id="NewApi"
+        severity="error"
+        message="">
+        <fix-data minSdk="ffffffffff800000" requiresApi="fffffffff0000000"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+            line="594"
+            column="61"
+            startOffset="22110"
+            endLine="594"
+            endColumn="70"
+            endOffset="22119"/>
+        <map>
+            <api-levels id="minSdk"
+                value="ffffffffff800000"/>
+            <api-levels id="requiresApi"
+                value="fffffffff0000000"/>
+            <entry
+                name="message"
+                string="Call requires API level 29 (current min is %1$s): `android.webkit.WebSettings#setForceDark`"/>
+        </map>
+    </incident>
+
+    <incident
+        id="InlinedApi"
+        severity="warning"
+        message="">
+        <fix-data minSdk="ffffffffff800000" requiresApi="fffffffff0000000"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+            line="594"
+            column="73"
+            startOffset="22122"
+            endLine="594"
+            endColumn="98"
+            endOffset="22147"/>
+        <map>
+            <api-levels id="minSdk"
+                value="ffffffffff800000"/>
+            <api-levels id="requiresApi"
+                value="fffffffff0000000"/>
+            <entry
+                name="message"
+                string="Field requires API level 29 (current min is %1$s): `android.webkit.WebSettings#FORCE_DARK_ON`"/>
+        </map>
+    </incident>
+
+    <incident
+        id="InlinedApi"
+        severity="warning"
+        message="">
+        <fix-data minSdk="ffffffffff800000" requiresApi="fffffffff0000000"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+            line="594"
+            column="73"
+            startOffset="22122"
+            endLine="594"
+            endColumn="98"
+            endOffset="22147"/>
+        <map>
+            <api-levels id="minSdk"
+                value="ffffffffff800000"/>
+            <api-levels id="requiresApi"
+                value="fffffffff0000000"/>
+            <entry
+                name="message"
+                string="Field requires API level 29 (current min is %1$s): `android.webkit.WebSettings#FORCE_DARK_ON`"/>
+        </map>
+    </incident>
+
+    <incident
+        id="NewApi"
+        severity="error"
+        message="">
+        <fix-data minSdk="ffffffffff800000" requiresApi="fffffffff0000000"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+            line="595"
+            column="60"
+            startOffset="22207"
+            endLine="595"
+            endColumn="69"
+            endOffset="22216"/>
+        <map>
+            <api-levels id="minSdk"
+                value="ffffffffff800000"/>
+            <api-levels id="requiresApi"
+                value="fffffffff0000000"/>
+            <entry
+                name="message"
+                string="Call requires API level 29 (current min is %1$s): `android.webkit.WebSettings#setForceDark`"/>
+        </map>
+    </incident>
+
+    <incident
+        id="InlinedApi"
+        severity="warning"
+        message="">
+        <fix-data minSdk="ffffffffff800000" requiresApi="fffffffff0000000"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+            line="595"
+            column="72"
+            startOffset="22219"
+            endLine="595"
+            endColumn="98"
+            endOffset="22245"/>
+        <map>
+            <api-levels id="minSdk"
+                value="ffffffffff800000"/>
+            <api-levels id="requiresApi"
+                value="fffffffff0000000"/>
+            <entry
+                name="message"
+                string="Field requires API level 29 (current min is %1$s): `android.webkit.WebSettings#FORCE_DARK_OFF`"/>
+        </map>
+    </incident>
+
+    <incident
+        id="InlinedApi"
+        severity="warning"
+        message="">
+        <fix-data minSdk="ffffffffff800000" requiresApi="fffffffff0000000"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+            line="595"
+            column="72"
+            startOffset="22219"
+            endLine="595"
+            endColumn="98"
+            endOffset="22245"/>
+        <map>
+            <api-levels id="minSdk"
+                value="ffffffffff800000"/>
+            <api-levels id="requiresApi"
+                value="fffffffff0000000"/>
+            <entry
+                name="message"
+                string="Field requires API level 29 (current min is %1$s): `android.webkit.WebSettings#FORCE_DARK_OFF`"/>
+        </map>
+    </incident>
+
+    <incident
+        id="NewApi"
+        severity="error"
+        message="">
+        <fix-data minSdk="ffffffffff800000" requiresApi="fffffffff0000000"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+            line="596"
+            column="33"
+            startOffset="22278"
+            endLine="596"
+            endColumn="42"
+            endOffset="22287"/>
+        <map>
+            <api-levels id="minSdk"
+                value="ffffffffff800000"/>
+            <api-levels id="requiresApi"
+                value="fffffffff0000000"/>
+            <entry
+                name="message"
+                string="Call requires API level 29 (current min is %1$s): `android.webkit.WebSettings#setForceDark`"/>
+        </map>
+    </incident>
+
+    <incident
+        id="InlinedApi"
+        severity="warning"
+        message="">
+        <fix-data minSdk="ffffffffff800000" requiresApi="fffffffff0000000"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+            line="596"
+            column="45"
+            startOffset="22290"
+            endLine="596"
+            endColumn="72"
+            endOffset="22317"/>
+        <map>
+            <api-levels id="minSdk"
+                value="ffffffffff800000"/>
+            <api-levels id="requiresApi"
+                value="fffffffff0000000"/>
+            <entry
+                name="message"
+                string="Field requires API level 29 (current min is %1$s): `android.webkit.WebSettings#FORCE_DARK_AUTO`"/>
+        </map>
+    </incident>
+
+    <incident
+        id="InlinedApi"
+        severity="warning"
+        message="">
+        <fix-data minSdk="ffffffffff800000" requiresApi="fffffffff0000000"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/tiddlywikibrowser/MainActivity.kt"
+            line="596"
+            column="45"
+            startOffset="22290"
+            endLine="596"
+            endColumn="72"
+            endOffset="22317"/>
+        <map>
+            <api-levels id="minSdk"
+                value="ffffffffff800000"/>
+            <api-levels id="requiresApi"
+                value="fffffffff0000000"/>
+            <entry
+                name="message"
+                string="Field requires API level 29 (current min is %1$s): `android.webkit.WebSettings#FORCE_DARK_AUTO`"/>
+        </map>
+    </incident>
+
+</incidents>

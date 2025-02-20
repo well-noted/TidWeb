@@ -1,0 +1,10 @@
+#Sat Feb 15 12:22:17 MST 2025
+base.2=C\:\\Users\\tetuo\\TidWeb\\app\\build\\intermediates\\dex\\release\\mergeDexRelease\\classes3.dex
+path.2=classes3.dex
+base.1=C\:\\Users\\tetuo\\TidWeb\\app\\build\\intermediates\\dex\\release\\mergeDexRelease\\classes2.dex
+path.1=classes2.dex
+base.0=C\:\\Users\\tetuo\\TidWeb\\app\\build\\intermediates\\dex\\release\\mergeDexRelease\\classes.dex
+renamed.2=classes3.dex
+renamed.1=classes2.dex
+renamed.0=classes.dex
+path.0=classes.dex

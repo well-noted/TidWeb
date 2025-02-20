@@ -1,0 +1,25 @@
+R_DEF: Internal format may change without notice
+local
+color ic_launcher_background
+drawable ic_launcher_foreground
+drawable ic_next
+drawable ic_notification
+drawable ic_pause
+drawable ic_play
+drawable ic_previous
+drawable ic_skip_backward_15
+drawable ic_skip_forward_15
+mipmap ic_launcher
+mipmap ic_launcher_round
+string add
+string add_first_wiki
+string add_wiki
+string app_name
+string cancel
+string dark_mode
+string dark_mode_desc
+string settings
+string theme_settings
+string wiki_name
+string wiki_url
+style Theme.TiddlyWikiBrowser

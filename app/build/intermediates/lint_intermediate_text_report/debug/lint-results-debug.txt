@@ -1,0 +1,334 @@
+C:\Users\tetuo\TidWeb\app\src\main\java\com\tiddlywikibrowser\MainActivity.kt:594: Warning: Field requires API level 29 (current min is 24): android.webkit.WebSettings#FORCE_DARK_ON [InlinedApi]
+                        AppCompatDelegate.MODE_NIGHT_YES -> forceDark = WebSettings.FORCE_DARK_ON
+                                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\src\main\java\com\tiddlywikibrowser\MainActivity.kt:594: Warning: Field requires API level 29 (current min is 24): android.webkit.WebSettings#FORCE_DARK_ON [InlinedApi]
+                        AppCompatDelegate.MODE_NIGHT_YES -> forceDark = WebSettings.FORCE_DARK_ON
+                                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\src\main\java\com\tiddlywikibrowser\MainActivity.kt:595: Warning: Field requires API level 29 (current min is 24): android.webkit.WebSettings#FORCE_DARK_OFF [InlinedApi]
+                        AppCompatDelegate.MODE_NIGHT_NO -> forceDark = WebSettings.FORCE_DARK_OFF
+                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\src\main\java\com\tiddlywikibrowser\MainActivity.kt:595: Warning: Field requires API level 29 (current min is 24): android.webkit.WebSettings#FORCE_DARK_OFF [InlinedApi]
+                        AppCompatDelegate.MODE_NIGHT_NO -> forceDark = WebSettings.FORCE_DARK_OFF
+                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\src\main\java\com\tiddlywikibrowser\MainActivity.kt:596: Warning: Field requires API level 29 (current min is 24): android.webkit.WebSettings#FORCE_DARK_AUTO [InlinedApi]
+                        else -> forceDark = WebSettings.FORCE_DARK_AUTO
+                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\src\main\java\com\tiddlywikibrowser\MainActivity.kt:596: Warning: Field requires API level 29 (current min is 24): android.webkit.WebSettings#FORCE_DARK_AUTO [InlinedApi]
+                        else -> forceDark = WebSettings.FORCE_DARK_AUTO
+                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "InlinedApi":
+   This check scans through all the Android API field references in the
+   application and flags certain constants, such as static final integers and
+   Strings, which were introduced in later versions. These will actually be
+   copied into the class files rather than being referenced, which means that
+   the value is available even when running on older devices. In some cases
+   that's fine, and in other cases it can result in a runtime crash or
+   incorrect behavior. It depends on the context, so consider the code
+   carefully and decide whether it's safe and can be suppressed or whether the
+   code needs to be guarded.
+
+   If you really want to use this API and don't need to support older devices
+   just set the minSdkVersion in your build.gradle or AndroidManifest.xml
+   files.
+
+   If your code is deliberately accessing newer APIs, and you have ensured
+   (e.g. with conditional execution) that this code will only ever be called
+   on a supported platform, then you can annotate your class or method with
+   the @TargetApi annotation specifying the local minimum SDK to apply, such
+   as @TargetApi(11), such that this check considers 11 rather than your
+   manifest file's minimum SDK as the required API level.
+
+C:\Users\tetuo\TidWeb\app\src\main\java\com\tiddlywikibrowser\MainActivity.kt:594: Error: Call requires API level 29 (current min is 24): android.webkit.WebSettings#setForceDark [NewApi]
+                        AppCompatDelegate.MODE_NIGHT_YES -> forceDark = WebSettings.FORCE_DARK_ON
+                                                            ~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\src\main\java\com\tiddlywikibrowser\MainActivity.kt:595: Error: Call requires API level 29 (current min is 24): android.webkit.WebSettings#setForceDark [NewApi]
+                        AppCompatDelegate.MODE_NIGHT_NO -> forceDark = WebSettings.FORCE_DARK_OFF
+                                                           ~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\src\main\java\com\tiddlywikibrowser\MainActivity.kt:596: Error: Call requires API level 29 (current min is 24): android.webkit.WebSettings#setForceDark [NewApi]
+                        else -> forceDark = WebSettings.FORCE_DARK_AUTO
+                                ~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\src\main\res\values-night\themes.xml:7: Error: android:windowLightNavigationBar requires API level 27 (current min is 24) [NewApi]
+        <item name="android:windowLightNavigationBar">false</item>
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\src\main\res\values\themes.xml:7: Error: android:windowLightNavigationBar requires API level 27 (current min is 24) [NewApi]
+        <item name="android:windowLightNavigationBar">true</item>
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "NewApi":
+   This check scans through all the Android API calls in the application and
+   warns about any calls that are not available on all versions targeted by
+   this application (according to its minimum SDK attribute in the manifest).
+
+   If you really want to use this API and don't need to support older devices
+   just set the minSdkVersion in your build.gradle or AndroidManifest.xml
+   files.
+
+   If your code is deliberately accessing newer APIs, and you have ensured
+   (e.g. with conditional execution) that this code will only ever be called
+   on a supported platform, then you can annotate your class or method with
+   the @TargetApi annotation specifying the local minimum SDK to apply, such
+   as @TargetApi(11), such that this check considers 11 rather than your
+   manifest file's minimum SDK as the required API level.
+
+   If you are deliberately setting android: attributes in style definitions,
+   make sure you place this in a values-vNN folder in order to avoid running
+   into runtime conflicts on certain devices where manufacturers have added
+   custom attributes whose ids conflict with the new ones on later platforms.
+
+   Similarly, you can use tools:targetApi="11" in an XML file to indicate that
+   the element will only be inflated in an adequate context.
+
+C:\Users\tetuo\TidWeb\app\build.gradle:13: Warning: Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the android.os.Build.VERSION_CODES javadoc for details. [OldTargetApi]
+        targetSdk 34
+        ~~~~~~~~~~~~
+
+   Explanation for issues of type "OldTargetApi":
+   When your application runs on a version of Android that is more recent than
+   your targetSdkVersion specifies that it has been tested with, various
+   compatibility modes kick in. This ensures that your application continues
+   to work, but it may look out of place. For example, if the targetSdkVersion
+   is less than 14, your app may get an option button in the UI.
+
+   To fix this issue, set the targetSdkVersion to the highest available value.
+   Then test your app to make sure everything works correctly. You may want to
+   consult the compatibility notes to see what changes apply to each version
+   you are adding support for:
+   https://developer.android.com/reference/android/os/Build.VERSION_CODES.html
+   as well as follow this guide:
+   https://developer.android.com/distribute/best-practices/develop/target-sdk.
+   html
+
+   https://developer.android.com/distribute/best-practices/develop/target-sdk.html
+
+C:\Users\tetuo\TidWeb\app\src\main\java\com\tiddlywikibrowser\MainActivity.kt:1083: Error: Suspicious indentation: This is indented but is not continuing the previous expression (showMenu = false...) [SuspiciousIndentation]
+                                    text = { Text(if (isDarkMode) "Light mode" else "Dark mode") },
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    C:\Users\tetuo\TidWeb\app\src\main\java\com\tiddlywikibrowser\MainActivity.kt:1082: Previous statement here
+
+   Explanation for issues of type "SuspiciousIndentation":
+   This check looks for cases where the indentation suggests a grouping that
+   isn't actually there in the code. A common example of this would be
+   something like
+   if (column > width)
+       line++
+       column = 0
+   Here, the column = 0 line will be executed every single time, not just if
+   the condition is true.
+
+   Available options:
+
+   **always-run** (default is false):
+   Whether this check should be included while editing.
+
+   While you're editing, it's common to have a temporary situation where you have suspicious indentation scenarios -- e.g. you start typing an `if` statement on the line above something you want to make conditional, and you haven't indented it yet. It can be distracting and misleading to suddenly have both statements light up as errors. Therefore, lint will avoid including this check when running on the fly in the editor, unless it looks like the file has not been recently edited. With this option, you can turn it on in all cases.
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="SuspiciousIndentation">
+           <option name="always-run" value="false" />
+       </issue>
+   </lint>
+   ```
+
+C:\Users\tetuo\TidWeb\app\build.gradle:50: Warning: A newer version of androidx.compose:compose-bom than 2023.08.00 is available: 2025.02.00 [GradleDependency]
+    implementation platform('androidx.compose:compose-bom:2023.08.00')
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\build.gradle:51: Warning: A newer version of androidx.compose:compose-bom than 2023.08.00 is available: 2025.02.00 [GradleDependency]
+    androidTestImplementation platform('androidx.compose:compose-bom:2023.08.00')
+                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\build.gradle:53: Warning: A newer version of org.jetbrains.kotlin:kotlin-bom than 1.9.0 is available: 1.9.20 [GradleDependency]
+    implementation platform("org.jetbrains.kotlin:kotlin-bom:1.9.0")
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\build.gradle:55: Warning: A newer version of androidx.core:core-ktx than 1.12.0 is available: 1.15.0 [GradleDependency]
+    implementation "androidx.core:core-ktx:1.12.0"
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\build.gradle:56: Warning: A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.6.2 is available: 2.8.7 [GradleDependency]
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:$lifecycle_version"
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\build.gradle:57: Warning: A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.6.2 is available: 2.8.7 [GradleDependency]
+    implementation "androidx.lifecycle:lifecycle-viewmodel-compose:$lifecycle_version"
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\build.gradle:58: Warning: A newer version of androidx.activity:activity-compose than 1.8.1 is available: 1.10.0 [GradleDependency]
+    implementation "androidx.activity:activity-compose:1.8.1"
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\build.gradle:71: Warning: A newer version of androidx.datastore:datastore-preferences than 1.0.0 is available: 1.1.2 [GradleDependency]
+    implementation "androidx.datastore:datastore-preferences:1.0.0"
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\build.gradle:72: Warning: A newer version of androidx.appcompat:appcompat than 1.6.1 is available: 1.7.0 [GradleDependency]
+    implementation "androidx.appcompat:appcompat:1.6.1"
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\build.gradle:74: Warning: A newer version of com.google.android.material:material than 1.11.0 is available: 1.12.0 [GradleDependency]
+    implementation "com.google.android.material:material:1.11.0"
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\build.gradle:75: Warning: A newer version of androidx.lifecycle:lifecycle-viewmodel-savedstate than 2.6.2 is available: 2.8.7 [GradleDependency]
+    implementation "androidx.lifecycle:lifecycle-viewmodel-savedstate:$lifecycle_version"
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\build.gradle:77: Warning: A newer version of androidx.webkit:webkit than 1.8.0 is available: 1.12.1 [GradleDependency]
+    implementation "androidx.webkit:webkit:1.8.0"
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\build.gradle:78: Warning: A newer version of androidx.navigation:navigation-compose than 2.7.5 is available: 2.8.7 [GradleDependency]
+    implementation "androidx.navigation:navigation-compose:2.7.5"
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\build.gradle:86: Warning: A newer version of androidx.media3:media3-exoplayer than 1.2.0 is available: 1.5.1 [GradleDependency]
+    implementation 'androidx.media3:media3-exoplayer:1.2.0'
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\build.gradle:87: Warning: A newer version of androidx.media3:media3-ui than 1.2.0 is available: 1.5.1 [GradleDependency]
+    implementation 'androidx.media3:media3-ui:1.2.0'
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\build.gradle:88: Warning: A newer version of androidx.media3:media3-common than 1.2.0 is available: 1.5.1 [GradleDependency]
+    implementation 'androidx.media3:media3-common:1.2.0'
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\build.gradle:89: Warning: A newer version of androidx.media3:media3-session than 1.2.0 is available: 1.5.1 [GradleDependency]
+    implementation 'androidx.media3:media3-session:1.2.0'
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "GradleDependency":
+   This detector looks for usages of libraries where the version you are using
+   is not the current stable release. Using older versions is fine, and there
+   are cases where you deliberately want to stick with an older version.
+   However, you may simply not be aware that a more recent version is
+   available, and that is what this lint check helps find.
+
+C:\Users\tetuo\TidWeb\app\src\main\java\com\tiddlywikibrowser\MainActivity.kt:1334: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+                activity?.exoPlayerManager?.getOrCreatePlayer()?.let { player ->
+                                                                        ^
+C:\Users\tetuo\TidWeb\app\src\main\java\com\tiddlywikibrowser\MainActivity.kt:1336: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+                        factory = { ctx ->
+               ~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\src\main\java\com\tiddlywikibrowser\MainActivity.kt:1337: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+                            PlayerView(ctx).apply {
+                                 ^
+
+   Explanation for issues of type "UnsafeOptInUsageError":
+   This API has been flagged as opt-in with error-level severity.
+
+   Any declaration annotated with this marker is considered part of an
+   unstable or
+   otherwise non-standard API surface and its call sites should accept the
+   opt-in
+   aspect of it by using the @OptIn annotation, using the marker annotation
+   --
+   effectively causing further propagation of the opt-in aspect -- or
+   configuring
+   the UnsafeOptInUsageError check's options for project-wide opt-in.
+
+   To configure project-wide opt-in, specify the opt-in option value in
+   lint.xml
+   as a comma-delimited list of opted-in annotations:
+
+   <lint>
+       <issue id="UnsafeOptInUsageError">
+           <option name="opt-in" value="com.foo.ExperimentalBarAnnotation" />
+       </issue>
+   </lint>
+
+   Vendor: Android Open Source Project
+   Identifier: androidx.annotation.experimental
+   Feedback: https://issuetracker.google.com/issues/new?component=459778
+
+C:\Users\tetuo\TidWeb\app\src\main\java\com\tiddlywikibrowser\MainActivity.kt:900: Warning: Unnecessary; SDK_INT is always >= 24 [ObsoleteSdkInt]
+                    if (hasInternet) {
+                       ^
+
+   Explanation for issues of type "ObsoleteSdkInt":
+   This check flags version checks that are not necessary, because the
+   minSdkVersion (or surrounding known API level) is already at least as high
+   as the version checked for.
+
+   Similarly, it also looks for resources in -vNN folders, such as values-v14
+   where the version qualifier is less than or equal to the minSdkVersion,
+   where the contents should be merged into the best folder.
+
+C:\Users\tetuo\TidWeb\app\src\main\java\com\tiddlywikibrowser\MainActivity.kt:130: Warning: This field leaks a context object [StaticFieldLeak]
+class WikiViewModel(private val context: Context) : ViewModel() {
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\src\main\java\com\tiddlywikibrowser\MainActivity.kt:560: Warning: Do not place Android context classes in static fields (static reference to WikiViewModel which has field context pointing to Context); this is a memory leak [StaticFieldLeak]
+        private var viewModelInstance: WikiViewModel? = null
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "StaticFieldLeak":
+   A static field will leak contexts.
+
+   Non-static inner classes have an implicit reference to their outer class.
+   If that outer class is for example a Fragment or Activity, then this
+   reference means that the long-running handler/loader/task will hold a
+   reference to the activity which prevents it from getting garbage
+   collected.
+
+   Similarly, direct field references to activities and fragments from these
+   longer running instances can cause leaks.
+
+   ViewModel classes should never point to Views or non-application Contexts.
+
+C:\Users\tetuo\TidWeb\app\src\main\res\drawable\ic_next.xml:2: Warning: The resource R.drawable.ic_next appears to be unused [UnusedResources]
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+^
+C:\Users\tetuo\TidWeb\app\src\main\res\drawable\ic_previous.xml:2: Warning: The resource R.drawable.ic_previous appears to be unused [UnusedResources]
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+^
+C:\Users\tetuo\TidWeb\app\src\main\res\values\strings.xml:4: Warning: The resource R.string.add_wiki appears to be unused [UnusedResources]
+    <string name="add_wiki">Add Wiki</string>
+            ~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\src\main\res\values\strings.xml:5: Warning: The resource R.string.wiki_name appears to be unused [UnusedResources]
+    <string name="wiki_name">Wiki Name</string>
+            ~~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\src\main\res\values\strings.xml:6: Warning: The resource R.string.wiki_url appears to be unused [UnusedResources]
+    <string name="wiki_url">Wiki URL</string>
+            ~~~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\src\main\res\values\strings.xml:7: Warning: The resource R.string.add appears to be unused [UnusedResources]
+    <string name="add">Add</string>
+            ~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\src\main\res\values\strings.xml:8: Warning: The resource R.string.cancel appears to be unused [UnusedResources]
+    <string name="cancel">Cancel</string>
+            ~~~~~~~~~~~~~
+C:\Users\tetuo\TidWeb\app\src\main\res\values\strings.xml:9: Warning: The resource R.string.add_first_wiki appears to be unused [UnusedResources]
+    <string name="add_first_wiki">Add your first TiddlyWiki using the + button</string>
+            ~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UnusedResources":
+   Unused resources make applications larger and slow down builds.
+
+
+   The unused resource check can ignore tests. If you want to include
+   resources that are only referenced from tests, consider packaging them in a
+   test source set instead.
+
+   You can include test sources in the unused resource check by setting the
+   system property lint.unused-resources.include-tests =true, and to exclude
+   them (usually for performance reasons), use
+   lint.unused-resources.exclude-tests =true.
+   ,
+
+C:\Users\tetuo\TidWeb\app\src\main\res\mipmap-anydpi-v26\ic_launcher.xml:2: Warning: The application adaptive icon is missing a monochrome tag [MonochromeLauncherIcon]
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+^
+C:\Users\tetuo\TidWeb\app\src\main\res\mipmap-anydpi-v26\ic_launcher_round.xml:2: Warning: The application adaptive roundIcon is missing a monochrome tag [MonochromeLauncherIcon]
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+^
+
+   Explanation for issues of type "MonochromeLauncherIcon":
+   If android:roundIcon and android:icon are both in your manifest, you must
+   either remove the reference to android:roundIcon if it is not needed; or,
+   supply the monochrome icon in the drawable defined by the android:roundIcon
+   and android:icon attribute.
+
+   For example, if android:roundIcon and android:icon are both in the
+   manifest, a launcher might choose to use android:roundIcon over
+   android:icon to display the adaptive app icon. Therefore, your themed
+   application iconwill not show if your monochrome attribute is not also
+   specified in android:roundIcon.
+
+C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:38: Error: Missing data element [AppLinkUrlError]
+            <intent-filter>
+            ^
+
+   Explanation for issues of type "AppLinkUrlError":
+   Ensure the URL is supported by your app, to get installs and traffic to
+   your app from Google Search.
+
+   https://g.co/AppIndexing/AndroidStudio
+
+10 errors, 37 warnings

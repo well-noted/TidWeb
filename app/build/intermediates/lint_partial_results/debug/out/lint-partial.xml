@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<incidents format="6" by="lint 8.2.0" type="partial_results">
+    <map id="UnsafeIntentLaunch">
+            <map id="unprotected">
+                <entry
+                    name="androidx.media.session.MediaButtonReceiver"
+                    boolean="true"/>
+                <entry
+                    name="com.tiddlywikibrowser.MainActivity"
+                    boolean="true"/>
+            </map>
+    </map>
+    <map id="UnusedResources">
+        <location id="R.string.add_first_wiki"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values/strings.xml"
+            line="9"
+            column="13"
+            startOffset="345"
+            endLine="9"
+            endColumn="34"
+            endOffset="366"/>
+        <location id="R.string.add_wiki"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values/strings.xml"
+            line="4"
+            column="13"
+            startOffset="122"
+            endLine="4"
+            endColumn="28"
+            endOffset="137"/>
+        <location id="R.string.cancel"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values/strings.xml"
+            line="8"
+            column="13"
+            startOffset="302"
+            endLine="8"
+            endColumn="26"
+            endOffset="315"/>
+        <location id="R.string.wiki_url"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values/strings.xml"
+            line="6"
+            column="13"
+            startOffset="218"
+            endLine="6"
+            endColumn="28"
+            endOffset="233"/>
+        <location id="R.string.wiki_name"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values/strings.xml"
+            line="5"
+            column="13"
+            startOffset="169"
+            endLine="5"
+            endColumn="29"
+            endOffset="185"/>
+        <entry
+            name="model"
+            string="color[ic_launcher_background(U)],drawable[ic_pause(U),ic_notification(U),ic_skip_forward_15(U),ic_previous(D),ic_launcher_foreground(U),ic_next(D),ic_play(U),ic_skip_backward_15(U)],mipmap[ic_launcher_round(U),ic_launcher(U)],string[add(D),cancel(D),settings(U),wiki_url(D),theme_settings(U),app_name(U),dark_mode(U),add_wiki(D),dark_mode_desc(U),wiki_name(D),add_first_wiki(D)],style[Theme_TiddlyWikiBrowser(U),Theme_Material3_Light_NoActionBar(R),Theme_Material3_Dark_NoActionBar(R)];9^0^5,a^0^5,16^17^18;;;"/>
+        <location id="R.string.add"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values/strings.xml"
+            line="7"
+            column="13"
+            startOffset="265"
+            endLine="7"
+            endColumn="23"
+            endOffset="275"/>
+        <location id="R.drawable.ic_previous"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/drawable/ic_previous.xml"
+            line="2"
+            column="1"
+            startOffset="40"
+            endLine="10"
+            endColumn="10"
+            endOffset="342"/>
+        <location id="R.drawable.ic_next"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/drawable/ic_next.xml"
+            line="2"
+            column="1"
+            startOffset="40"
+            endLine="10"
+            endColumn="10"
+            endOffset="350"/>
+    </map>
+
+</incidents>
