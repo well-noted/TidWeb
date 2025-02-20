@@ -6,6 +6,8 @@ Tidweb is an Android application that allows a user to manage and rapidly switch
 Some additional features to be developed:
 - Cache/sync for Offline-Mode
 - Improved handling for UI
+- Back button (?)
+- Modes for Very Small Screens (VSS) -- Flip-phone front screen
 
 
 Additional features may be added to list, please ticket or join the conversation at https://talk.tiddlywiki.org/t/tidweb-a-tiddlywiki-browser-for-android/11943
