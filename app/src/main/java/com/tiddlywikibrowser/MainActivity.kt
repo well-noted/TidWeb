@@ -404,10 +404,19 @@ class WikiViewModel(private val context: Context) : ViewModel() {
         if (_isOffline.value != offline) {
             viewModelScope.launch {
                 _isOffline.value = offline
-                // Only update WebView cache mode if we're going offline
+                // Update all WebViews' cache mode based on connectivity
+                webViewCache.values.forEach { webView ->
+                    webView.settings.cacheMode = 
+                        if (offline) WebSettings.LOAD_CACHE_ONLY
+                        else WebSettings.LOAD_DEFAULT
+                }
+                
+                // If going offline, ensure current wiki is loaded from cache
                 if (offline) {
                     _currentWiki.value?.let { wiki ->
-                        webViewCache[wiki.url]?.settings?.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+                        webViewCache[wiki.url]?.let { webView ->
+                            webView.reload()
+                        }
                     }
                 }
             }
@@ -698,6 +707,25 @@ class MainActivity : ComponentActivity() {
                     allowFileAccess = true
                 }
                 
+                // Enhanced caching configuration for offline support
+                settings.apply {
+                    cacheMode = if (getViewModel(context).isOffline.value) {
+                        WebSettings.LOAD_CACHE_ONLY
+                    } else {
+                        WebSettings.LOAD_DEFAULT
+                    }
+                    
+                    domStorageEnabled = true
+                    databaseEnabled = true
+                    allowFileAccess = true
+                    
+                    // Set cache paths
+                    setDatabasePath(context.getDir("databases", Context.MODE_PRIVATE).path)
+                    
+                    // Set cache mode to prefer cached content when offline
+                    setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK)
+                }
+
                 // Add JavaScript interface for scroll detection
                 class ScrollInterface(private val context: Context) {
                     @JavascriptInterface
@@ -852,6 +880,63 @@ class MainActivity : ComponentActivity() {
                         super.onPageStarted(view, url, favicon)
                         val currentUrl = view?.url ?: return
                         MainActivity.getViewModel(view.context).setFavicon(currentUrl, favicon)
+                        val viewModel = MainActivity.getViewModel(context)
+                        if (viewModel.isOffline.value) {
+                            view?.evaluateJavascript("""
+                                if (!document.getElementById('offline-warning')) {
+                                    const warning = document.createElement('div');
+                                    warning.id = 'offline-warning';
+                                    warning.style.cssText = 'position: fixed; bottom: 16px; left: 16px; right: 16px; background: #ff9800; color: white; padding: 12px; border-radius: 4px; z-index: 9999; text-align: center;';
+                                    warning.textContent = 'You are currently offline. Changes will be synced when a network connection is established.';
+                                    document.body.appendChild(warning);
+                                }
+                            """.trimIndent(), null)
+                        }
+                    }
+
+                    override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+                        val viewModel = MainActivity.getViewModel(context)
+                        val url = request?.url?.toString() ?: return null
+                        
+                        // Try cache first if offline
+                        if (viewModel.isOffline.value) {
+                            CacheManager.getCache(context, url)?.let { return it }
+                        }
+                        
+                        // If online, fetch and cache the response
+                        try {
+                            val connection = URL(url).openConnection()
+                            connection.connect()
+                            val input = connection.getInputStream()
+                            
+                            // Cache the response while returning it
+                            val bytes = input.readBytes()
+                            CacheManager.saveToCache(context, url, ByteArrayInputStream(bytes))
+                            
+                            // Return the response
+                            return WebResourceResponse(
+                                connection.contentType?.split(";")?.firstOrNull() ?: "text/plain",
+                                connection.contentEncoding ?: "UTF-8",
+                                ByteArrayInputStream(bytes)
+                            )
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            // If fetch fails, try cache as fallback
+                            return CacheManager.getCache(context, url)
+                        }
+                    }
+
+                    override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                        super.onReceivedError(view, request, error)
+                        
+                        if (error?.errorCode == ERROR_HOST_LOOKUP || error?.errorCode == ERROR_CONNECT) {
+                            val viewModel = MainActivity.getViewModel(context)
+                            if (!viewModel.isOffline.value) {
+                                viewModel.setOfflineState(true)
+                                // Try to reload using cache
+                                view?.reload()
+                            }
+                        }
                     }
                 }
                 
@@ -892,6 +977,14 @@ class MainActivity : ComponentActivity() {
         exoPlayerManager = ExoPlayerManager(this)
         viewModel = getViewModel(this)
 
+        // Check initial network state
+        connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = connectivityManager.activeNetwork
+        val capabilities = connectivityManager.getNetworkCapabilities(network)
+        val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+        viewModel?.setOfflineState(!hasInternet)
+
+        setupNetworkCallback()
         handleIntent(intent)
 
         // Start the MediaPlaybackService
@@ -1199,6 +1292,7 @@ fun MainScreen(
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showShareMenu by remember { mutableStateOf(false) }
     var showTagManagement by remember { mutableStateOf(false) }
+    val isOffline by viewModel.isOffline.collectAsState()
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -1345,6 +1439,25 @@ fun MainScreen(
                                 }
                             }
                         }
+                    )
+                }
+            }
+            
+            // Add offline banner
+            AnimatedVisibility(
+                visible = isOffline,
+                enter = slideInVertically(initialOffsetY = { -it }),
+                exit = slideOutVertically(targetOffsetY = { -it })
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "You are currently offline. Changes will be synced when a network connection is established.",
+                        modifier = Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
             }
