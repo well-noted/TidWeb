@@ -61,7 +61,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
             </intent-filter>
-            <!-- Add intent filter for receiving shared content -->
+            <!-- Intent filter for receiving shared content -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
 
@@ -78,7 +78,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Add receiver for media button events -->
+        <!-- Receiver for media button events -->
         <receiver
             android:name="androidx.media.session.MediaButtonReceiver"
             android:exported="true" >

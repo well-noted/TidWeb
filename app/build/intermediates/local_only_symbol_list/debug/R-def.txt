@@ -1,6 +1,7 @@
 R_DEF: Internal format may change without notice
 local
 color ic_launcher_background
+drawable ic_launcher_background
 drawable ic_launcher_foreground
 drawable ic_next
 drawable ic_notification
@@ -10,6 +11,7 @@ drawable ic_previous
 drawable ic_skip_backward_15
 drawable ic_skip_forward_15
 mipmap ic_launcher
+mipmap ic_launcher_foreground
 mipmap ic_launcher_round
 string add
 string add_first_wiki
