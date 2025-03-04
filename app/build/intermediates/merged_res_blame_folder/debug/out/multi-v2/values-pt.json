@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.tiddlywikibrowser.app-mergeDebugResources-72:/values-pt/values-pt.xml",
+            "outputFile": "com.tiddlywikibrowser.app-mergeDebugResources-71:/values-pt/values-pt.xml",
             "map": [
                 {
                     "source": "C:\\Users\\tetuo\\.gradle\\caches\\8.10.2\\transforms\\28f07efe1c19814dbca39a9d8b74939a\\transformed\\jetified-media3-exoplayer-1.2.0\\res\\values-pt\\values-pt.xml",

@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.tiddlywikibrowser.app-mergeDebugResources-72:/values-sl/values-sl.xml",
+            "outputFile": "com.tiddlywikibrowser.app-mergeDebugResources-71:/values-sl/values-sl.xml",
             "map": [
                 {
                     "source": "C:\\Users\\tetuo\\.gradle\\caches\\8.10.2\\transforms\\f1165a8c8eb7399188df7ea7cc11dec7\\transformed\\jetified-ui-release\\res\\values-sl\\values-sl.xml",

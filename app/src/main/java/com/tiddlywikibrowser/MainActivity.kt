@@ -84,6 +84,7 @@ import org.json.JSONObject
 import androidx.lifecycle.ViewModel
 import android.webkit.WebChromeClient
 import android.webkit.JsResult
+import android.webkit.JavascriptInterface
 
 // Memory threshold for optimization (50MB)
 private const val MEMORY_THRESHOLD = 50L * 1024L * 1024L
@@ -518,9 +519,33 @@ class MainActivity : ComponentActivity() {
                     // Could be used for telemetry or debugging
                 }
             }
+            
+            // Add JavaScript interface for media handling
+            class MediaInterface(private val context: Context) {
+                @JavascriptInterface
+                fun onMediaEvent(
+                    event: String,
+                    elementId: String,
+                    currentTime: Float,
+                    duration: Float,
+                    src: String?,
+                    title: String?
+                ) {
+                    ThreadManager.runOnMain {
+                        try {
+                            (context as? MainActivity)?.mediaSessionManager?.onMediaEvent(
+                                event, elementId, currentTime, duration, src, title
+                            )
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                }
+            }
 
             try {
                 webView.addJavascriptInterface(ScrollInterface(context.applicationContext), "ScrollInterface")
+                webView.addJavascriptInterface(MediaInterface(context.applicationContext), "Android")
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -574,6 +599,9 @@ class MainActivity : ComponentActivity() {
             
             // Set up media player callbacks
             setupMediaCallbacks()
+            
+            // Initialize media session binding
+            mediaSessionManager.bindToService()
             
         } catch (e: Exception) {
             e.printStackTrace()
@@ -736,7 +764,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun startMediaService() {
+    fun startMediaService() {
+        // Start the service first to ensure it's running in foreground
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent)
         } else {
@@ -746,11 +775,18 @@ class MainActivity : ComponentActivity() {
         // Bind to the service to receive callbacks
         serviceConnection?.let { connection ->
             bindService(serviceIntent, connection, Context.BIND_AUTO_CREATE)
+        } ?: run {
+            // Create new connection if none exists
+            setupMediaCallbacks()
+            serviceConnection?.let { connection ->
+                bindService(serviceIntent, connection, Context.BIND_AUTO_CREATE)
+            }
         }
     }
 
     private fun stopMediaService() {
-        // Unbind from service
+        // Don't stop the service immediately when playback pauses
+        // Just unbind if needed, but let the service handle its own lifecycle
         serviceConnection?.let { connection ->
             try {
                 unbindService(connection)
@@ -759,9 +795,9 @@ class MainActivity : ComponentActivity() {
             }
         }
         serviceConnection = null
-
-        // Stop the service
-        stopService(serviceIntent)
+        
+        // Don't stop the service here - let it run in foreground
+        // This allows notifications to persist
     }
 
     private fun handleIntent(intent: Intent?) {
@@ -876,6 +912,13 @@ class MainActivity : ComponentActivity() {
         webViewPaused = false
         exoPlayerManager.onResume()
         viewModel?.resumeCurrentWebView(viewModel?.currentWiki?.value)
+        
+        // When resuming, get the current WebView and set it for the MediaSessionManager
+        getCurrentWebView()?.let { webView ->
+            mediaSessionManager.setWebView(webView)
+            // Bind to service to ensure continuity of playback controls
+            mediaSessionManager.bindToService()
+        }
     }
 
     override fun onDestroy() {

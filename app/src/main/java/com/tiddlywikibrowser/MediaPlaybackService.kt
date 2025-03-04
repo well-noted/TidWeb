@@ -11,6 +11,7 @@ import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import androidx.media.session.MediaButtonReceiver
@@ -18,6 +19,7 @@ import androidx.media.MediaBrowserServiceCompat
 
 class MediaPlaybackService : MediaBrowserServiceCompat() {
     companion object {
+        private const val TAG = "MediaPlaybackService"
         private const val NOTIFICATION_ID = 1
         private const val NOTIFICATION_CHANNEL_ID = "media_playback"
         private const val SEEK_INTERVAL = 15000L // 15 seconds in milliseconds
@@ -26,6 +28,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     private var mediaSession: MediaSessionCompat? = null
     private var playbackState: PlaybackStateCompat? = null
     private var mediaPlayerCallback: MediaPlayerCallback? = null
+    private var isForegroundService = false
 
     interface MediaPlayerCallback {
         fun onPlay()
@@ -44,6 +47,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
     override fun onCreate() {
         super.onCreate()
+        Log.d(TAG, "MediaPlaybackService onCreate")
         createNotificationChannel()
     }
 
@@ -53,6 +57,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     }
 
     override fun onBind(intent: Intent?): IBinder? {
+        Log.d(TAG, "MediaPlaybackService onBind: ${intent?.action}")
         return if (SERVICE_INTERFACE == intent?.action) {
             super.onBind(intent)
         } else {
@@ -152,19 +157,30 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         bitmap: Bitmap? = null
     ) {
         this.mediaSession = mediaSession
+        
+        Log.d(TAG, "Updating notification: isPlaying=${state?.state == PlaybackStateCompat.STATE_PLAYING}")
 
         val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setStyle(MediaStyle()
                 .setMediaSession(mediaSession.sessionToken)
                 .setShowActionsInCompactView(0, 1, 2))  // Show skip back, play/pause, skip forward in compact view
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(metadata?.getString(MediaMetadataCompat.METADATA_KEY_TITLE))
-            .setContentText(metadata?.getString(MediaMetadataCompat.METADATA_KEY_ARTIST))
+            .setContentTitle(metadata?.getString(MediaMetadataCompat.METADATA_KEY_TITLE) ?: "Playing media")
+            .setContentText(metadata?.getString(MediaMetadataCompat.METADATA_KEY_ARTIST) ?: "TiddlyWiki")
             .setLargeIcon(bitmap)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOnlyAlertOnce(true)
             .setOngoing(state?.state == PlaybackStateCompat.STATE_PLAYING)
+
+        // Intent to open main activity when notification is tapped
+        val contentIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingContentIntent = PendingIntent.getActivity(
+            this, 0, contentIntent, PendingIntent.FLAG_IMMUTABLE
+        )
+        builder.setContentIntent(pendingContentIntent)
 
         // Skip backward 15 seconds
         val skipBackIntent = PendingIntent.getService(
@@ -192,26 +208,52 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         )
         builder.addAction(R.drawable.ic_skip_forward_15, "Skip Forward", skipForwardIntent)
 
-        startForeground(NOTIFICATION_ID, builder.build())
+        // Update notification or start foreground service
+        val notification = builder.build()
+        if (state?.state == PlaybackStateCompat.STATE_PLAYING) {
+            Log.d(TAG, "Starting foreground service with notification")
+            startForeground(NOTIFICATION_ID, notification)
+            isForegroundService = true
+        } else {
+            Log.d(TAG, "Updating notification while paused")
+            if (isForegroundService) {
+                stopForeground(false) // keep notification when paused
+                isForegroundService = false
+            }
+            val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(NOTIFICATION_ID, notification)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.d(TAG, "onStartCommand: ${intent?.action}")
+        
         // Immediately show notification when service starts
-        startForeground(
-            NOTIFICATION_ID,
-            NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+        if (mediaSession == null) {
+            val tempNotification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
                 .setContentTitle("Media Playback")
                 .setContentText("Preparing...")
                 .setSmallIcon(R.drawable.ic_play)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build()
-        )
+                
+            Log.d(TAG, "Starting foreground with temp notification")
+            startForeground(NOTIFICATION_ID, tempNotification)
+            isForegroundService = true
+        }
 
         // Handle media controls
         when (intent?.action) {
-            "SKIP_FORWARD" -> mediaSession?.controller?.transportControls?.skipToNext()
-            "SKIP_BACKWARD" -> mediaSession?.controller?.transportControls?.skipToPrevious()
+            "SKIP_FORWARD" -> {
+                Log.d(TAG, "Handling SKIP_FORWARD action")
+                mediaPlayerCallback?.onSkipForward()
+            }
+            "SKIP_BACKWARD" -> {
+                Log.d(TAG, "Handling SKIP_BACKWARD action")
+                mediaPlayerCallback?.onSkipBackward()
+            }
             Intent.ACTION_MEDIA_BUTTON -> {
+                Log.d(TAG, "Handling ACTION_MEDIA_BUTTON")
                 mediaSession?.let { session ->
                     MediaButtonReceiver.handleIntent(session, intent)
                     updatePlaybackState(playbackState?.state ?: PlaybackStateCompat.STATE_NONE)
@@ -220,20 +262,29 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             else -> mediaSession?.let { session -> MediaButtonReceiver.handleIntent(session, intent) }
         }
 
-        return START_NOT_STICKY // Changed from START_STICKY to allow service to be stopped
+        return START_STICKY // So service will be restarted if killed
     }
 
     fun stopService() {
-        stopForeground(true)
+        Log.d(TAG, "stopService called - stopping foreground and self")
+        if (isForegroundService) {
+            stopForeground(true)
+            isForegroundService = false
+        }
         stopSelf()
     }
 
     fun stopForeground() {
+        Log.d(TAG, "stopForeground called - stopping foreground")
         mediaSession?.isActive = false
-        stopForeground(true)
+        if (isForegroundService) {
+            stopForeground(true)
+            isForegroundService = false
+        }
     }
 
     override fun onDestroy() {
+        Log.d(TAG, "onDestroy")
         mediaSession?.apply {
             isActive = false
             release()
