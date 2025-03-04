@@ -8,6 +8,7 @@
     <string name="cancel">Cancel</string>
     <string name="dark_mode">Dark Mode</string>
     <string name="dark_mode_desc">Switch between light and dark themes</string>
+    <string name="prevent_reload_tag">wiki_loaded_state</string>
     <string name="settings">Settings</string>
     <string name="theme_settings">Theme Settings</string>
     <string name="wiki_name">Wiki Name</string>

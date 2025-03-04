@@ -20,6 +20,7 @@ string app_name
 string cancel
 string dark_mode
 string dark_mode_desc
+string prevent_reload_tag
 string settings
 string theme_settings
 string wiki_name

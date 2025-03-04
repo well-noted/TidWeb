@@ -4215,6 +4215,7 @@ string path_password_eye
 string path_password_eye_mask_strike_through
 string path_password_eye_mask_visible
 string path_password_strike_through
+string prevent_reload_tag
 string range_end
 string range_start
 string search_bar_search

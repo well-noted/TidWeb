@@ -24,6 +24,7 @@ import org.json.JSONObject
 import java.net.URL
 import androidx.datastore.preferences.core.edit
 import androidx.appcompat.app.AppCompatDelegate
+import android.util.Log
 
 /**
  * WebViewClient specifically designed to handle and fix raw HTML content
@@ -230,12 +231,21 @@ class WikiViewModel(private val context: Context) : ViewModel() {
 
     fun setCurrentWiki(wiki: WikiInstance?) {
         if (_currentWiki.value?.url != wiki?.url) {
+            Log.d("WikiViewModel", "Switching wiki to: ${wiki?.name}")
+            
             // Save current wiki's state before switching
             _currentWiki.value?.let { currentWiki ->
                 val key = currentWiki.idFromUrl ?: currentWiki.url
                 webViewCache[key]?.let { currentWebView ->
-                    // Cache the current WebView to preserve its state
+                    // Ensure we save the "loaded" state with the WebView
+                    val isLoaded = currentWebView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
+                    Log.d("WikiViewModel", "Saving state for previous wiki: $key, loaded=$isLoaded")
+                    
+                    // Cache the current WebView with its full state to preserve it
                     WebViewCache.cacheWebView(key, currentWebView)
+                    
+                    // Pause the WebView to reduce resource usage
+                    currentWebView.onPause()
                 }
             }
             
@@ -244,33 +254,44 @@ class WikiViewModel(private val context: Context) : ViewModel() {
             
             if (wiki != null) {
                 val key = wiki.idFromUrl ?: wiki.url
+                Log.d("WikiViewModel", "Setting active key: $key")
+                
+                // Set this as the active key in WebViewCache before pausing others
+                WebViewCache.setCurrentActiveKey(key)
                 
                 // Pause all other WebViews
                 WebViewCache.pauseAllWebViewsExcept(key)
                 
-                // Set this as the active key in WebViewCache
-                WebViewCache.setCurrentActiveKey(key)
-                
                 viewModelScope.launch {
-                    val webView = getOrCreateWebView(wiki, context)
-                    
-                    // Resume the selected WebView
-                    WebViewCache.resumeWebView(key)
-                    
-                    ThreadManager.runOnBackground {
-                        try {
-                            // Update favicon if available
-                            webView.favicon?.let { bitmap ->
-                                _faviconMap.value = _faviconMap.value + (wiki.url to bitmap)
+                    try {
+                        // Get or create the WebView (this should restore from cache if available)
+                        val webView = getOrCreateWebView(wiki, context)
+                        
+                        // Explicitly ensure we're preserving the loaded state
+                        val isLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
+                        Log.d("WikiViewModel", "Resuming wiki: $key, loaded=$isLoaded")
+                        
+                        // Resume the WebView without triggering a reload
+                        webView.onResume()
+                        WebViewCache.resumeWebView(key)
+                        
+                        ThreadManager.runOnBackground {
+                            try {
+                                // Update favicon if available
+                                webView.favicon?.let { bitmap ->
+                                    _faviconMap.value = _faviconMap.value + (wiki.url to bitmap)
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
                             }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
                         }
-                    }
-                    
-                    // Save current wiki to preferences
-                    context.dataStore.edit { preferences ->
-                        preferences[PreferencesKeys.CURRENT_WIKI] = wikiToJson(wiki)
+                        
+                        // Save current wiki to preferences
+                        context.dataStore.edit { preferences ->
+                            preferences[PreferencesKeys.CURRENT_WIKI] = wikiToJson(wiki)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("WikiViewModel", "Error switching wiki: ${e.message}", e)
                     }
                 }
             }
@@ -577,7 +598,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                     }
                 }
                 
-                // Load the URL with better error handling
+                // Only load for NEW webviews (not cached/restored ones)
                 post {
                     try {
                         // For large wikis, prioritize cache - fixed suspend function call
@@ -589,7 +610,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                                 applyWikiSizeOptimizations(this@apply, strategy)
                             }
                             
-                            // Load URL after size analysis
+                            // Only load URL for NEWLY CREATED webviews
                             ThreadManager.runOnMain {
                                 loadUrl(wiki.url)
                             }

@@ -20,6 +20,8 @@ import androidx.activity.ComponentActivity
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.compose.animation.*
+import android.os.Bundle
+import android.util.Log
 
 @Composable
 fun LoadingIndicator(isVisible: Boolean) {
@@ -60,6 +62,11 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
     
     // Key the webview by wiki URL to ensure recomposition on wiki change
     val webViewKey = remember(wiki.url) { wiki.url }
+    
+    // Create a client state that can be accessed in both factory and update lambdas
+    val webViewClientState = remember(webViewKey) {
+        mutableStateOf<ReloadBlockingWebViewClient?>(null)
+    }
 
     // Add lifecycle observer to prevent premature cleanup
     DisposableEffect(webViewKey) {
@@ -67,8 +74,19 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
         val observer = object : DefaultLifecycleObserver {
             override fun onStop(owner: LifecycleOwner) {
                 // Don't cleanup WebView if we're just rotating or being backgrounded
-                if (!activity?.isChangingConfigurations!!) {
+                if (activity?.isChangingConfigurations != true) {
                     viewModel.recycleWebView(wikiKey)
+                }
+            }
+            
+            override fun onResume(owner: LifecycleOwner) {
+                // When the activity resumes, reinforce reload protection
+                ThreadManager.runOnMain {
+                    webViewClientState.value?.let { client ->
+                        viewModel.getOrCreateWebView(wiki, context)?.let { webView ->
+                            client.reinforceReloadProtection(webView)
+                        }
+                    }
                 }
             }
         }
@@ -110,13 +128,23 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                                 val now = System.currentTimeMillis()
                                 if (now - lastLoadTime > 5000) { // Only allow reloads every 5 seconds
                                     lastLoadTime = now
-                                    viewModel.getOrCreateWebView(wiki, context).loadUrl(url)
+                                    // Use normal loading for explicit user request
+                                    viewModel.getOrCreateWebView(wiki, context)?.let { webView ->
+                                        // Reset the tag to allow an actual reload
+                                        webView.setTag(R.string.prevent_reload_tag, false)
+                                        webView.loadUrl(url)
+                                    }
                                 }
                             } ?: run {
                                 val now = System.currentTimeMillis()
                                 if (now - lastLoadTime > 5000) {
                                     lastLoadTime = now
-                                    viewModel.getOrCreateWebView(wiki, context).loadUrl(wiki.url)
+                                    // Use normal loading for explicit user request
+                                    viewModel.getOrCreateWebView(wiki, context)?.let { webView ->
+                                        // Reset the tag to allow an actual reload
+                                        webView.setTag(R.string.prevent_reload_tag, false)
+                                        webView.loadUrl(wiki.url)
+                                    }
                                 }
                             }
                         }
@@ -133,116 +161,80 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
             AndroidView(
                 factory = { ctx ->
                     try {
-                        viewModel.getOrCreateWebView(wiki, ctx).apply {
-                            settings.apply {
-                                // Essential settings
-                                javaScriptEnabled = true
-                                domStorageEnabled = true
-                                
-                                // Always allow initial load
-                                blockNetworkImage = false
-                                loadsImagesAutomatically = true
-                            }
-                            
-                            // Set WebView to visible
-                            visibility = android.view.View.VISIBLE
-                            
-                            webViewClient = object : android.webkit.WebViewClient() {
-                                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                                    super.onPageStarted(view, url, favicon)
-                                    
-                                    // Allow first load, prevent subsequent reloads
-                                    if (!isFirstLoad) {
-                                        val now = System.currentTimeMillis()
-                                        if (now - lastLoadTime < 2000) {
-                                            view?.stopLoading()
-                                            return
-                                        }
-                                    }
-                                    
-                                    isLoading = true
-                                    errorState = null
-                                    lastLoadTime = System.currentTimeMillis()
-                                    
-                                    // Only inject protection after first successful load
-                                    if (!isFirstLoad) {
-                                        view?.evaluateJavascript("""
-                                            (function() {
-                                                window.location.reload = function() { return false; };
-                                                window.stop = function() { return false; };
-                                            })();
-                                        """.trimIndent(), null)
-                                    }
-                                }
-                                
-                                override fun onPageFinished(view: WebView?, url: String?) {
-                                    super.onPageFinished(view, url)
-                                    
-                                    // Ensure WebView is fully visible
-                                    view?.visibility = android.view.View.VISIBLE
-                                    view?.invalidate()
-                                    
-                                    if (isFirstLoad) {
-                                        // Check if content loaded successfully
-                                        view?.evaluateJavascript("""
-                                            (function() {
-                                                if (window.${'$'}tw && ${'$'}tw.wiki) {
-                                                    return "loaded";
-                                                }
-                                                return document.body.innerHTML.length > 0 ? "content" : "empty";
-                                            })();
-                                        """.trimIndent()) { result ->
-                                            when (result.trim('"')) {
-                                                "loaded", "content" -> {
-                                                    isFirstLoad = false
-                                                    hasContent = true
-                                                    isLoading = false
-                                                    
-                                                    // Now install reload protection
-                                                    view.evaluateJavascript("""
-                                                        (function() {
-                                                            // Basic reload prevention
-                                                            window.location.reload = function() { return false; };
-                                                            window.stop = function() { return false; };
-                                                            
-                                                            if (window.${'$'}tw && ${'$'}tw.wiki) {
-                                                                const originalRefresh = ${'$'}tw.wiki.refresh;
-                                                                ${'$'}tw.wiki.refresh = function(changes, source) {
-                                                                    if (source === 'load' || source === 'reload') {
-                                                                        return false;
-                                                                    }
-                                                                    return originalRefresh.apply(this, arguments);
-                                                                };
-                                                            }
-                                                        })();
-                                                    """.trimIndent(), null)
-                                                }
-                                                else -> {
-                                                    isLoading = false
-                                                    errorState = "Could not load wiki content"
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        isLoading = false
-                                    }
-                                }
-                                
-                                override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                                    super.onReceivedError(view, request, error)
-                                    if (request?.isForMainFrame == true) {
-                                        errorState = "Error loading page: ${error?.description}"
-                                        isLoading = false
-                                    }
-                                }
-                                
-                                // Prevent unwanted redirects
-                                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                                    val url = request?.url?.toString() ?: return false
-                                    return url == view?.url // Block same-page refreshes
+                        // Check if there's a cached WebView first to avoid creating a new one
+                        val webView = WebViewCache.getAndRestoreCachedWebView(
+                            wikiKey,
+                            newWebViewFactory = { 
+                                // Only create a new WebView if necessary
+                                viewModel.getOrCreateWebView(wiki, ctx).apply {
+                                    // The WebView is new, so mark it for initial load
+                                    setTag(R.string.prevent_reload_tag, false)
                                 }
                             }
+                        )
+                        
+                        // Apply essential WebView settings
+                        webView.settings.apply {
+                            // Essential settings
+                            javaScriptEnabled = true
+                            domStorageEnabled = true
+                            
+                            // Always allow initial load
+                            blockNetworkImage = false
+                            loadsImagesAutomatically = true
                         }
+                        
+                        // Set WebView to visible
+                        webView.visibility = android.view.View.VISIBLE
+                        
+                        // Create our custom WebViewClient that prevents reloads
+                        val webViewClient = ReloadBlockingWebViewClient(
+                            context = ctx,
+                            wikiUrl = wiki.url,
+                            onLoadingStateChanged = { loading ->
+                                isLoading = loading
+                            },
+                            onErrorReceived = { error ->
+                                errorState = error
+                            },
+                            onPageLoaded = { success ->
+                                hasContent = success
+                                isFirstLoad = false
+                            }
+                        )
+                        
+                        // Store the client for access in update lambda and lifecycle events
+                        webViewClientState.value = webViewClient
+                        
+                        // Set the client on the WebView
+                        webView.webViewClient = webViewClient
+                        
+                        // Check if this WebView needs to be loaded or if it's a restored one
+                        val isAlreadyLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
+                        
+                        if (!isAlreadyLoaded && isFirstLoad) {
+                            // Initial load needed - this is a new WebView
+                            lastLoadTime = System.currentTimeMillis()
+                            isLoading = true
+                            
+                            // Only load URL for new WebViews, not restored ones
+                            ThreadManager.runOnMain {
+                                val urlToLoad = localFileUrl ?: wiki.url
+                                Log.d("WikiView", "Initial load of URL: $urlToLoad")
+                                webView.loadUrl(urlToLoad)
+                            }
+                        } else {
+                            // This WebView was restored, no need to reload
+                            Log.d("WikiView", "Using restored WebView, no reload needed")
+                            isLoading = false
+                            isFirstLoad = false
+                            hasContent = true
+                            
+                            // Make sure the WebView shows its content properly
+                            webView.invalidate()
+                        }
+                        
+                        webView
                     } catch (e: Exception) {
                         errorState = "Error creating WebView: ${e.message}"
                         e.printStackTrace()
@@ -251,15 +243,19 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                     }
                 },
                 update = { webView ->
-                    // Always ensure visibility
+                    // Always ensure visibility - NO need to reload when switching wikis
                     webView.visibility = android.view.View.VISIBLE
                     
-                    if (errorState == null && isFirstLoad) {
-                        try {
-                            webView.loadUrl(localFileUrl ?: wiki.url)
-                        } catch (e: Exception) {
-                            errorState = "Error loading URL: ${e.message}"
-                            e.printStackTrace()
+                    // CRITICAL: Do NOT call loadUrl() here in the update lambda 
+                    // as it will trigger on every recomposition
+                    
+                    // We can safely ensure our reload protection is in place though
+                    webViewClientState.value?.let { client ->
+                        // Reinforce protection - this will only do something if the WebView is loaded
+                        if (webView.getTag(R.string.prevent_reload_tag) == true) {
+                            ThreadManager.runOnMain {
+                                client.reinforceReloadProtection(webView)
+                            }
                         }
                     }
                 },
