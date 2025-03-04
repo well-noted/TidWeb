@@ -5,7 +5,7 @@
 <p>
 Tidweb is an Android application that allows a user to manage and rapidly switch between multiple Tiddlywiki server instances, creates improved media controls within the Android notification tray, and allows for sharing and receiving using Androids standard share API. 
 
-</p>
+
 Some Fixes that need to be made:
 x Persistent ANR
 - Notification Tray Favicon loading/caching
@@ -13,3 +13,4 @@ x Persistent ANR
 Some additional features to be developed:
 - Cache/sync for Offline-Mode
 x Improved handling for UI
+</p>
