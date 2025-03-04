@@ -43,7 +43,7 @@
         android:usesCleartextTraffic="true" >
         <activity
             android:name="com.tiddlywikibrowser.MainActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:documentLaunchMode="intoExisting"
             android:exported="true"
             android:hardwareAccelerated="true"

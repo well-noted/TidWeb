@@ -217,7 +217,7 @@ ADDED from C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:26
 	android:keepScreenOn
 		ADDED from C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:33:13-40
 	android:configChanges
-		ADDED from C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:29:13-74
+		ADDED from C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:29:13-87
 	android:documentLaunchMode
 		ADDED from C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:34:13-54
 	android:theme

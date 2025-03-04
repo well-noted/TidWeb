@@ -150,10 +150,9 @@ class TiddlyWikiSplitter(private val context: Context) {
                                 
                                 // Show error UI
                                 const container = document.querySelector('.loading-container');
-                                const errorMessage = error && typeof error.message === 'string' ? error.message : 'Unknown error occurred';
+                                const errorMsg = error && typeof error.message === 'string' ? error.message : 'Unknown error occurred';
                                 container.innerHTML = `
                                     <h2>Unable to load wiki</h2>
-
                                     <button onclick="location.reload()">Try Again</button>
                                 `;
                             }

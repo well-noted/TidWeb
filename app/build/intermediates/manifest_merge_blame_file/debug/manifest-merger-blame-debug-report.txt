@@ -79,8 +79,8 @@
 44-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:26:9-55:20
 45            android:name="com.tiddlywikibrowser.MainActivity"
 45-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:27:13-41
-46            android:configChanges="orientation|screenSize|keyboardHidden"
-46-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:29:13-74
+46            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+46-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:29:13-87
 47            android:documentLaunchMode="intoExisting"
 47-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:34:13-54
 48            android:exported="true"

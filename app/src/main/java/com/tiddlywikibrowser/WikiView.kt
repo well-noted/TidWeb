@@ -16,6 +16,28 @@ import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
+import androidx.activity.ComponentActivity
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.compose.animation.*
+
+@Composable
+fun LoadingIndicator(isVisible: Boolean) {
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = fadeIn(),
+        exit = fadeOut()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.7f)),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+    }
+}
 
 @Composable
 fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
@@ -24,77 +46,43 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
     var loadingProgress by remember { mutableStateOf(0f) }
     var loadStrategy by remember { mutableStateOf(WikiLoadStrategy.INITIALIZING) }
     var errorState by remember { mutableStateOf<String?>(null) }
+    var webViewInitialized by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val wikiCache = remember { TiddlyWikiCache(context) }
     val wikiSplitter = remember { TiddlyWikiSplitter(context) }
     val fileManager = remember { WebViewFileManager(context) }
     var localFileUrl by remember { mutableStateOf<String?>(null) }
     
-    // Progressive Loading System: First analyze wiki size, then determine loading strategy
-    LaunchedEffect(wikiKey) {
-        try {
-            // Phase 1: Initialize and determine loading strategy based on wiki size
-            viewModel.analyzeWikiSize(wiki).collect { strategy ->
-                loadStrategy = strategy
-                
-                // Phase 2: Prepare optimized file loading based on wiki size
-                withContext(Dispatchers.IO) {
-                    when (strategy) {
-                        WikiLoadStrategy.LARGE_WIKI -> {
-                            // For very large wikis (>5MB), create a lightweight loader
-                            try {
-                                val loaderFile = wikiSplitter.createLightweightWikiLoader(wiki.url, context.cacheDir)
-                                localFileUrl = loaderFile.absolutePath.toFileUrl
-                            } catch (e: Exception) {
-                                errorState = "Error loading large wiki: ${e.message}"
-                                e.printStackTrace()
-                            }
-                        }
-                        WikiLoadStrategy.MEDIUM_WIKI, WikiLoadStrategy.SMALL_WIKI -> {
-                            try {
-                                val url = fileManager.getLocalFileUrl(wiki.url)
-                                localFileUrl = url
-                            } catch (e: Exception) {
-                                errorState = "Error loading wiki: ${e.message}"
-                                e.printStackTrace()
-                            }
-                        }
-                        else -> {}
-                    }
-                }
-                
-                // Phase 3: Pre-warm the WebView on a background thread
-                if (errorState == null) {
-                    ThreadManager.executeTask {
-                        try {
-                            viewModel.preloadWebView(wiki, context)
-                        } catch (e: Exception) {
-                            errorState = "Error preparing WebView: ${e.message}"
-                            e.printStackTrace()
-                        }
-                    }
+    // Simplified state tracking
+    var isFirstLoad by remember { mutableStateOf(true) }
+    var hasContent by remember { mutableStateOf(false) }
+    var lastLoadTime by remember { mutableStateOf(0L) }
+
+    // Add lifecycle observer to prevent premature cleanup
+    DisposableEffect(Unit) {
+        val activity = context as? ComponentActivity
+        val observer = object : DefaultLifecycleObserver {
+            override fun onStop(owner: LifecycleOwner) {
+                // Don't cleanup WebView if we're just rotating or being backgrounded
+                if (!activity?.isChangingConfigurations!!) {
+                    viewModel.recycleWebView(wikiKey)
                 }
             }
-        } catch (e: Exception) {
-            errorState = "Error analyzing wiki: ${e.message}"
-            e.printStackTrace()
         }
-    }
-    
-    // Cleanup WebView when not visible to prevent memory leaks
-    DisposableEffect(wikiKey) {
+        
+        activity?.lifecycle?.addObserver(observer)
         onDispose {
-            ThreadManager.runOnBackground {
-                viewModel.recycleWebView(wikiKey)
-            }
+            activity?.lifecycle?.removeObserver(observer)
         }
     }
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
         // Show error state if there's an error
         errorState?.let { error ->
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
@@ -111,10 +99,20 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                         onClick = {
                             errorState = null
                             isLoading = true
-                            // Retry loading
+                            // Retry loading with reload protection
                             localFileUrl?.let { url ->
-                                viewModel.getOrCreateWebView(wiki, context).loadUrl(url)
-                            } ?: viewModel.getOrCreateWebView(wiki, context).loadUrl(wiki.url)
+                                val now = System.currentTimeMillis()
+                                if (now - lastLoadTime > 5000) { // Only allow reloads every 5 seconds
+                                    lastLoadTime = now
+                                    viewModel.getOrCreateWebView(wiki, context).loadUrl(url)
+                                }
+                            } ?: run {
+                                val now = System.currentTimeMillis()
+                                if (now - lastLoadTime > 5000) {
+                                    lastLoadTime = now
+                                    viewModel.getOrCreateWebView(wiki, context).loadUrl(wiki.url)
+                                }
+                            }
                         }
                     ) {
                         Text("Retry")
@@ -126,79 +124,107 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
         
         AndroidView(
             factory = { ctx ->
-                // Create or get WebView for this wiki with error handling
                 try {
                     viewModel.getOrCreateWebView(wiki, ctx).apply {
-                        // Configure the WebView for performance
                         settings.apply {
-                            // Progressive loading settings
-                            blockNetworkImage = loadStrategy == WikiLoadStrategy.LARGE_WIKI
-                            loadsImagesAutomatically = loadStrategy == WikiLoadStrategy.SMALL_WIKI
+                            // Essential settings
+                            javaScriptEnabled = true
+                            domStorageEnabled = true
+                            
+                            // Always allow initial load
+                            blockNetworkImage = false
+                            loadsImagesAutomatically = true
                         }
                         
                         webViewClient = object : android.webkit.WebViewClient() {
                             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                                 super.onPageStarted(view, url, favicon)
+                                
+                                // Allow first load, prevent subsequent reloads
+                                if (!isFirstLoad) {
+                                    val now = System.currentTimeMillis()
+                                    if (now - lastLoadTime < 2000) {
+                                        view?.stopLoading()
+                                        return
+                                    }
+                                }
+                                
                                 isLoading = true
                                 errorState = null
-                                
-                                // For large wikis, inject performance optimization scripts early
-                                if (loadStrategy == WikiLoadStrategy.LARGE_WIKI || loadStrategy == WikiLoadStrategy.MEDIUM_WIKI) {
-                                    ThreadManager.runOnBackground {
-                                        view?.evaluateJavascript("""
-                                            // Prevent layout thrashing
-                                            (function() {
-                                                try {
-                                                    const style = document.createElement('style');
-                                                    style.textContent = `
-                                                        img { opacity: 0; transition: opacity 0.3s ease-in; }
-                                                        .loaded { opacity: 1; }
-                                                    `;
-                                                    document.head.appendChild(style);
-                                                    
-                                                    // Progressive enhancement
-                                                    if (window.requestIdleCallback) {
-                                                        requestIdleCallback(() => {
-                                                            document.body.style.visibility = 'visible';
-                                                        });
-                                                    }
-                                                    return true;
-                                                } catch (e) {
-                                                    console.error('Error in optimization script:', e);
-                                                    return false;
-                                                }
-                                            })();
-                                        """.trimIndent(), null)
-                                    }
+                                lastLoadTime = System.currentTimeMillis()
+
+                                // Only inject protection after first successful load
+                                if (!isFirstLoad) {
+                                    view?.evaluateJavascript("""
+                                        (function() {
+                                            window.location.reload = function() { return false; };
+                                            window.stop = function() { return false; };
+                                        })();
+                                    """.trimIndent(), null)
                                 }
                             }
                             
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 super.onPageFinished(view, url)
-                                isLoading = false
                                 
-                                // Apply optimizations based on wiki size
-                                view?.let { webView -> 
-                                    // Schedule optimization on a background thread
-                                    ThreadManager.runOnBackground {
-                                        try {
-                                            viewModel.applyWikiSizeOptimizations(webView, loadStrategy)
-                                        } catch (e: Exception) {
-                                            e.printStackTrace()
+                                if (isFirstLoad) {
+                                    // Check if content loaded successfully
+                                    view?.evaluateJavascript("""
+                                        (function() {
+                                            if (window.${'$'}tw && ${'$'}tw.wiki) {
+                                                return "loaded";
+                                            }
+                                            return document.body.innerHTML.length > 0 ? "content" : "empty";
+                                        })();
+                                    """.trimIndent()) { result ->
+                                        when (result.trim('"')) {
+                                            "loaded", "content" -> {
+                                                isFirstLoad = false
+                                                hasContent = true
+                                                isLoading = false
+                                                
+                                                // Now install reload protection
+                                                view.evaluateJavascript("""
+                                                    (function() {
+                                                        // Basic reload prevention
+                                                        window.location.reload = function() { return false; };
+                                                        window.stop = function() { return false; };
+                                                        
+                                                        if (window.${'$'}tw && ${'$'}tw.wiki) {
+                                                            const originalRefresh = ${'$'}tw.wiki.refresh;
+                                                            ${'$'}tw.wiki.refresh = function(changes, source) {
+                                                                if (source === 'load' || source === 'reload') {
+                                                                    return false;
+                                                                }
+                                                                return originalRefresh.apply(this, arguments);
+                                                            };
+                                                        }
+                                                    })();
+                                                """.trimIndent(), null)
+                                            }
+                                            else -> {
+                                                isLoading = false
+                                                errorState = "Could not load wiki content"
+                                            }
                                         }
                                     }
+                                } else {
+                                    isLoading = false
                                 }
                             }
                             
-                            override fun onReceivedError(
-                                view: WebView?,
-                                request: WebResourceRequest?,
-                                error: android.webkit.WebResourceError?
-                            ) {
+                            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                                 super.onReceivedError(view, request, error)
                                 if (request?.isForMainFrame == true) {
                                     errorState = "Error loading page: ${error?.description}"
+                                    isLoading = false
                                 }
+                            }
+                            
+                            // Prevent unwanted redirects
+                            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                                val url = request?.url?.toString() ?: return false
+                                return url == view?.url // Block same-page refreshes
                             }
                         }
                     }
@@ -210,18 +236,12 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                 }
             },
             update = { webView ->
-                if (errorState == null) {
-                    // Use cached file if available, otherwise use original URL
-                    val urlToLoad = localFileUrl ?: wiki.url
-                    
-                    // Only reload if URL has changed
-                    if (webView.url != urlToLoad) {
-                        try {
-                            webView.loadUrl(urlToLoad)
-                        } catch (e: Exception) {
-                            errorState = "Error loading URL: ${e.message}"
-                            e.printStackTrace()
-                        }
+                if (errorState == null && isFirstLoad) {
+                    try {
+                        webView.loadUrl(localFileUrl ?: wiki.url)
+                    } catch (e: Exception) {
+                        errorState = "Error loading URL: ${e.message}"
+                        e.printStackTrace()
                     }
                 }
             },
@@ -229,29 +249,6 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
         )
         
         // Show loading overlay
-        if (isLoading && errorState == null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        }
-        
-        // Enable images after page load completes with a delay to prevent janky scrolling
-        LaunchedEffect(isLoading) {
-            if (!isLoading && errorState == null) {
-                // Wait a bit before enabling images to avoid jank during initial rendering
-                kotlinx.coroutines.delay(300)
-                try {
-                    viewModel.enableImagesForWebView(wikiKey)
-                } catch (e: Exception) {
-                    errorState = "Error enabling images: ${e.message}"
-                    e.printStackTrace()
-                }
-            }
-        }
+        LoadingIndicator(isLoading)
     }
 }

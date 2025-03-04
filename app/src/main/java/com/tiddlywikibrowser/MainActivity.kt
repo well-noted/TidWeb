@@ -82,6 +82,8 @@ import kotlinx.coroutines.flow.*
 import org.json.JSONArray
 import org.json.JSONObject
 import androidx.lifecycle.ViewModel
+import android.webkit.WebChromeClient
+import android.webkit.JsResult
 
 // Memory threshold for optimization (50MB)
 private const val MEMORY_THRESHOLD = 50L * 1024L * 1024L
@@ -102,6 +104,7 @@ class MainActivity : ComponentActivity() {
     internal lateinit var exoPlayerManager: ExoPlayerManager
     private var viewModel: WikiViewModel? = null
     private var serviceConnection: ServiceConnection? = null
+    private val serviceIntent by lazy { Intent(this, MediaPlaybackService::class.java) }
     
     // Dialog state variables
     private var pendingSharedText by mutableStateOf<String?>(null)
@@ -155,6 +158,12 @@ class MainActivity : ComponentActivity() {
                     // Set layer type to hardware for better performance
                     webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
                     
+                    // Fix for orientation changes: set fixed layout size
+                    webView.layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    
                     webView.settings.apply {
                         javaScriptEnabled = true
                         domStorageEnabled = true
@@ -166,28 +175,154 @@ class MainActivity : ComponentActivity() {
                         displayZoomControls = false
                         cacheMode = WebSettings.LOAD_DEFAULT
                         allowFileAccess = true
-                        setDatabasePath(context.getDir("database", Context.MODE_PRIVATE).path)
                         
-                        // Add performance-optimizing settings
-                        setRenderPriority(WebSettings.RenderPriority.HIGH)
+                        // Fix for orientation: support viewport meta tag
+                        useWideViewPort = true
+                        loadWithOverviewMode = true
+
+                        // Important setting for responsiveness
+                        layoutAlgorithm = WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
                         
-                        // Disable features that might cause crashes
+                        // Safe way to set database path
+                        try {
+                            databasePath = context.getDir("database", Context.MODE_PRIVATE).path
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+
+                        // Optimize GPU rendering and resource loading
+                        mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                        
+                        // Set the proper dark mode setting on Android Q and above
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            try {
+                                forceDark = WebSettings.FORCE_DARK_AUTO
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                        
+                        // Performance improvements for memory usage
+                        javaScriptEnabled = true
+                        domStorageEnabled = true // Use modern cache APIs
+                        setGeolocationEnabled(false) // Disable features we don't need
+                        javaScriptCanOpenWindowsAutomatically = false
                         allowContentAccess = true
-                        allowFileAccessFromFileURLs = true
-                        allowUniversalAccessFromFileURLs = true
                         
-                        // Prevent WebView from becoming unresponsive
-                        mediaPlaybackRequiresUserGesture = false
+                        // Optimize loading and parsing to reduce memory pressure
+                        blockNetworkImage = true // Initially block images to improve first render
+                        loadsImagesAutomatically = false // Control this manually for better performance
                         
-                        // Set the proper dark mode setting
-                        when (AppCompatDelegate.getDefaultNightMode()) {
-                            AppCompatDelegate.MODE_NIGHT_YES -> forceDark = WebSettings.FORCE_DARK_ON
-                            AppCompatDelegate.MODE_NIGHT_NO -> forceDark = WebSettings.FORCE_DARK_OFF
-                            else -> forceDark = WebSettings.FORCE_DARK_AUTO
+                        // Safely enable file access from file URLs (required for local TiddlyWiki)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                            try {
+                                javaClass.getMethod("setAllowFileAccessFromFileURLs", Boolean::class.java)
+                                    .invoke(this, true)
+                                javaClass.getMethod("setAllowUniversalAccessFromFileURLs", Boolean::class.java)
+                                    .invoke(this, true)
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
                         }
                     }
+                    
+                    // CRITICAL FIX: Override WebView's JS execution to be non-blocking
+                    webView.evaluateJavascript("""
+                        (function() {
+                            // Use throttled and chunked processing for heavy operations
+                            const originalSetTimeout = window.setTimeout;
+                            window.setTimeout = function(callback, delay) {
+                                if (delay < 10) delay = 10; // Minimum delay to avoid busy-waiting
+                                return originalSetTimeout(callback, delay);
+                            };
+                            
+                            // Ensure delayed initialization for TiddlyWiki components
+                            window.addEventListener('DOMContentLoaded', function() {
+                                // Set up rendering optimization
+                                const style = document.createElement('style');
+                                style.textContent = `
+                                    * { transform: translateZ(0); }
+                                    img:not([loading]) { loading: lazy; }
+                                    .tc-tiddler-frame { contain: content; }
+                                `;
+                                document.head.appendChild(style);
+                            });
+                        })();
+                    """, null)
+                    
+                    // CRITICAL FIX: Add viewport setting script for orientation changes
+                    webView.evaluateJavascript("""
+                        (function() {
+                            // Ensure proper mobile viewport settings
+                            let viewport = document.querySelector('meta[name="viewport"]');
+                            if (!viewport) {
+                                viewport = document.createElement('meta');
+                                viewport.name = 'viewport';
+                                document.head.appendChild(viewport);
+                            }
+                            viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes';
+                            
+                            // Fix for orientation changes: re-layout on orientation change
+                            window.addEventListener('orientationchange', function() {
+                                setTimeout(function() {
+                                    const evt = new Event('resize');
+                                    window.dispatchEvent(evt);
+                                }, 100);
+                            });
+                            
+                            // Throttle heavy operations
+                            const originalSetTimeout = window.setTimeout;
+                            window.setTimeout = function(callback, delay) {
+                                if (delay < 10) delay = 10; // Minimum delay to avoid busy-waiting
+                                return originalSetTimeout(callback, delay);
+                            };
+                        })();
+                    """, null)
+                    
                 } catch (e: Exception) {
                     e.printStackTrace()
+                }
+            }
+
+            // Create a WebChromeClient to manage rendering lifecycle
+            webView.webChromeClient = object : WebChromeClient() {
+                override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                    super.onProgressChanged(view, newProgress)
+                    
+                    // Gradually enable features as the page loads to prevent jank
+                    if (newProgress > 50 && !view?.settings?.loadsImagesAutomatically!!) {
+                        ThreadManager.runOnBackground {
+                            Thread.sleep(100) // Small delay to avoid adding work during critical rendering
+                            ThreadManager.runOnMain {
+                                view.settings.loadsImagesAutomatically = true
+                            }
+                        }
+                    }
+                }
+                
+                override fun onJsBeforeUnload(
+                    view: WebView?,
+                    url: String?,
+                    message: String?,
+                    result: JsResult?
+                ): Boolean {
+                    // Cancel any attempt to unload the page that might close the app
+                    result?.cancel()
+                    return true
+                }
+                
+                override fun onJsAlert(
+                    view: WebView?,
+                    url: String?,
+                    message: String?,
+                    result: JsResult?
+                ): Boolean {
+                    // Handle alerts ourselves to prevent potential app closure
+                    ThreadManager.runOnMain {
+                        Toast.makeText(context, message ?: "Alert", Toast.LENGTH_SHORT).show()
+                    }
+                    result?.confirm()
+                    return true
                 }
             }
 
@@ -195,22 +330,72 @@ class MainActivity : ComponentActivity() {
                 override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                     super.onPageStarted(view, url, favicon)
                     
-                    // Inject loading optimization script early
+                    // CRITICAL FIX: Immediately inject safety scripts to prevent auto-closing and navigation
                     view?.evaluateJavascript("""
-                        // Defer non-critical operations
-                        window.requestIdleCallback = window.requestIdleCallback || 
-                            function(cb) {
-                                return setTimeout(function() {
-                                    var start = Date.now();
-                                    cb({
-                                        didTimeout: false,
-                                        timeRemaining: function() {
-                                            return Math.max(0, 50 - (Date.now() - start));
-                                        }
-                                    });
-                                }, 1);
+                        (function() {
+                            // Override window.close
+                            window.close = function() { 
+                                console.log('Window close prevented');
+                                return false; 
                             };
-                    """.trimIndent(), null)
+                            
+                            // Override history methods to prevent app minimizing
+                            if (window.history) {
+                                window.history.original_back = window.history.back;
+                                window.history.back = function() {
+                                    // Only allow back navigation within TiddlyWiki context
+                                    if (document.body.classList.contains('tc-body')) {
+                                        var story = document.querySelector('.tc-story-river');
+                                        if (story && story.children.length > 1) {
+                                            // Internal TiddlyWiki navigation - allow it
+                                            return window.history.original_back.apply(window.history);
+                                        }
+                                    }
+                                    console.log('History back prevented');
+                                    return false;
+                                };
+                            }
+                            
+                            // Improve scroll performance
+                            document.addEventListener('scroll', function() {}, { passive: true });
+                            
+                            // Throttle heavy DOM operations
+                            const observer = new MutationObserver((mutations) => {
+                                if (mutations.length > 100) {
+                                    console.log('Throttling large DOM mutation batch');
+                                    requestAnimationFrame(() => {
+                                        requestAnimationFrame(() => {
+                                            // Process after two animation frames
+                                        });
+                                    });
+                                }
+                            });
+                            
+                            // Start observing once document is loaded
+                            document.addEventListener('DOMContentLoaded', () => {
+                                observer.observe(document.body, { 
+                                    childList: true, 
+                                    subtree: true,
+                                    attributes: true 
+                                });
+                            });
+                        })();
+                    """, null)
+                    
+                    // Optimize document rendering with progressive loading
+                    view?.evaluateJavascript("""
+                        (function() {
+                            // Reduce style calculation overhead
+                            document.documentElement.style.visibility = 'hidden';
+                            
+                            window.addEventListener('DOMContentLoaded', function() {
+                                // Defer non-critical parsing and rendering
+                                requestAnimationFrame(function() {
+                                    document.documentElement.style.visibility = 'visible';
+                                });
+                            });
+                        })();
+                    """, null)
                 }
                 
                 override fun onPageFinished(view: WebView?, url: String?) {
@@ -218,43 +403,44 @@ class MainActivity : ComponentActivity() {
                     
                     // Progressive enhancement using low-priority thread to avoid ANR
                     ThreadManager.runOnLowPriority {
-                        // First enable essential functionality
-                        view?.evaluateJavascript("""
-                            (function() {
-                                // Enable responsive layout
-                                document.querySelectorAll('meta[name="viewport"]').forEach(meta => {
-                                    if (!meta.content.includes('width=device-width')) {
-                                        meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=5.0';
-                                    }
-                                });
-                                
-                                // Optimize scroll performance
-                                let lastScrollY = window.scrollY;
-                                window.addEventListener('scroll', function() {
-                                    const currentScrollY = window.scrollY;
-                                    const isScrollingUp = currentScrollY < lastScrollY;
-                                    lastScrollY = currentScrollY;
-                                    window.ScrollInterface.onScroll(isScrollingUp || currentScrollY === 0);
-                                }, { passive: true });
-                                
-                                // Report success
-                                return true;
-                            })();
-                        """.trimIndent(), null)
-                        
-                        // Wait a bit for the page to stabilize
-                        ThreadManager.runOnBackgroundWithDelay(200) {
-                            // Enable images and other non-critical resources
+                        // Enable images in phases to avoid jank
+                        ThreadManager.runOnBackgroundWithDelay(100) {
                             ThreadManager.runOnMain {
-                                if (view != null && view.settings != null) {
-                                    view.settings.blockNetworkImage = false
-                                    view.settings.loadsImagesAutomatically = true
-                                }
+                                view?.settings?.blockNetworkImage = false
                             }
                         }
+                        
+                        // Load image content in a staggered way
+                        view?.evaluateJavascript("""
+                            (function() {
+                                // Enable lazy loading for images
+                                const images = Array.from(document.querySelectorAll('img:not([loading])'));
+                                
+                                // Process in small batches to avoid jank
+                                function processNextBatch(startIndex) {
+                                    const batch = images.slice(startIndex, startIndex + 5);
+                                    if (batch.length === 0) return;
+                                    
+                                    setTimeout(function() {
+                                        batch.forEach(img => {
+                                            if (!img.loading) img.loading = 'lazy';
+                                            if (!img.decoding) img.decoding = 'async';
+                                        });
+                                        processNextBatch(startIndex + 5);
+                                    }, 50);
+                                }
+                                
+                                if (images.length > 0) {
+                                    processNextBatch(0);
+                                }
+                                
+                                return true;
+                            })();
+                        """, null)
                     }
                 }
 
+                // The rest of the existing WebViewClient implementation...
                 override fun shouldInterceptRequest(
                     view: WebView?,
                     request: WebResourceRequest?
@@ -289,16 +475,20 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // Add this to prevent navigation that might close the app
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                    // Handle all URLs internally to prevent crashes
+                    val url = request?.url?.toString() ?: return false
+                    
+                    // If the URL is a special scheme that might close the app, block it
+                    if (url.startsWith("intent:") || 
+                        url.startsWith("market:") || 
+                        url.startsWith("tel:") ||
+                        url.startsWith("geo:")) {
+                        return true
+                    }
+                    
+                    // For normal URLs, let the WebView handle them
                     return false
-                }
-                
-                override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                    super.onPageStarted(view, url, favicon)
-                    // Reset WebView state if needed
-                    view?.clearFormData()
-                    view?.clearCache(false)
                 }
             }
 
@@ -314,6 +504,18 @@ class MainActivity : ComponentActivity() {
                             e.printStackTrace()
                         }
                     }
+                }
+                
+                // Add a method to prevent window closing
+                @JavascriptInterface
+                public fun preventClose() {
+                    // Do nothing, just a hook to keep the app open
+                }
+                
+                // Add method to report performance issues to the app
+                @JavascriptInterface
+                public fun reportPerformance(metric: String, value: String) {
+                    // Could be used for telemetry or debugging
                 }
             }
 
@@ -331,91 +533,27 @@ class MainActivity : ComponentActivity() {
         try {
             super.onCreate(savedInstanceState)
             
-            // Initialize managers and view models
+            // Initialize managers and view models first before any UI
             mediaSessionManager = MediaSessionManager(this)
             exoPlayerManager = ExoPlayerManager(this)
             viewModel = getViewModel(this)
             
-            // Handle intent (for sharing)
-            handleIntent(intent)
-            
-            // Start the media service for background audio playback
-            val serviceIntent = Intent(this, MediaPlaybackService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(serviceIntent)
-            } else {
-                startService(serviceIntent)
-            }
-            
-            // Add MediaPlayerCallback implementation
-            exoPlayerManager.getOrCreatePlayer().addListener(object : Player.Listener {
-                override fun onPlaybackStateChanged(playbackState: Int) {
-                    updateMediaSessionState()
-                }
-                
-                override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    updateMediaSessionState()
-                }
-            })
-            
-            // Setup service connection
-            serviceConnection = object : ServiceConnection {
-                override fun onServiceConnected(componentName: ComponentName?, binder: IBinder?) {
-                    val mediaService = (binder as? MediaPlaybackService.LocalBinder)?.service
-                    mediaService?.setCallback(object : MediaPlaybackService.MediaPlayerCallback {
-                        override fun onPlay() {
-                            ThreadManager.runOnMain {
-                                exoPlayerManager.getOrCreatePlayer().play()
-                            }
-                        }
-
-                        override fun onPause() {
-                            ThreadManager.runOnMain {
-                                exoPlayerManager.getOrCreatePlayer().pause()
-                            }
-                        }
-
-                        override fun onSeekTo(pos: Long) {
-                            ThreadManager.runOnMain {
-                                exoPlayerManager.getOrCreatePlayer().seekTo(pos)
-                            }
-                        }
-
-                        override fun onSkipForward() {
-                            ThreadManager.runOnMain {
-                                val currentPosition = exoPlayerManager.getOrCreatePlayer().currentPosition
-                                exoPlayerManager.getOrCreatePlayer().seekTo(currentPosition + 15000)
-                            }
-                        }
-
-                        override fun onSkipBackward() {
-                            ThreadManager.runOnMain {
-                                val currentPosition = exoPlayerManager.getOrCreatePlayer().currentPosition
-                                exoPlayerManager.getOrCreatePlayer().seekTo(maxOf(0, currentPosition - 15000))
-                            }
-                        }
-                    })
-                }
-                
-                override fun onServiceDisconnected(componentName: ComponentName?) {
-                    // Just cleanup, no need to do anything special
-                }
-            }.also { connection ->
-                try {
-                    bindService(serviceIntent, connection, Context.BIND_AUTO_CREATE)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-            
-            // Setup network monitoring
+            // Setup network monitoring before UI
             connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             setupNetworkCallback()
             
-            // Setup UI
+            // Setup UI with state management protection
             setContent {
-                val viewModel = getViewModel(LocalContext.current as ComponentActivity)
-                val isDarkMode by viewModel.isDarkMode.collectAsState()
+                val currentContext = LocalContext.current as ComponentActivity
+                val viewModel = remember(currentContext) { getViewModel(currentContext) }
+                val isDarkMode by viewModel.isDarkMode.collectAsState(initial = false)
+                
+                // Protect against composition errors with SideEffect
+                SideEffect {
+                    if (viewModel != this.viewModel) {
+                        this.viewModel = viewModel
+                    }
+                }
                 
                 MaterialTheme(
                     colorScheme = if (isDarkMode) darkColorScheme() else lightColorScheme()
@@ -425,103 +563,205 @@ class MainActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.background
                     ) {
                         Box(modifier = Modifier.fillMaxSize()) {
-                            MainScreen(
-                                viewModel = viewModel,
-                                onAddClick = { showAddDialog = true }
-                            )
-                            
-                            // Dialogs
-                            if (showWikiSelector && pendingSharedText != null) {
-                                WikiSelectionDialog(
-                                    wikis = viewModel.allWikis.collectAsState().value,
-                                    quickTags = viewModel.quickTags.collectAsState().value,
-                                    onDismiss = {
-                                        showWikiSelector = false
-                                        pendingSharedText = null
-                                        if (!isTaskRoot) {
-                                            finish()
-                                        }
-                                    },
-                                    onWikiSelected = { selectedWiki, selectedTags ->
-                                        handleWikiSelection(selectedWiki, pendingSharedText, selectedTags)
-                                    },
-                                    onAddNew = {
-                                        showWikiSelector = false
-                                        showAddDialog = true
-                                    }
-                                )
-                            }
-
-                            if (showAddDialog) {
-                                AddWikiDialog(
-                                    onDismiss = {
-                                        showAddDialog = false
-                                        if (pendingSharedText != null) {
-                                            showWikiSelector = true
-                                        }
-                                    },
-                                    onAdd = { name, url ->
-                                        viewModel.addWiki(name, url)
-                                        showAddDialog = false
-                                        if (pendingSharedText != null) {
-                                            showWikiSelector = true
-                                        }
-                                    }
-                                )
-                            }
+                            MainContent()
                         }
                     }
                 }
             }
             
-            // Set up WebView data directory
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                try {
-                    WebView.setDataDirectorySuffix("tidweb_webview_data")
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
+            // Handle intent after UI is set up
+            handleIntent(intent)
             
-            // Process separation - add this before any WebView is created
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val process = WebViewProcessControl.processName
-                if (process == null || !process.endsWith(":webview_process")) {
-                    try {
-                        WebViewProcessControl.setProcessNameForNextWebView(applicationContext.packageName + ":webview_process")
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
-            }
-            
-            // Defer non-critical initialization
-            lifecycleScope.launch {
-                // Only do this after the Activity is created
-                withContext(Dispatchers.Default) {
-                    try {
-                        initializeNonCriticalComponents()
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
-            }
-            
-            // Add ThreadManager cleanup on destroy
-            lifecycle.addObserver(object : DefaultLifecycleObserver {
-                override fun onDestroy(owner: LifecycleOwner) {
-                    ThreadManager.shutdown()
-                }
-            })
-            
-            // Start memory monitoring
-            adaptToMemoryConditions()
+            // Set up media player callbacks
+            setupMediaCallbacks()
             
         } catch (e: Exception) {
-            // Log the exception to help with debugging
             e.printStackTrace()
             Toast.makeText(this, "Error initializing app: ${e.message}", Toast.LENGTH_LONG).show()
         }
+    }
+    
+    @Composable
+    private fun MainContent() {
+        val localContext = LocalContext.current as ComponentActivity
+        val viewModel = ViewModelProvider(localContext)[WikiViewModel::class.java]
+        
+        // This is the top-level MainScreen that contains all UI elements
+        MainScreen(
+            viewModel = viewModel,
+            onAddClick = { showAddDialog = true }
+        )
+        
+        // Handle dialog visibility from the MainActivity state
+        if (showAddDialog) {
+            AddWikiDialog(
+                onDismiss = { showAddDialog = false },
+                onAdd = { name, url ->
+                    viewModel.addWiki(name, url)
+                    showAddDialog = false
+                }
+            )
+        }
+        
+        if (showWikiSelector && pendingSharedText != null) {
+            WikiSelectionDialog(
+                wikis = viewModel.allWikis.collectAsState().value,
+                quickTags = viewModel.quickTags.collectAsState().value,
+                onDismiss = {
+                    showWikiSelector = false
+                    pendingSharedText = null
+                    if (!isTaskRoot) {
+                        finish()
+                    }
+                },
+                onWikiSelected = { wiki, tags ->
+                    handleWikiSelection(wiki, pendingSharedText, tags)
+                    showWikiSelector = false
+                    pendingSharedText = null
+                    if (!isTaskRoot) {
+                        finish()
+                    }
+                },
+                onAddNew = {
+                    showWikiSelector = false
+                    showAddDialog = true
+                }
+            )
+        }
+        
+        if (showDeleteConfirmDialog && viewModel.currentWiki.value != null) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirmDialog = false },
+                title = { Text("Delete Wiki") },
+                text = { Text("Are you sure you want to delete '${viewModel.currentWiki.value?.name}'?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        viewModel.currentWiki.value?.let { wiki ->
+                            viewModel.deleteWiki(wiki)
+                        }
+                        showDeleteConfirmDialog = false
+                    }) {
+                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+        
+        if (showTagManagement) {
+            TagManagementDialog(
+                tags = viewModel.quickTags.collectAsState().value,
+                onAddTag = { viewModel.addQuickTag(it) },
+                onRemoveTag = { viewModel.removeQuickTag(it) },
+                onReorderTags = { from, to -> viewModel.reorderQuickTags(from, to) },
+                onDismiss = { showTagManagement = false }
+            )
+        }
+    }
+
+    private fun setupMediaCallbacks() {
+        exoPlayerManager.getOrCreatePlayer().addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                updateMediaSessionState()
+                when (playbackState) {
+                    Player.STATE_READY -> {
+                        if (exoPlayerManager.getOrCreatePlayer().isPlaying) {
+                            startMediaService()
+                        } else {
+                            stopMediaService()
+                        }
+                    }
+                    Player.STATE_ENDED -> stopMediaService()
+                    else -> {} // No action needed for other states
+                }
+            }
+            
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                updateMediaSessionState()
+                if (isPlaying) {
+                    startMediaService()
+                } else {
+                    stopMediaService()
+                }
+            }
+        })
+
+        // Setup service connection
+        serviceConnection = object : ServiceConnection {
+            override fun onServiceConnected(componentName: ComponentName?, binder: IBinder?) {
+                val mediaService = (binder as? MediaPlaybackService.LocalBinder)?.service
+                mediaService?.setCallback(object : MediaPlaybackService.MediaPlayerCallback {
+                    override fun onPlay() {
+                        ThreadManager.runOnMain {
+                            exoPlayerManager.getOrCreatePlayer().play()
+                        }
+                    }
+
+                    override fun onPause() {
+                        ThreadManager.runOnMain {
+                            exoPlayerManager.getOrCreatePlayer().pause()
+                        }
+                    }
+
+                    override fun onSeekTo(pos: Long) {
+                        ThreadManager.runOnMain {
+                            exoPlayerManager.getOrCreatePlayer().seekTo(pos)
+                        }
+                    }
+
+                    override fun onSkipForward() {
+                        ThreadManager.runOnMain {
+                            val currentPosition = exoPlayerManager.getOrCreatePlayer().currentPosition
+                            exoPlayerManager.getOrCreatePlayer().seekTo(currentPosition + 15000)
+                        }
+                    }
+
+                    override fun onSkipBackward() {
+                        ThreadManager.runOnMain {
+                            val currentPosition = exoPlayerManager.getOrCreatePlayer().currentPosition
+                            exoPlayerManager.getOrCreatePlayer().seekTo(maxOf(0, currentPosition - 15000))
+                        }
+                    }
+                })
+            }
+
+            override fun onServiceDisconnected(componentName: ComponentName?) {
+                // Service has been killed, clean up
+                serviceConnection = null
+            }
+        }
+    }
+
+    private fun startMediaService() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
+
+        // Bind to the service to receive callbacks
+        serviceConnection?.let { connection ->
+            bindService(serviceIntent, connection, Context.BIND_AUTO_CREATE)
+        }
+    }
+
+    private fun stopMediaService() {
+        // Unbind from service
+        serviceConnection?.let { connection ->
+            try {
+                unbindService(connection)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        serviceConnection = null
+
+        // Stop the service
+        stopService(serviceIntent)
     }
 
     private fun handleIntent(intent: Intent?) {
@@ -690,6 +930,50 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleIntent(intent)
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        WebViewCache.setConfigurationChanging(true)
+        super.onConfigurationChanged(newConfig)
+        
+        // Fix for orientation changes: update WebView layout
+        ThreadManager.runOnBackgroundWithDelay(100) {
+            ThreadManager.runOnMain {
+                val currentWikiUrl = viewModel?.currentWiki?.value?.url
+                // Fix: Access webViewCache through viewModel instead of directly
+                currentWikiUrl?.let { url ->
+                    viewModel?.getOrCreateWebView(viewModel?.currentWiki?.value ?: return@let, this)?.let { webView ->
+                        // Trigger layout update after orientation change
+                        webView.evaluateJavascript("""
+                            (function() {
+                                // Force layout recalculation
+                                document.body.style.width = window.innerWidth + 'px';
+                                const evt = new Event('resize');
+                                window.dispatchEvent(evt);
+                                
+                                // Ensure TiddlyWiki knows about the orientation change
+                                if (window.${'$'}tw && window.${'$'}tw.wiki) {
+                                    window.${'$'}tw.utils.resizeAll();
+                                }
+                                return true;
+                            })();
+                        """, null);
+                    }
+                }
+            }
+        }
+        
+        WebViewCache.setConfigurationChanging(false)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        WebViewCache.setConfigurationChanging(true)
+        super.onSaveInstanceState(outState)
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
+        super.onRestoreInstanceState(savedInstanceState)
+        WebViewCache.setConfigurationChanging(false)
     }
 }
 
@@ -968,6 +1252,8 @@ fun AddWikiDialog(
 ) {
     var name by remember { mutableStateOf("") }
     var url by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -983,19 +1269,45 @@ fun AddWikiDialog(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Wiki Name") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = name.isBlank(),
+                    singleLine = true
                 )
+                
                 TextField(
                     value = url,
-                    onValueChange = { url = it },
+                    onValueChange = { 
+                        url = it
+                        error = null 
+                    },
                     label = { Text("Wiki URL") },
-                    modifier = Modifier.fillMaxWidth()
+                    placeholder = { Text("e.g., http://example.com or 192.168.1.1:8080") },
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = error != null || url.isBlank(),
+                    supportingText = error?.let { { Text(it) } },
+                    singleLine = true
                 )
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onAdd(name, url) },
+                onClick = { 
+                    if (name.isBlank() || url.isBlank()) {
+                        error = "Name and URL are required"
+                        return@TextButton
+                    }
+                    
+                    // Use URL validation and make sure to call onAdd with the formatted URL
+                    WikiInstance.validateUrl(url)
+                        .onSuccess { formattedUrl ->
+                            // Critical: actually call onAdd with the formattedUrl
+                            onAdd(name, formattedUrl)
+                            Toast.makeText(context, "Wiki added successfully", Toast.LENGTH_SHORT).show()
+                        }
+                        .onFailure { 
+                            error = it.message ?: "Invalid URL format"
+                        }
+                },
                 enabled = name.isNotBlank() && url.isNotBlank()
             ) {
                 Text("Add")

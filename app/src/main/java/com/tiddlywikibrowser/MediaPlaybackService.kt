@@ -196,28 +196,36 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Immediately show notification when service starts
+        startForeground(
+            NOTIFICATION_ID,
+            NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+                .setContentTitle("Media Playback")
+                .setContentText("Preparing...")
+                .setSmallIcon(R.drawable.ic_play)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .build()
+        )
+
+        // Handle media controls
         when (intent?.action) {
-            "SKIP_FORWARD" -> {
-                mediaSession?.controller?.transportControls?.skipToNext()
-            }
-            "SKIP_BACKWARD" -> {
-                mediaSession?.controller?.transportControls?.skipToPrevious()
-            }
+            "SKIP_FORWARD" -> mediaSession?.controller?.transportControls?.skipToNext()
+            "SKIP_BACKWARD" -> mediaSession?.controller?.transportControls?.skipToPrevious()
             Intent.ACTION_MEDIA_BUTTON -> {
                 mediaSession?.let { session ->
                     MediaButtonReceiver.handleIntent(session, intent)
-                    // Ensure we maintain the session state
                     updatePlaybackState(playbackState?.state ?: PlaybackStateCompat.STATE_NONE)
                 }
             }
-            else -> {
-                mediaSession?.let { session ->
-                    MediaButtonReceiver.handleIntent(session, intent)
-                }
-            }
+            else -> mediaSession?.let { session -> MediaButtonReceiver.handleIntent(session, intent) }
         }
-        // Always return START_STICKY to ensure the service keeps running
-        return START_STICKY
+
+        return START_NOT_STICKY // Changed from START_STICKY to allow service to be stopped
+    }
+
+    fun stopService() {
+        stopForeground(true)
+        stopSelf()
     }
 
     fun stopForeground() {

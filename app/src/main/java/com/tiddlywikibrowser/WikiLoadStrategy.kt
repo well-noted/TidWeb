@@ -12,14 +12,7 @@ enum class WikiLoadStrategy {
 
 /**
  * Extension properties for WikiInstance class
+ * Note: WikiInstance is defined in WikiInstance.kt
  */
-val WikiInstance.id: String?
+val WikiInstance.idFromUrl: String?
     get() = this.url
-
-/**
- * Data class for Wiki instances
- */
-data class WikiInstance(
-    val name: String,
-    val url: String
-)
