@@ -41,7 +41,7 @@ fun LoadingIndicator(isVisible: Boolean) {
 
 @Composable
 fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
-    val wikiKey = wiki.id ?: wiki.url
+    val wikiKey = wiki.idFromUrl ?: wiki.url
     var isLoading by remember { mutableStateOf(true) }
     var loadingProgress by remember { mutableStateOf(0f) }
     var loadStrategy by remember { mutableStateOf(WikiLoadStrategy.INITIALIZING) }
@@ -54,12 +54,15 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
     var localFileUrl by remember { mutableStateOf<String?>(null) }
     
     // Simplified state tracking
-    var isFirstLoad by remember { mutableStateOf(true) }
-    var hasContent by remember { mutableStateOf(false) }
+    var isFirstLoad by remember(wiki.url) { mutableStateOf(true) }
+    var hasContent by remember(wiki.url) { mutableStateOf(false) }
     var lastLoadTime by remember { mutableStateOf(0L) }
+    
+    // Key the webview by wiki URL to ensure recomposition on wiki change
+    val webViewKey = remember(wiki.url) { wiki.url }
 
     // Add lifecycle observer to prevent premature cleanup
-    DisposableEffect(Unit) {
+    DisposableEffect(webViewKey) {
         val activity = context as? ComponentActivity
         val observer = object : DefaultLifecycleObserver {
             override fun onStop(owner: LifecycleOwner) {
@@ -69,6 +72,9 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                 }
             }
         }
+        
+        // Set this wiki as active when the composable is shown
+        WebViewCache.setCurrentActiveKey(wikiKey)
         
         activity?.lifecycle?.addObserver(observer)
         onDispose {
@@ -122,131 +128,144 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
             return@Box
         }
         
-        AndroidView(
-            factory = { ctx ->
-                try {
-                    viewModel.getOrCreateWebView(wiki, ctx).apply {
-                        settings.apply {
-                            // Essential settings
-                            javaScriptEnabled = true
-                            domStorageEnabled = true
-                            
-                            // Always allow initial load
-                            blockNetworkImage = false
-                            loadsImagesAutomatically = true
-                        }
-                        
-                        webViewClient = object : android.webkit.WebViewClient() {
-                            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                                super.onPageStarted(view, url, favicon)
+        // Make webview keyed by wiki URL to force recomposition when wiki changes
+        key(webViewKey) {
+            AndroidView(
+                factory = { ctx ->
+                    try {
+                        viewModel.getOrCreateWebView(wiki, ctx).apply {
+                            settings.apply {
+                                // Essential settings
+                                javaScriptEnabled = true
+                                domStorageEnabled = true
                                 
-                                // Allow first load, prevent subsequent reloads
-                                if (!isFirstLoad) {
-                                    val now = System.currentTimeMillis()
-                                    if (now - lastLoadTime < 2000) {
-                                        view?.stopLoading()
-                                        return
-                                    }
-                                }
-                                
-                                isLoading = true
-                                errorState = null
-                                lastLoadTime = System.currentTimeMillis()
-
-                                // Only inject protection after first successful load
-                                if (!isFirstLoad) {
-                                    view?.evaluateJavascript("""
-                                        (function() {
-                                            window.location.reload = function() { return false; };
-                                            window.stop = function() { return false; };
-                                        })();
-                                    """.trimIndent(), null)
-                                }
+                                // Always allow initial load
+                                blockNetworkImage = false
+                                loadsImagesAutomatically = true
                             }
                             
-                            override fun onPageFinished(view: WebView?, url: String?) {
-                                super.onPageFinished(view, url)
-                                
-                                if (isFirstLoad) {
-                                    // Check if content loaded successfully
-                                    view?.evaluateJavascript("""
-                                        (function() {
-                                            if (window.${'$'}tw && ${'$'}tw.wiki) {
-                                                return "loaded";
-                                            }
-                                            return document.body.innerHTML.length > 0 ? "content" : "empty";
-                                        })();
-                                    """.trimIndent()) { result ->
-                                        when (result.trim('"')) {
-                                            "loaded", "content" -> {
-                                                isFirstLoad = false
-                                                hasContent = true
-                                                isLoading = false
-                                                
-                                                // Now install reload protection
-                                                view.evaluateJavascript("""
-                                                    (function() {
-                                                        // Basic reload prevention
-                                                        window.location.reload = function() { return false; };
-                                                        window.stop = function() { return false; };
-                                                        
-                                                        if (window.${'$'}tw && ${'$'}tw.wiki) {
-                                                            const originalRefresh = ${'$'}tw.wiki.refresh;
-                                                            ${'$'}tw.wiki.refresh = function(changes, source) {
-                                                                if (source === 'load' || source === 'reload') {
-                                                                    return false;
-                                                                }
-                                                                return originalRefresh.apply(this, arguments);
-                                                            };
-                                                        }
-                                                    })();
-                                                """.trimIndent(), null)
-                                            }
-                                            else -> {
-                                                isLoading = false
-                                                errorState = "Could not load wiki content"
-                                            }
+                            // Set WebView to visible
+                            visibility = android.view.View.VISIBLE
+                            
+                            webViewClient = object : android.webkit.WebViewClient() {
+                                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                                    super.onPageStarted(view, url, favicon)
+                                    
+                                    // Allow first load, prevent subsequent reloads
+                                    if (!isFirstLoad) {
+                                        val now = System.currentTimeMillis()
+                                        if (now - lastLoadTime < 2000) {
+                                            view?.stopLoading()
+                                            return
                                         }
                                     }
-                                } else {
-                                    isLoading = false
+                                    
+                                    isLoading = true
+                                    errorState = null
+                                    lastLoadTime = System.currentTimeMillis()
+                                    
+                                    // Only inject protection after first successful load
+                                    if (!isFirstLoad) {
+                                        view?.evaluateJavascript("""
+                                            (function() {
+                                                window.location.reload = function() { return false; };
+                                                window.stop = function() { return false; };
+                                            })();
+                                        """.trimIndent(), null)
+                                    }
                                 }
-                            }
-                            
-                            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                                super.onReceivedError(view, request, error)
-                                if (request?.isForMainFrame == true) {
-                                    errorState = "Error loading page: ${error?.description}"
-                                    isLoading = false
+                                
+                                override fun onPageFinished(view: WebView?, url: String?) {
+                                    super.onPageFinished(view, url)
+                                    
+                                    // Ensure WebView is fully visible
+                                    view?.visibility = android.view.View.VISIBLE
+                                    view?.invalidate()
+                                    
+                                    if (isFirstLoad) {
+                                        // Check if content loaded successfully
+                                        view?.evaluateJavascript("""
+                                            (function() {
+                                                if (window.${'$'}tw && ${'$'}tw.wiki) {
+                                                    return "loaded";
+                                                }
+                                                return document.body.innerHTML.length > 0 ? "content" : "empty";
+                                            })();
+                                        """.trimIndent()) { result ->
+                                            when (result.trim('"')) {
+                                                "loaded", "content" -> {
+                                                    isFirstLoad = false
+                                                    hasContent = true
+                                                    isLoading = false
+                                                    
+                                                    // Now install reload protection
+                                                    view.evaluateJavascript("""
+                                                        (function() {
+                                                            // Basic reload prevention
+                                                            window.location.reload = function() { return false; };
+                                                            window.stop = function() { return false; };
+                                                            
+                                                            if (window.${'$'}tw && ${'$'}tw.wiki) {
+                                                                const originalRefresh = ${'$'}tw.wiki.refresh;
+                                                                ${'$'}tw.wiki.refresh = function(changes, source) {
+                                                                    if (source === 'load' || source === 'reload') {
+                                                                        return false;
+                                                                    }
+                                                                    return originalRefresh.apply(this, arguments);
+                                                                };
+                                                            }
+                                                        })();
+                                                    """.trimIndent(), null)
+                                                }
+                                                else -> {
+                                                    isLoading = false
+                                                    errorState = "Could not load wiki content"
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        isLoading = false
+                                    }
                                 }
-                            }
-                            
-                            // Prevent unwanted redirects
-                            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                                val url = request?.url?.toString() ?: return false
-                                return url == view?.url // Block same-page refreshes
+                                
+                                override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                                    super.onReceivedError(view, request, error)
+                                    if (request?.isForMainFrame == true) {
+                                        errorState = "Error loading page: ${error?.description}"
+                                        isLoading = false
+                                    }
+                                }
+                                
+                                // Prevent unwanted redirects
+                                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                                    val url = request?.url?.toString() ?: return false
+                                    return url == view?.url // Block same-page refreshes
+                                }
                             }
                         }
-                    }
-                } catch (e: Exception) {
-                    errorState = "Error creating WebView: ${e.message}"
-                    e.printStackTrace()
-                    // Return an empty WebView as a fallback
-                    WebView(ctx)
-                }
-            },
-            update = { webView ->
-                if (errorState == null && isFirstLoad) {
-                    try {
-                        webView.loadUrl(localFileUrl ?: wiki.url)
                     } catch (e: Exception) {
-                        errorState = "Error loading URL: ${e.message}"
+                        errorState = "Error creating WebView: ${e.message}"
                         e.printStackTrace()
+                        // Return an empty WebView as a fallback
+                        WebView(ctx)
                     }
-                }
-            },
-            modifier = Modifier.fillMaxSize()
-        )
+                },
+                update = { webView ->
+                    // Always ensure visibility
+                    webView.visibility = android.view.View.VISIBLE
+                    
+                    if (errorState == null && isFirstLoad) {
+                        try {
+                            webView.loadUrl(localFileUrl ?: wiki.url)
+                        } catch (e: Exception) {
+                            errorState = "Error loading URL: ${e.message}"
+                            e.printStackTrace()
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
         
         // Show loading overlay
         LoadingIndicator(isLoading)

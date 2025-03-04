@@ -230,10 +230,33 @@ class WikiViewModel(private val context: Context) : ViewModel() {
 
     fun setCurrentWiki(wiki: WikiInstance?) {
         if (_currentWiki.value?.url != wiki?.url) {
+            // Save current wiki's state before switching
+            _currentWiki.value?.let { currentWiki ->
+                val key = currentWiki.idFromUrl ?: currentWiki.url
+                webViewCache[key]?.let { currentWebView ->
+                    // Cache the current WebView to preserve its state
+                    WebViewCache.cacheWebView(key, currentWebView)
+                }
+            }
+            
+            // Update the current wiki
             _currentWiki.value = wiki
+            
             if (wiki != null) {
+                val key = wiki.idFromUrl ?: wiki.url
+                
+                // Pause all other WebViews
+                WebViewCache.pauseAllWebViewsExcept(key)
+                
+                // Set this as the active key in WebViewCache
+                WebViewCache.setCurrentActiveKey(key)
+                
                 viewModelScope.launch {
                     val webView = getOrCreateWebView(wiki, context)
+                    
+                    // Resume the selected WebView
+                    WebViewCache.resumeWebView(key)
+                    
                     ThreadManager.runOnBackground {
                         try {
                             // Update favicon if available
@@ -243,6 +266,11 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }
+                    }
+                    
+                    // Save current wiki to preferences
+                    context.dataStore.edit { preferences ->
+                        preferences[PreferencesKeys.CURRENT_WIKI] = wikiToJson(wiki)
                     }
                 }
             }
@@ -314,6 +342,11 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     // Improved WebView creation with better error handling and reload protection
     fun getOrCreateWebView(wiki: WikiInstance, context: Context): WebView {
         val key = wiki.idFromUrl ?: wiki.url
+        
+        // Check if we already have a cached WebView
+        WebViewCache.getCachedWebView(key)?.let { cachedWebView ->
+            return cachedWebView
+        }
         
         return webViewCache[key] ?: synchronized(this) {
             webViewCache[key]?.let { return it }
@@ -571,6 +604,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
             
             // Cache the WebView
             webViewCache[key] = webView
+            WebViewCache.cacheWebView(key, webView)
             webView
         }
     }
@@ -584,6 +618,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
         wiki?.let {
             val key = it.idFromUrl ?: it.url
             webViewCache[key]?.onResume()
+            WebViewCache.resumeWebView(key)
         }
     }
 
@@ -643,6 +678,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
             
             // Remove from WebView cache
             webViewCache.remove(wiki.url)
+            WebViewCache.removeCachedWebView(wiki.url)
         }
     }
 
