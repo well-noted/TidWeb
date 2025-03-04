@@ -18,7 +18,9 @@ import android.webkit.WebView
 import android.util.Log
 
 class MediaSessionManager(private val context: Context) {
-    private val TAG = "MediaSessionManager"
+    companion object {
+        private const val TAG = "MediaSessionMgr"
+    }
     
     private val mediaSession: MediaSessionCompat by lazy {
         MediaSessionCompat(context, "TidWebMediaSession").apply {
@@ -74,7 +76,7 @@ class MediaSessionManager(private val context: Context) {
     
     private val sessionCallback = object : MediaSessionCompat.Callback() {
         override fun onPlay() {
-            Log.d(TAG, "MediaSession onPlay")
+            Log.d("MediaSession", "MediaSession onPlay")
             requestAudioFocus()
             if (isAudioFocusGranted) {
                 (context as? MainActivity)?.exoPlayerManager?.getOrCreatePlayer()?.play()
@@ -87,14 +89,14 @@ class MediaSessionManager(private val context: Context) {
         }
         
         override fun onPause() {
-            Log.d(TAG, "MediaSession onPause")
+            Log.d("MediaSession", "MediaSession onPause")
             (context as? MainActivity)?.exoPlayerManager?.getOrCreatePlayer()?.pause()
             executeMediaAction("pause")
             mediaPlaybackService?.updatePlaybackState(PlaybackStateCompat.STATE_PAUSED, getCurrentPosition())
         }
         
         override fun onSeekTo(pos: Long) {
-            Log.d(TAG, "MediaSession onSeekTo: $pos")
+            Log.d("MediaSession", "MediaSession onSeekTo: $pos")
             (context as? MainActivity)?.exoPlayerManager?.getOrCreatePlayer()?.seekTo(pos)
             executeMediaAction("seekTo", pos)
             mediaPlaybackService?.updatePlaybackState(
@@ -107,7 +109,7 @@ class MediaSessionManager(private val context: Context) {
         }
         
         override fun onSkipToNext() {
-            Log.d(TAG, "MediaSession onSkipToNext")
+            Log.d("MediaSession", "MediaSession onSkipToNext")
             // Used for skip forward functionality (15 seconds)
             val currentPosition = getCurrentPosition()
             val newPosition = currentPosition + 15000 // 15 seconds in milliseconds
@@ -115,7 +117,7 @@ class MediaSessionManager(private val context: Context) {
         }
         
         override fun onSkipToPrevious() {
-            Log.d(TAG, "MediaSession onSkipToPrevious")
+            Log.d("MediaSession", "MediaSession onSkipToPrevious")
             // Used for skip backward functionality (15 seconds)
             val currentPosition = getCurrentPosition()
             val newPosition = maxOf(0, currentPosition - 15000) // 15 seconds, not going below 0
@@ -123,7 +125,7 @@ class MediaSessionManager(private val context: Context) {
         }
         
         override fun onStop() {
-            Log.d(TAG, "MediaSession onStop")
+            Log.d("MediaSession", "MediaSession onStop")
             (context as? MainActivity)?.exoPlayerManager?.getOrCreatePlayer()?.stop()
             executeMediaAction("stop")
             mediaPlaybackService?.updatePlaybackState(PlaybackStateCompat.STATE_STOPPED, 0)
@@ -131,7 +133,7 @@ class MediaSessionManager(private val context: Context) {
         }
         
         override fun onCustomAction(action: String, extras: Bundle?) {
-            Log.d(TAG, "MediaSession onCustomAction: $action")
+            Log.d("MediaSession", "MediaSession onCustomAction: $action")
             when (action) {
                 "SKIP_FORWARD" -> onSkipToNext()
                 "SKIP_BACKWARD" -> onSkipToPrevious()
@@ -181,7 +183,7 @@ class MediaSessionManager(private val context: Context) {
     }
     
     fun updatePlaybackState(isPlaying: Boolean, position: Long) {
-        Log.d(TAG, "updatePlaybackState: isPlaying=$isPlaying, position=$position")
+        Log.d("MediaSession", "updatePlaybackState: isPlaying=$isPlaying, position=$position")
         val state = if (isPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
         val stateBuilder = PlaybackStateCompat.Builder()
             .setState(state, position, 1.0f)
@@ -224,10 +226,13 @@ class MediaSessionManager(private val context: Context) {
     }
     
     fun updateMetadata(title: String?, artist: String?, duration: Long, bitmap: Bitmap? = null) {
-        Log.d(TAG, "updateMetadata: title=$title, duration=$duration")
+        Log.d("MediaSession", "updateMetadata: title=$title, duration=$duration")
         val metadataBuilder = MediaMetadataCompat.Builder()
             .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title ?: "Unknown Title")
             .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, artist ?: "Unknown Artist")
+            .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, "TiddlyWiki Player")
+            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, title ?: "Unknown Title")
+            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, artist ?: "Unknown Artist")
         
         if (duration > 0) {
             metadataBuilder.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, duration)
@@ -248,11 +253,11 @@ class MediaSessionManager(private val context: Context) {
     }
     
     fun bindToService() {
-        Log.d(TAG, "bindToService called")
+        Log.d("MediaSession", "bindToService called")
         if (serviceConnection == null) {
             serviceConnection = object : ServiceConnection {
                 override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-                    Log.d(TAG, "onServiceConnected")
+                    Log.d("MediaSession", "onServiceConnected")
                     val service = (binder as? MediaPlaybackService.LocalBinder)?.service
                     mediaPlaybackService = service
                     service?.setMediaSession(mediaSession)
@@ -266,7 +271,7 @@ class MediaSessionManager(private val context: Context) {
                 }
                 
                 override fun onServiceDisconnected(name: ComponentName?) {
-                    Log.d(TAG, "onServiceDisconnected")
+                    Log.d("MediaSession", "onServiceDisconnected")
                     mediaPlaybackService = null
                 }
             }
@@ -285,12 +290,12 @@ class MediaSessionManager(private val context: Context) {
     }
     
     fun unbindFromService() {
-        Log.d(TAG, "unbindFromService called")
+        Log.d("MediaSession", "unbindFromService called")
         serviceConnection?.let {
             try {
                 context.unbindService(it)
             } catch (e: Exception) {
-                Log.e("MediaSessionManager", "Error unbinding from service", e)
+                Log.e("MediaSession", "Error unbinding from service", e)
             }
             serviceConnection = null
             mediaPlaybackService = null
@@ -301,7 +306,7 @@ class MediaSessionManager(private val context: Context) {
      * Sets the current WebView to be controlled
      */
     fun setWebView(webView: WebView) {
-        Log.d(TAG, "setWebView called")
+        Log.d("MediaSession", "setWebView called")
         currentWebView = webView
         injectMediaMonitoringScripts()
     }
@@ -325,29 +330,72 @@ class MediaSessionManager(private val context: Context) {
                     element.setAttribute('data-tid-media-id', id);
                     window.tidWebActiveMediaElements[id] = element;
                     
+                    // Get the best possible title for the media
+                    function getMediaTitle() {
+                        let title = '';
+                        
+                        // First try to get title from closest tiddler title
+                        try {
+                            const tiddlerElement = element.closest('.tc-tiddler-frame');
+                            if (tiddlerElement) {
+                                const tiddlerTitle = tiddlerElement.querySelector('.tc-title');
+                                if (tiddlerTitle && tiddlerTitle.textContent) {
+                                    return tiddlerTitle.textContent.trim();
+                                }
+                            }
+                        } catch(e) {}
+                        
+                        // Try to get track title from data attributes
+                        try {
+                            if (element.hasAttribute('data-title')) {
+                                return element.getAttribute('data-title');
+                            }
+                            if (element.hasAttribute('title')) {
+                                return element.getAttribute('title');
+                            }
+                            if (element.hasAttribute('aria-label')) {
+                                return element.getAttribute('aria-label');
+                            }
+                        } catch(e) {}
+                        
+                        // Try to get filename from the src attribute
+                        try {
+                            if (element.src) {
+                                const filename = element.src.split('/').pop();
+                                if (filename) {
+                                    // Remove the extension and replace underscores/hyphens with spaces
+                                    return filename.split('.')[0].replace(/[_-]/g, ' ');
+                                }
+                            }
+                        } catch(e) {}
+                        
+                        // If we're really stuck, use the page title
+                        return document.title !== 'TiddlyWiki' ? document.title : 'Audio';
+                    }
+                    
                     // Add event listeners for media events
                     element.addEventListener('play', function() {
-                        Android.onMediaEvent('play', id, this.currentTime, this.duration, this.getAttribute('src'), document.title);
+                        Android.onMediaEvent('play', id, this.currentTime, this.duration, this.getAttribute('src'), getMediaTitle());
                     });
                     
                     element.addEventListener('pause', function() {
-                        Android.onMediaEvent('pause', id, this.currentTime, this.duration, this.getAttribute('src'), document.title);
+                        Android.onMediaEvent('pause', id, this.currentTime, this.duration, this.getAttribute('src'), getMediaTitle());
                     });
                     
                     element.addEventListener('timeupdate', function() {
-                        Android.onMediaEvent('timeupdate', id, this.currentTime, this.duration, this.getAttribute('src'), document.title);
+                        Android.onMediaEvent('timeupdate', id, this.currentTime, this.duration, this.getAttribute('src'), getMediaTitle());
                     });
                     
                     element.addEventListener('seeking', function() {
-                        Android.onMediaEvent('seeking', id, this.currentTime, this.duration, this.getAttribute('src'), document.title);
+                        Android.onMediaEvent('seeking', id, this.currentTime, this.duration, this.getAttribute('src'), getMediaTitle());
                     });
                     
                     element.addEventListener('seeked', function() {
-                        Android.onMediaEvent('seeked', id, this.currentTime, this.duration, this.getAttribute('src'), document.title);
+                        Android.onMediaEvent('seeked', id, this.currentTime, this.duration, this.getAttribute('src'), getMediaTitle());
                     });
                     
                     element.addEventListener('ended', function() {
-                        Android.onMediaEvent('ended', id, this.currentTime, this.duration, this.getAttribute('src'), document.title);
+                        Android.onMediaEvent('ended', id, this.currentTime, this.duration, this.getAttribute('src'), getMediaTitle());
                     });
                     
                     return id;
@@ -461,7 +509,9 @@ class MediaSessionManager(private val context: Context) {
         src: String?,
         title: String?
     ) {
-        Log.d(TAG, "onMediaEvent: $event, position=$currentTime, duration=$duration")
+        // Log media events without using the TAG to avoid errors
+        Log.d("MediaSession", "onMediaEvent: $event, position=$currentTime, duration=$duration, title=$title")
+        
         // Update the active media element ID
         activeMediaElementId = elementId
         
@@ -474,7 +524,19 @@ class MediaSessionManager(private val context: Context) {
                 if (requestAudioFocus()) {
                     // Update media session and ExoPlayer
                     (context as? MainActivity)?.exoPlayerManager?.playMedia(src ?: "")
-                    updateMetadata(title ?: src, "TiddlyWiki Audio", durationMs)
+                    
+                    // Get a meaningful title - use document title or source filename
+                    val mediaTitle = when {
+                        // Use the document title if it's not too generic
+                        !title.isNullOrEmpty() && title != "TiddlyWiki" -> title
+                        // Extract filename from source URL
+                        !src.isNullOrEmpty() -> src.substringAfterLast('/').substringBeforeLast('.')
+                        // Fallback
+                        else -> "TiddlyWiki Audio"
+                    }
+                    
+                    Log.d("MediaSession", "Setting media metadata: title=$mediaTitle, duration=$durationMs")
+                    updateMetadata(mediaTitle, "TiddlyWiki Audio", durationMs)
                     updatePlaybackState(true, currentPositionMs)
                     
                     // Ensure service is started
@@ -515,7 +577,7 @@ class MediaSessionManager(private val context: Context) {
     }
     
     fun release() {
-        Log.d(TAG, "release called")
+        Log.d("MediaSession", "release called")
         abandonAudioFocus()
         unbindFromService()
         mediaSession.release()

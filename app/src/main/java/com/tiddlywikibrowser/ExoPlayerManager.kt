@@ -9,6 +9,7 @@ import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
+import android.util.Log
 
 class ExoPlayerManager(private val context: Context) {
     private var player: ExoPlayer? = null
@@ -61,6 +62,8 @@ class ExoPlayerManager(private val context: Context) {
                                     ?: currentItem?.mediaId 
                                     ?: "Unknown"
                                     
+                                Log.d("ExoPlayer", "MediaItem ready: title=$mediaTitle, duration=${exoPlayer.duration}")
+                                
                                 (context as? MainActivity)?.mediaSessionManager?.updateMetadata(
                                     title = mediaTitle.toString(),
                                     artist = "TiddlyWiki Media",
@@ -104,19 +107,28 @@ class ExoPlayerManager(private val context: Context) {
     }
     
     private fun createMediaItem(url: String): MediaItem {
-        // Create a properly configured MediaItem with metadata
+        // Create a properly configured MediaItem with rich metadata
         val uri = Uri.parse(url)
+        val filename = getFileNameFromUrl(url)
+        
+        // Create a rich metadata object with all possible fields filled
+        val metadata = androidx.media3.common.MediaMetadata.Builder()
+            .setTitle(filename)
+            .setDisplayTitle(filename)
+            .setArtist("TiddlyWiki Media")
+            .setAlbumTitle("TiddlyWiki Player")
+            .setSubtitle("Playing from TiddlyWiki")
+            .setDescription(filename)
+            .setIsBrowsable(false)
+            .setIsPlayable(true)
+            .build()
+        
+        Log.d("ExoPlayer", "Creating MediaItem with title=$filename")
+        
         return MediaItem.Builder()
             .setUri(uri)
             .setMediaId(url)
-            .setMediaMetadata(
-                androidx.media3.common.MediaMetadata.Builder()
-                    .setTitle(getFileNameFromUrl(url))
-                    .setArtist("TiddlyWiki Media")
-                    .setIsBrowsable(false)
-                    .setIsPlayable(true)
-                    .build()
-            )
+            .setMediaMetadata(metadata)
             .build()
     }
     
@@ -124,7 +136,9 @@ class ExoPlayerManager(private val context: Context) {
         return try {
             val uri = Uri.parse(url)
             val path = uri.path
-            path?.substringAfterLast('/')?.substringBeforeLast('.') ?: "Unknown"
+            val filename = path?.substringAfterLast('/')?.substringBeforeLast('.') ?: "Unknown"
+            // Format the filename nicely - replace underscores and hyphens with spaces
+            filename.replace('_', ' ').replace('-', ' ').capitalize()
         } catch (e: Exception) {
             "Unknown"
         }

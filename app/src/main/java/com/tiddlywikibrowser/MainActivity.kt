@@ -698,9 +698,14 @@ class MainActivity : ComponentActivity() {
                 when (playbackState) {
                     Player.STATE_READY -> {
                         if (exoPlayerManager.getOrCreatePlayer().isPlaying) {
+                            // Extract metadata and update media session
+                            val currentItem = exoPlayerManager.getOrCreatePlayer().currentMediaItem
+                            val title = currentItem?.mediaMetadata?.title?.toString() ?: "Unknown Title"
+                            val artist = currentItem?.mediaMetadata?.artist?.toString() ?: "TiddlyWiki Audio"
+                            val duration = exoPlayerManager.getOrCreatePlayer().duration
+                            
+                            mediaSessionManager.updateMetadata(title, artist, duration)
                             startMediaService()
-                        } else {
-                            stopMediaService()
                         }
                     }
                     Player.STATE_ENDED -> stopMediaService()
@@ -711,9 +716,14 @@ class MainActivity : ComponentActivity() {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 updateMediaSessionState()
                 if (isPlaying) {
+                    // Extract metadata and update
+                    val currentItem = exoPlayerManager.getOrCreatePlayer().currentMediaItem
+                    val title = currentItem?.mediaMetadata?.title?.toString() ?: "Unknown Title"
+                    val artist = currentItem?.mediaMetadata?.artist?.toString() ?: "TiddlyWiki Audio"
+                    val duration = exoPlayerManager.getOrCreatePlayer().duration
+                    
+                    mediaSessionManager.updateMetadata(title, artist, duration)
                     startMediaService()
-                } else {
-                    stopMediaService()
                 }
             }
         })
