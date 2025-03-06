@@ -988,34 +988,47 @@ class MainActivity : ComponentActivity() {
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         WebViewCache.setConfigurationChanging(true)
         super.onConfigurationChanged(newConfig)
-        
+
         // Fix for orientation changes: update WebView layout
         ThreadManager.runOnBackgroundWithDelay(100) {
             ThreadManager.runOnMain {
                 val currentWikiUrl = viewModel?.currentWiki?.value?.url
-                // Fix: Access webViewCache through viewModel instead of directly
                 currentWikiUrl?.let { url ->
                     viewModel?.getOrCreateWebView(viewModel?.currentWiki?.value ?: return@let, this)?.let { webView ->
-                        // Trigger layout update after orientation change
+                        // Trigger layout update after orientation change with better error handling
                         webView.evaluateJavascript("""
-                            (function() {
-                                // Force layout recalculation
-                                document.body.style.width = window.innerWidth + 'px';
-                                const evt = new Event('resize');
-                                window.dispatchEvent(evt);
-                                
-                                // Ensure TiddlyWiki knows about the orientation change
-                                if (window.${'$'}tw && window.${'$'}tw.wiki) {
-                                    window.${'$'}tw.utils.resizeAll();
+                        (function() {
+                            // Force layout recalculation
+                            document.body.style.width = window.innerWidth + 'px';
+                            const evt = new Event('resize');
+                            window.dispatchEvent(evt);
+                            
+                            // Safely check if TiddlyWiki is available and call resizeAll
+                            try {
+                                if (typeof window !== 'undefined' && 
+                                    window.${"$"}tw && 
+                                    typeof window.${"$"}tw.utils === 'object' && 
+                                    typeof window.${"$"}tw.utils.resizeAll === 'function') {
+                                    window.${"$"}tw.utils.resizeAll();
+                                    return "TW resize successful";
+                                } else {
+                                    console.log('TiddlyWiki not fully initialized yet');
+                                    return "TW not ready";
                                 }
-                                return true;
-                            })();
-                        """, null);
+                            } catch(e) {
+                                console.error('TiddlyWiki resize error:', e);
+                                return "TW resize error: " + e.message;
+                            }
+                        })();
+                    """) { result ->
+                            // Log the result for debugging if needed
+
+                        }
                     }
                 }
             }
         }
-        
+
         WebViewCache.setConfigurationChanging(false)
     }
 
