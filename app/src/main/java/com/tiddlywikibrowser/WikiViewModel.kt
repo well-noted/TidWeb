@@ -25,15 +25,19 @@ import java.net.URL
 import androidx.datastore.preferences.core.edit
 import androidx.appcompat.app.AppCompatDelegate
 import android.util.Log
+import android.net.Uri
+import android.os.Environment
+import android.widget.Toast
+import java.io.File
 
 /**
  * WebViewClient specifically designed to handle and fix raw HTML content
  */
 private class RawHtmlFixingWebViewClient(private val originalUrl: String) : WebViewClient() {
-    
+
     override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
         val url = request?.url?.toString() ?: return null
-        
+
         // Only intercept the main page to fix raw HTML display issues
         if (url == originalUrl || url.contains("tiddlywiki")) {
             try {
@@ -41,18 +45,18 @@ private class RawHtmlFixingWebViewClient(private val originalUrl: String) : WebV
                 // Set appropriate headers to ensure we get HTML
                 connection.setRequestProperty("Accept", "text/html,application/xhtml+xml")
                 connection.connect()
-                
+
                 // Always force content type to text/html for TiddlyWiki
                 return WebResourceResponse(
-                    "text/html", 
-                    "UTF-8", 
+                    "text/html",
+                    "UTF-8",
                     connection.getInputStream()
                 )
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
-        
+
         return null
     }
 }
@@ -63,29 +67,33 @@ class WikiViewModel(private val context: Context) : ViewModel() {
 
     private val _allWikis = MutableStateFlow<List<WikiInstance>>(emptyList())
     val allWikis: StateFlow<List<WikiInstance>> = _allWikis
-    
+
     private val themeManager = ThemeManager(context)
     private val _isDarkMode = MutableStateFlow(themeManager.isDarkModeEnabled())
     val isDarkMode: StateFlow<Boolean> = _isDarkMode
-    
+
     private val _isFrameVisible = MutableStateFlow(true)
     val isFrameVisible: StateFlow<Boolean> = _isFrameVisible
 
     private val _favicon = MutableStateFlow<Bitmap?>(null)
     val favicon: StateFlow<Bitmap?> = _favicon
-    
+
     private val _faviconMap = MutableStateFlow<Map<String, Bitmap>>(emptyMap())
     val faviconMap: StateFlow<Map<String, Bitmap>> = _faviconMap
-    
+
     // Cache for WebViews - increased to handle larger wikis
     private val MAX_WEBVIEW_CACHE = 10
     private val webViewCache = mutableMapOf<String, WebView>()
-    
+
     private val _isOffline = MutableStateFlow(false)
     val isOffline: StateFlow<Boolean> = _isOffline
 
     private val _quickTags = MutableStateFlow<List<String>>(emptyList())
     val quickTags: StateFlow<List<String>> = _quickTags
+
+    // Add tiddler templates state
+    private val _tiddlerTemplates = MutableStateFlow<List<TiddlerTemplate>>(emptyList())
+    val tiddlerTemplates: StateFlow<List<TiddlerTemplate>> = _tiddlerTemplates
 
     // Add this property to track WebView initialization state
     private val _isWebViewReady = MutableStateFlow(false)
@@ -103,15 +111,15 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                 preferences[PreferencesKeys.IS_DARK_MODE]?.let { darkMode ->
                     _isDarkMode.value = darkMode
                 }
-                
+
                 val wikiListJson = preferences[PreferencesKeys.WIKI_LIST] ?: "[]"
                 val currentWikiJson = preferences[PreferencesKeys.CURRENT_WIKI]
                 val faviconsJson = preferences[PreferencesKeys.FAVICONS] ?: "{}"
                 val tagsJson = preferences[PreferencesKeys.QUICK_TAGS] ?: "[]"
-                
+
                 val wikis = parseWikiList(wikiListJson)
                 _allWikis.value = wikis
-                
+
                 if (currentWikiJson != null) {
                     val current = parseWikiInstance(currentWikiJson)
                     _currentWiki.value = current
@@ -128,7 +136,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
         try {
             val jsonObject = JSONObject(json)
             val faviconMap = mutableMapOf<String, Bitmap>()
-            
+
             jsonObject.keys().forEach { url ->
                 val base64 = jsonObject.getString(url)
                 val bytes = android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
@@ -137,7 +145,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                     faviconMap[url] = bitmap
                 }
             }
-            
+
             _faviconMap.value = faviconMap
         } catch (e: Exception) {
             e.printStackTrace()
@@ -151,7 +159,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                 super.onPageStarted(view, url, favicon)
                 // Reset ready state when page starts loading
                 _isWebViewReady.value = false
-                
+
                 favicon?.let { bitmap ->
                     setFavicon(wiki.url, bitmap)
                 }
@@ -159,7 +167,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                
+
                 // Enable images progressively after page load
                 view?.post {
                     view.settings.blockNetworkImage = false
@@ -188,7 +196,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
             saveFavicons() // Save favicons whenever they change
         }
     }
-    
+
     // Helper method to save favicons to preferences
     private fun saveFavicons() {
         viewModelScope.launch {
@@ -200,7 +208,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                 val base64 = android.util.Base64.encodeToString(byteArray, android.util.Base64.DEFAULT)
                 jsonObject.put(url, base64)
             }
-            
+
             context.dataStore.edit { preferences ->
                 preferences[PreferencesKeys.FAVICONS] = jsonObject.toString()
             }
@@ -232,7 +240,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     fun setCurrentWiki(wiki: WikiInstance?) {
         if (_currentWiki.value?.url != wiki?.url) {
             Log.d("WikiViewModel", "Switching wiki to: ${wiki?.name}")
-            
+
             // Save current wiki's state before switching
             _currentWiki.value?.let { currentWiki ->
                 val key = currentWiki.idFromUrl ?: currentWiki.url
@@ -240,41 +248,41 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                     // Ensure we save the "loaded" state with the WebView
                     val isLoaded = currentWebView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
                     Log.d("WikiViewModel", "Saving state for previous wiki: $key, loaded=$isLoaded")
-                    
+
                     // Cache the current WebView with its full state to preserve it
                     WebViewCache.cacheWebView(key, currentWebView)
-                    
+
                     // Pause the WebView to reduce resource usage
                     currentWebView.onPause()
                 }
             }
-            
+
             // Update the current wiki
             _currentWiki.value = wiki
-            
+
             if (wiki != null) {
                 val key = wiki.idFromUrl ?: wiki.url
                 Log.d("WikiViewModel", "Setting active key: $key")
-                
+
                 // Set this as the active key in WebViewCache before pausing others
                 WebViewCache.setCurrentActiveKey(key)
-                
+
                 // Pause all other WebViews
                 WebViewCache.pauseAllWebViewsExcept(key)
-                
+
                 viewModelScope.launch {
                     try {
                         // Get or create the WebView (this should restore from cache if available)
                         val webView = getOrCreateWebView(wiki, context)
-                        
+
                         // Explicitly ensure we're preserving the loaded state
                         val isLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
                         Log.d("WikiViewModel", "Resuming wiki: $key, loaded=$isLoaded")
-                        
+
                         // Resume the WebView without triggering a reload
                         webView.onResume()
                         WebViewCache.resumeWebView(key)
-                        
+
                         ThreadManager.runOnBackground {
                             try {
                                 // Update favicon if available
@@ -285,7 +293,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                                 e.printStackTrace()
                             }
                         }
-                        
+
                         // Save current wiki to preferences
                         context.dataStore.edit { preferences ->
                             preferences[PreferencesKeys.CURRENT_WIKI] = wikiToJson(wiki)
@@ -352,7 +360,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             // Create WebView configuration on background thread
             val webViewConfig = WebViewSetupConfig(wiki, context)
-            
+
             // Switch to main thread for actual WebView creation
             withContext(Dispatchers.Main) {
                 getOrCreateWebView(wiki, context)
@@ -363,38 +371,38 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     // Improved WebView creation with better error handling and reload protection
     fun getOrCreateWebView(wiki: WikiInstance, context: Context): WebView {
         val key = wiki.idFromUrl ?: wiki.url
-        
+
         // Check if we already have a cached WebView
         WebViewCache.getCachedWebView(key)?.let { cachedWebView ->
             return cachedWebView
         }
-        
+
         return webViewCache[key] ?: synchronized(this) {
             webViewCache[key]?.let { return it }
-            
+
             val webView = MainActivity.createWebView(context).apply {
                 settings.apply {
                     // Force this to be true initially to avoid crashes
                     blockNetworkImage = true
                     loadsImagesAutomatically = false
-                    
+
                     // CRITICAL: Set correct MIME type handling for HTML
                     defaultTextEncodingName = "UTF-8"
-                    
+
                     // Ensure media types are handled properly
                     mediaPlaybackRequiresUserGesture = false
-                    
+
                     // Make sure JS can run
                     javaScriptEnabled = true
                     domStorageEnabled = true
-                    
+
                     // Fix for raw HTML display issue
                     mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                    
+
                     // Ensure proper rendering of content
                     useWideViewPort = true
                     loadWithOverviewMode = true
-                    
+
                     // For large wikis, use modern cache APIs instead of deprecated ones
                     try {
                         domStorageEnabled = true
@@ -404,26 +412,26 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                         e.printStackTrace()
                     }
                 }
-                
+
                 // Create a custom WebViewClient that handles reload loops
                 webViewClient = object : WebViewClient() {
                     private var isInitialLoad = true
                     private var hasInjectedReloadProtection = false
-                    
+
                     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                         super.onPageStarted(view, url, favicon)
-                        
+
                         // Track reloads to detect loops
                         if (url != null && !isInitialLoad) {
                             val now = System.currentTimeMillis()
                             val previousReloads = reloadTracker[url] ?: 0L
                             val reloadCount = previousReloads + 1
                             reloadTracker[url] = reloadCount
-                            
+
                             // If too many reloads in short period, inject protection
                             if (reloadCount >= MAX_RELOADS_IN_WINDOW && !hasInjectedReloadProtection) {
                                 hasInjectedReloadProtection = true
-                                
+
                                 ThreadManager.runOnMain {
                                     // Inject reload protection script
                                     view?.evaluateJavascript("""
@@ -476,28 +484,28 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                                 }
                             }
                         }
-                        
+
                         isInitialLoad = false
                         _isWebViewReady.value = false
-                        
+
                         favicon?.let { bitmap ->
                             setFavicon(wiki.url, bitmap)
                         }
                     }
-                    
+
                     override fun onPageFinished(view: WebView?, url: String?) {
                         super.onPageFinished(view, url)
-                        
+
                         // Reset reload tracking after a successful page load
                         if (url != null) {
                             reloadTracker.remove(url)
                         }
-                        
+
                         view?.post {
                             view.settings.loadsImagesAutomatically = true
                             view.settings.blockNetworkImage = false
                             _isWebViewReady.value = true
-                            
+
                             // Inject optimization for large wikis
                             view.evaluateJavascript("""
                                 (function() {
@@ -555,11 +563,11 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                             """.trimIndent(), null)
                         }
                     }
-                    
+
                     // Fix content type issues for large wikis
                     override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                         val url = request?.url?.toString() ?: return null
-                        
+
                         // Intercept main page to ensure proper content handling
                         if (url == wiki.url) {
                             try {
@@ -568,28 +576,28 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                                 connection.connectTimeout = 10000
                                 connection.readTimeout = 15000
                                 connection.connect()
-                                
+
                                 // Always serve HTML content for the main wiki URL
                                 return WebResourceResponse(
-                                    "text/html", 
-                                    "UTF-8", 
+                                    "text/html",
+                                    "UTF-8",
                                     connection.getInputStream()
                                 )
                             } catch (e: Exception) {
-                e.printStackTrace()
+                                e.printStackTrace()
                             }
                         }
-                        
+
                         // Block potential problem resources
                         if (url.contains("analytics") || url.contains("tracking") ||
                             url.contains("google-analytics") || url.contains("facebook") ||
                             url.contains("refresh.js") || url.contains("reload.js")) {
                             return WebResourceResponse("text/plain", "UTF-8", "".byteInputStream())
                         }
-                        
+
                         return null
                     }
-                    
+
                     override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                         super.onReceivedError(view, request, error)
                         if (request?.isForMainFrame == true) {
@@ -597,7 +605,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                         }
                     }
                 }
-                
+
                 // Only load for NEW webviews (not cached/restored ones)
                 post {
                     try {
@@ -609,7 +617,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                                 }
                                 applyWikiSizeOptimizations(this@apply, strategy)
                             }
-                            
+
                             // Only load URL for NEWLY CREATED webviews
                             ThreadManager.runOnMain {
                                 loadUrl(wiki.url)
@@ -622,7 +630,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                     }
                 }
             }
-            
+
             // Cache the WebView
             webViewCache[key] = webView
             WebViewCache.cacheWebView(key, webView)
@@ -688,15 +696,15 @@ class WikiViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch {
             val newList = _allWikis.value.filter { it.url != wiki.url }
             _allWikis.value = newList
-            
+
             // Clear current wiki if it was the one deleted
             if (_currentWiki.value?.url == wiki.url) {
                 _currentWiki.value = newList.firstOrNull()
             }
-            
+
             // Save the updated list
             saveWikis(newList)
-            
+
             // Remove from WebView cache
             webViewCache.remove(wiki.url)
             WebViewCache.removeCachedWebView(wiki.url)
@@ -747,7 +755,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
             null
         }
     }
-    
+
     fun reorderWikis(from: Int, to: Int) {
         val newList = _allWikis.value.toMutableList()
         val wiki = newList.removeAt(from)
@@ -857,15 +865,15 @@ class WikiViewModel(private val context: Context) : ViewModel() {
      */
     fun analyzeWikiSize(wiki: WikiInstance): Flow<WikiLoadStrategy> = flow {
         emit(WikiLoadStrategy.INITIALIZING)
-        
+
         try {
             val url = URL(wiki.url)
             val connection = url.openConnection()
             connection.connectTimeout = 5000
-            
+
             // Check content length if available
             val contentLength = connection.contentLength
-            
+
             if (contentLength > 5 * 1024 * 1024) { // Larger than 5MB
                 emit(WikiLoadStrategy.LARGE_WIKI)
             } else if (contentLength > 1 * 1024 * 1024) { // Larger than 1MB
@@ -887,7 +895,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
             WikiLoadStrategy.LARGE_WIKI -> {
                 // Apply aggressive optimizations
                 webView.settings.blockNetworkImage = true // Defer image loading
-                
+
                 // Inject JavaScript to optimize large wiki
                 webView.evaluateJavascript("""
                     // Adapt TiddlyWiki for large content
@@ -902,17 +910,17 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                     }
                 """.trimIndent(), null)
             }
-            
+
             WikiLoadStrategy.MEDIUM_WIKI -> {
                 // Medium optimizations
                 webView.settings.blockNetworkImage = false
             }
-            
+
             WikiLoadStrategy.SMALL_WIKI -> {
                 // Small wiki - normal loading
                 webView.settings.blockNetworkImage = false
             }
-            
+
             else -> {} // No action for initializing state
         }
     }
@@ -938,24 +946,175 @@ class WikiViewModel(private val context: Context) : ViewModel() {
             }
         }
     }
-    
+
     // Reduce memory usage during low memory conditions
     fun reduceMemoryUsage() {
         ThreadManager.runOnBackground {
             // Clear WebView caches except for current wiki
             webViewCache.clearAllExcept(currentWiki.value?.url)
-            
+
             // Force garbage collection
             System.gc()
         }
     }
-    
+
     // Recycle WebView when it's no longer needed
     fun recycleWebView(wikiKey: String) {
         viewModelScope.launch(Dispatchers.IO) {
             WebViewCache.removeCachedWebView(wikiKey)
             webViewCache.remove(wikiKey)
             System.gc()
+        }
+    }
+
+    /**
+     * Load tiddler templates from the assets/tiddler_templates folder
+     */
+    fun loadTiddlerTemplates(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // List template files in the assets/tiddler_templates directory
+                val templateFiles = context.assets.list("tiddler_templates") ?: emptyArray()
+                val templates = mutableListOf<TiddlerTemplate>()
+
+                for (fileName in templateFiles) {
+                    if (fileName.endsWith(".html")) {
+                        // Read the first few lines to extract metadata
+                        val inputStream = context.assets.open("tiddler_templates/$fileName")
+                        val reader = inputStream.bufferedReader()
+                        val firstLines = buildString {
+                            repeat(10) {
+                                append(reader.readLine() ?: "")
+                                append("\n")
+                            }
+                        }
+
+                        // Try to extract title and description from the HTML
+                        val title = extractTitle(firstLines) ?: fileName.removeSuffix(".html")
+                        val description = extractDescription(firstLines)
+
+                        templates.add(TiddlerTemplate(
+                            name = title,
+                            fileName = fileName,
+                            description = description
+                        ))
+
+                        reader.close()
+                        inputStream.close()
+                    }
+                }
+
+                withContext(Dispatchers.Main) {
+                    _tiddlerTemplates.value = templates
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    _tiddlerTemplates.value = emptyList()
+                }
+            }
+        }
+    }
+
+    /**
+     * Extract title from HTML content
+     */
+    private fun extractTitle(htmlContent: String): String? {
+        val titleRegex = "<title>(.*?)</title>".toRegex()
+        val match = titleRegex.find(htmlContent)
+        return match?.groupValues?.get(1)
+    }
+
+    /**
+     * Extract description from HTML content (looks for meta description tag)
+     */
+    private fun extractDescription(htmlContent: String): String? {
+        val descRegex = "<meta\\s+name=[\"']description[\"']\\s+content=[\"'](.*?)[\"']".toRegex()
+        val match = descRegex.find(htmlContent)
+        return match?.groupValues?.get(1)
+    }
+
+    /**
+     * Create a single file tiddler based on the selected template
+     */
+    fun createSingleFileTiddler(context: Context, template: TiddlerTemplate) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // Create a unique filename for the new tiddler
+                val timestamp = System.currentTimeMillis()
+                val fileName = "${template.name.replace(" ", "_")}_$timestamp.html"
+
+                // Get the documents directory
+                val documentsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+                val tidWebDir = File(documentsDir, "TidWeb")
+                if (!tidWebDir.exists()) {
+                    tidWebDir.mkdirs()
+                }
+
+                // Create the output file
+                val outputFile = File(tidWebDir, fileName)
+
+                // Copy the template content to the new file
+                val inputStream = context.assets.open("tiddler_templates/${template.fileName}")
+                val outputStream = outputFile.outputStream()
+
+                inputStream.copyTo(outputStream)
+
+                inputStream.close()
+                outputStream.close()
+
+                // Create a Uri for the new file
+                val fileUri = Uri.fromFile(outputFile)
+
+                val fileUrlString = fileUri.toString()
+
+                // Add the new tiddler to the list of wikis
+                val newWiki = WikiInstance(
+                    name = template.name,
+                    url = fileUrlString
+                )
+
+                withContext(Dispatchers.Main) {
+                    // Add the wiki to the list
+                    addWiki(newWiki.name, newWiki.url)
+
+                    // Set it as the current wiki
+                    setCurrentWiki(newWiki)
+
+                    // Show a success message using a safe context (ActivityContext)
+                    if (context is androidx.activity.ComponentActivity) {
+                        Toast.makeText(
+                            context,
+                            "Created new tiddler: ${template.name}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        // Use application context as fallback
+                        Toast.makeText(
+                            context.applicationContext,
+                            "Created new tiddler: ${template.name}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    if (context is androidx.activity.ComponentActivity) {
+                        Toast.makeText(
+                            context,
+                            "Error creating tiddler: ${e.message}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        Toast.makeText(
+                            context.applicationContext,
+                            "Error creating tiddler: ${e.message}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }
         }
     }
 }

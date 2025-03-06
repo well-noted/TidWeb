@@ -1046,6 +1046,7 @@ fun MainScreen(
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showShareMenu by remember { mutableStateOf(false) }
     var showTagManagement by remember { mutableStateOf(false) }
+    var showTemplateSelectionDialog by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -1164,6 +1165,14 @@ fun MainScreen(
                                         onAddClick()
                                     }
                                 )
+                                
+                                DropdownMenuItem(
+                                    text = { Text("Create Single File Tiddler") },
+                                    onClick = {
+                                        showMenu = false
+                                        showTemplateSelectionDialog = true
+                                    }
+                                )
 
                                 DropdownMenuItem(
                                     text = { Text("Manage Quick Tags") },
@@ -1183,7 +1192,7 @@ fun MainScreen(
 
                                 if (currentWiki != null) {
                                     DropdownMenuItem(
-                                        text = { Text("Delete wiki", color = MaterialTheme.colorScheme.error) },
+                                        text = { Text("Delete this Wiki", color = MaterialTheme.colorScheme.error) },
                                         onClick = {
                                             showMenu = false
                                             showDeleteConfirmDialog = true
@@ -1263,10 +1272,19 @@ fun MainScreen(
         }
 
         if (showDeleteConfirmDialog && currentWiki != null) {
+            val isLocalFile = currentWiki?.url?.startsWith("file:") == true || 
+                              currentWiki?.url?.startsWith("content:") == true
+
             AlertDialog(
                 onDismissRequest = { showDeleteConfirmDialog = false },
                 title = { Text("Delete Wiki") },
-                text = { Text("Are you sure you want to delete '${currentWiki?.name}'?") },
+                text = { 
+                    if (isLocalFile) {
+                        Text("Are you sure you want to remove '${currentWiki?.name}' from the list? The file itself will not be deleted.")
+                    } else {
+                        Text("Are you sure you want to delete '${currentWiki?.name}'?") 
+                    }
+                },
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -1274,7 +1292,7 @@ fun MainScreen(
                             showDeleteConfirmDialog = false
                         }
                     ) {
-                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                        Text(if (isLocalFile) "Remove from list" else "Delete", color = MaterialTheme.colorScheme.error)
                     }
                 },
                 dismissButton = {
@@ -1292,6 +1310,16 @@ fun MainScreen(
                 onRemoveTag = { viewModel.removeQuickTag(it) },
                 onReorderTags = { from, to -> viewModel.reorderQuickTags(from, to) },
                 onDismiss = { showTagManagement = false }
+            )
+        }
+        
+        if (showTemplateSelectionDialog) {
+            TiddlerTemplateSelectionDialog(
+                onDismiss = { showTemplateSelectionDialog = false },
+                onTemplateSelected = { template ->
+                    showTemplateSelectionDialog = false
+                    viewModel.createSingleFileTiddler(context, template)
+                }
             )
         }
     }
@@ -1329,10 +1357,7 @@ fun AddWikiDialog(
                 
                 TextField(
                     value = url,
-                    onValueChange = { 
-                        url = it
-                        error = null 
-                    },
+                    onValueChange = { url = it; error = null },
                     label = { Text("Wiki URL") },
                     placeholder = { Text("e.g., http://example.com or 192.168.1.1:8080") },
                     modifier = Modifier.fillMaxWidth(),
@@ -1590,6 +1615,82 @@ fun TagManagementDialog(
         confirmButton = {
             TextButton(onClick = onDismiss) {
                 Text(text = "Done")
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TiddlerTemplateSelectionDialog(
+    onDismiss: () -> Unit,
+    onTemplateSelected: (TiddlerTemplate) -> Unit
+) {
+    val context = LocalContext.current
+    val viewModel: WikiViewModel = remember { MainActivity.getViewModel(context) }
+    val templates by viewModel.tiddlerTemplates.collectAsState()
+    var isLoading by remember { mutableStateOf(true) }
+    
+    LaunchedEffect(Unit) {
+        viewModel.loadTiddlerTemplates(context)
+        isLoading = false
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select Tiddler Template") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            ) {
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                } else if (templates.isEmpty()) {
+                    Text(
+                        text = "No templates found. Please add template files to the assets/tiddler_templates folder.",
+                        modifier = Modifier.padding(16.dp)
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(templates) { template ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onTemplateSelected(template) }
+                                    .padding(16.dp)
+                            ) {
+                                Text(
+                                    text = template.name,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = template.description ?: "",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Divider()
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
             }
         }
     )

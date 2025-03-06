@@ -4,10 +4,15 @@ import java.net.URL
 
 data class WikiInstance(
     val name: String,
-    private val _url: String,
+    val url: String,
     val id: String? = null
 ) {
-    val url: String = formatUrl(_url)
+    // Use the provided URL after formatting it
+    val formattedUrl: String = formatUrl(url)
+    
+    // For backward compatibility - some places in the code might still use the url property
+    // but we want it to always return the formatted URL
+    val idFromUrl: String? get() = id ?: url
 
     companion object {
         fun formatUrl(input: String): String {
