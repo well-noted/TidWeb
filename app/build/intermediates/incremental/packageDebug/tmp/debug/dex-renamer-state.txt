@@ -1,19 +1,22 @@
-#Wed Mar 05 18:55:51 MST 2025
+#Wed Mar 05 20:30:57 MST 2025
 base.0=C\:\\Users\\tetuo\\TidWeb-main\\Backup\\Refactor\\TidWeb\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes.dex
 base.1=C\:\\Users\\tetuo\\TidWeb-main\\Backup\\Refactor\\TidWeb\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\0\\classes.dex
 base.2=C\:\\Users\\tetuo\\TidWeb-main\\Backup\\Refactor\\TidWeb\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\14\\classes.dex
 base.3=C\:\\Users\\tetuo\\TidWeb-main\\Backup\\Refactor\\TidWeb\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\1\\classes.dex
 base.4=C\:\\Users\\tetuo\\TidWeb-main\\Backup\\Refactor\\TidWeb\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes2.dex
 base.5=C\:\\Users\\tetuo\\TidWeb-main\\Backup\\Refactor\\TidWeb\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes3.dex
+base.6=C\:\\Users\\tetuo\\TidWeb-main\\Backup\\Refactor\\TidWeb\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\3\\classes.dex
 path.0=classes.dex
 path.1=0/classes.dex
 path.2=14/classes.dex
 path.3=1/classes.dex
 path.4=classes2.dex
 path.5=classes3.dex
+path.6=3/classes.dex
 renamed.0=classes.dex
 renamed.1=classes2.dex
 renamed.2=classes3.dex
 renamed.3=classes4.dex
 renamed.4=classes5.dex
 renamed.5=classes6.dex
+renamed.6=classes7.dex

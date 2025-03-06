@@ -14,6 +14,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.net.http.SslError
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -85,6 +86,11 @@ import androidx.lifecycle.ViewModel
 import android.webkit.WebChromeClient
 import android.webkit.JsResult
 import android.webkit.JavascriptInterface
+import android.webkit.SslErrorHandler
+import com.tiddlywikibrowser.model.TiddlerTemplate
+import androidx.compose.ui.draw.alpha
+import kotlin.math.absoluteValue
+import androidx.compose.animation.AnimatedVisibilityScope
 
 // Memory threshold for optimization (50MB)
 private const val MEMORY_THRESHOLD = 50L * 1024L * 1024L
@@ -114,6 +120,10 @@ class MainActivity : ComponentActivity() {
     private var showDeleteConfirmDialog by mutableStateOf(false)
     private var showShareMenu by mutableStateOf(false)
     private var showTagManagement by mutableStateOf(false)
+    
+    // Add these properties for error handling
+    private var showLoadErrorDialog by mutableStateOf(false)
+    private var loadErrorWiki: WikiInstance? = null
 
     // Add method to access current WebView
     fun getCurrentWebView(): WebView? {
@@ -268,7 +278,7 @@ class MainActivity : ComponentActivity() {
                                 setTimeout(function() {
                                     const evt = new Event('resize');
                                     window.dispatchEvent(evt);
-                                }, 100);
+                                }, );
                             });
                             
                             // Throttle heavy operations
@@ -461,7 +471,6 @@ class MainActivity : ComponentActivity() {
                 // Add error handling to prevent WebView crashes
                 override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                     super.onReceivedError(view, request, error)
-                    // Don't load error pages for non-main frame errors
                     if (request?.isForMainFrame == true) {
                         ThreadManager.runOnMain {
                             view?.loadUrl("about:blank")
@@ -474,6 +483,42 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
+                }
+
+                override fun onReceivedHttpError(
+                    view: WebView?,
+                    request: WebResourceRequest?,
+                    errorResponse: WebResourceResponse?
+                ) {
+                    super.onReceivedHttpError(view, request, errorResponse)
+                    if (request?.isForMainFrame == true) {
+                        ThreadManager.runOnMain {
+                            // Show error dialog through MainActivity
+                            (context as? MainActivity)?.let { activity ->
+                                activity.viewModel?.currentWiki?.value?.let { wiki ->
+                                    activity.loadErrorWiki = wiki
+                                    activity.showLoadErrorDialog = true
+                                }
+                            }
+                        }
+                    }
+                }
+
+                override fun onReceivedSslError(
+                    view: WebView?,
+                    handler: SslErrorHandler?,
+                    error: SslError?
+                ) {
+                    ThreadManager.runOnMain {
+                        // Show error dialog through MainActivity
+                        (context as? MainActivity)?.let { activity ->
+                            activity.viewModel?.currentWiki?.value?.let { wiki ->
+                                activity.loadErrorWiki = wiki
+                                activity.showLoadErrorDialog = true
+                            }
+                        }
+                    }
+                    handler?.cancel()
                 }
 
                 // Add this to prevent navigation that might close the app
@@ -614,6 +659,37 @@ class MainActivity : ComponentActivity() {
         val localContext = LocalContext.current as ComponentActivity
         val viewModel = ViewModelProvider(localContext)[WikiViewModel::class.java]
         
+        // Add error handling dialog
+        if (showLoadErrorDialog && loadErrorWiki != null) {
+            AlertDialog(
+                onDismissRequest = { 
+                    showLoadErrorDialog = false
+                    loadErrorWiki = null
+                },
+                title = { Text("Failed to Load Wiki") },
+                text = { Text("Unable to load ${loadErrorWiki?.name}. Would you like to try again?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        loadErrorWiki?.let { wiki ->
+                            viewModel.setCurrentWiki(wiki)
+                        }
+                        showLoadErrorDialog = false
+                        loadErrorWiki = null
+                    }) {
+                        Text("Try Again")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { 
+                        showLoadErrorDialog = false
+                        loadErrorWiki = null
+                    }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
         // This is the top-level MainScreen that contains all UI elements
         MainScreen(
             viewModel = viewModel,
@@ -822,21 +898,29 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleWikiSelection(selectedWiki: WikiInstance, textToShare: String?, selectedTags: List<String>) {
-        // Use ThreadManager for smoother transitions
         lifecycleScope.launch {
-            // First, show loading state in UI
-            withContext(Dispatchers.Main) {
-                // Show loading indicator (implementation not shown)
-            }
+            try {
+                // First, show loading state in UI
+                withContext(Dispatchers.Main) {
+                    // Show loading indicator (implementation not shown)
+                }
 
-            // Preload in background
-            withContext(Dispatchers.IO) {
-                viewModel?.preloadWebView(selectedWiki, this@MainActivity)
-            }
+                // Preload in background
+                withContext(Dispatchers.IO) {
+                    viewModel?.preloadWebView(selectedWiki, this@MainActivity)
+                }
 
-            // Then update UI
-            withContext(Dispatchers.Main) {
-                viewModel?.setCurrentWiki(selectedWiki)
+                // Then update UI
+                withContext(Dispatchers.Main) {
+                    viewModel?.setCurrentWiki(selectedWiki)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    // Show error dialog
+                    loadErrorWiki = selectedWiki
+                    showLoadErrorDialog = true
+                }
             }
         }
     }
@@ -995,7 +1079,10 @@ class MainActivity : ComponentActivity() {
                 val currentWikiUrl = viewModel?.currentWiki?.value?.url
                 currentWikiUrl?.let { url ->
                     viewModel?.getOrCreateWebView(viewModel?.currentWiki?.value ?: return@let, this)?.let { webView ->
-                        // Trigger layout update after orientation change with better error handling
+                        // Get current orientation
+                        val isPortrait = newConfig.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
+
+                        // Trigger layout update with orientation awareness
                         webView.evaluateJavascript("""
                         (function() {
                             // Force layout recalculation
@@ -1003,25 +1090,39 @@ class MainActivity : ComponentActivity() {
                             const evt = new Event('resize');
                             window.dispatchEvent(evt);
                             
-                            // Safely check if TiddlyWiki is available and call resizeAll
-                            try {
-                                if (typeof window !== 'undefined' && 
-                                    window.${"$"}tw && 
-                                    typeof window.${"$"}tw.utils === 'object' && 
-                                    typeof window.${"$"}tw.utils.resizeAll === 'function') {
-                                    window.${"$"}tw.utils.resizeAll();
-                                    return "TW resize successful";
-                                } else {
-                                    console.log('TiddlyWiki not fully initialized yet');
-                                    return "TW not ready";
+                            // Handle orientation-specific resizing
+                            const isPortrait = ${isPortrait};
+                            
+                            // Safely check if TiddlyWiki is available
+                            if (typeof window !== 'undefined' && 
+                                window.${"$"}tw && 
+                                typeof window.${"$"}tw.utils === 'object') {
+                                
+                                try {
+                                    if (isPortrait) {
+                                        // In portrait mode, use window resize event for better content flow
+                                        window.${"$"}tw.utils.resizeAll();
+                                        // Additional portrait-specific adjustments
+                                        document.body.classList.add('tc-portrait-mode');
+                                        document.body.classList.remove('tc-landscape-mode');
+                                    } else {
+                                        // In landscape mode, use TiddlyWiki's resize utils
+                                        window.${"$"}tw.utils.resizeAll();
+                                        // Additional landscape-specific adjustments
+                                        document.body.classList.add('tc-landscape-mode');
+                                        document.body.classList.remove('tc-portrait-mode');
+                                    }
+                                    return "TiddlyWiki resized for " + (isPortrait ? "portrait" : "landscape");
+                                } catch(e) {
+                                    console.error('TiddlyWiki resize error:', e);
+                                    return "Error: " + e.message;
                                 }
-                            } catch(e) {
-                                console.error('TiddlyWiki resize error:', e);
-                                return "TW resize error: " + e.message;
+                            } else {
+                                console.log('TiddlyWiki not fully initialized yet');
+                                return "TiddlyWiki not ready";
                             }
                         })();
                     """) { result ->
-                            // Log the result for debugging if needed
 
                         }
                     }
@@ -1061,9 +1162,18 @@ fun MainScreen(
     var showTagManagement by remember { mutableStateOf(false) }
     var showTemplateSelectionDialog by remember { mutableStateOf(false) }
 
+    var draggedWiki by remember { mutableStateOf<WikiInstance?>(null) }
+    var isDragging by remember { mutableStateOf(false) }
+    var dragOffset by remember { mutableStateOf(0f) }
+    var showTrashCan by remember { mutableStateOf(false) }
+    val trashCanAlpha by animateFloatAsState(if (showTrashCan) 1f else 0f)
+    val dragStartTime = remember { mutableStateOf(0L) }
+    val holdThreshold = 500L // 500ms hold time to show trash can
+    var wikiToDelete by remember { mutableStateOf<WikiInstance?>(null) }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            AnimatedVisibility(
+            androidx.compose.animation.AnimatedVisibility(
                 visible = isFrameVisible,
                 enter = slideInVertically(
                     initialOffsetY = { -it },
@@ -1237,7 +1347,7 @@ fun MainScreen(
                 }
             }
 
-            AnimatedVisibility(
+            androidx.compose.animation.AnimatedVisibility(
                 visible = isFrameVisible,
                 enter = slideInVertically(
                     initialOffsetY = { it },
@@ -1248,35 +1358,111 @@ fun MainScreen(
                     animationSpec = tween(300, easing = FastOutSlowInEasing)
                 )
             ) {
-                Surface(
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 3.dp,
-                    shadowElevation = 3.dp
-                ) {
-                    NavigationBar {
-                        if (wikis.isEmpty()) {
-                            NavigationBarItem(
-                                icon = { Icon(Icons.Default.Add, contentDescription = "Add Wiki") },
-                                label = { Text("Add Wiki") },
-                                selected = false,
-                                onClick = onAddClick
+                Box {
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = showTrashCan,
+                        enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+                        exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(bottom = 8.dp)
+                    ) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
+                            shape = CircleShape,
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .size(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete wiki",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier
+                                    .padding(12.dp)
+                                    .alpha(trashCanAlpha)
                             )
-                        } else {
-                            wikis.forEach { wiki ->
+                        }
+                    }
+
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 3.dp,
+                        shadowElevation = 3.dp
+                    ) {
+                        NavigationBar {
+                            if (wikis.isEmpty()) {
                                 NavigationBarItem(
-                                    icon = {
-                                        viewModel.faviconMap.collectAsState().value[wiki.url]?.let { favicon ->
-                                            Image(
-                                                bitmap = favicon.asImageBitmap(),
-                                                contentDescription = wiki.name,
-                                                modifier = Modifier.size(24.dp)
-                                            )
-                                        } ?: Icon(Icons.Default.Description, contentDescription = wiki.name)
-                                    },
-                                    label = { Text(wiki.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                    selected = currentWiki?.url == wiki.url,
-                                    onClick = { viewModel.setCurrentWiki(wiki) }
+                                    icon = { Icon(Icons.Default.Add, contentDescription = "Add Wiki") },
+                                    label = { Text("Add Wiki") },
+                                    selected = false,
+                                    onClick = onAddClick
                                 )
+                            } else {
+                                wikis.forEachIndexed { index, wiki ->
+                                    val isSelected = wiki == currentWiki
+                                    var offsetX by remember { mutableStateOf(0f) }
+                                    
+                                    NavigationBarItem(
+                                        icon = { 
+                                            Icon(
+                                                Icons.Default.Book,
+                                                contentDescription = wiki.name,
+                                                modifier = Modifier
+                                                    .pointerInput(Unit) {
+                                                        detectDragGestures(
+                                                            onDragStart = { offset ->
+                                                                dragStartTime.value = System.currentTimeMillis()
+                                                                draggedWiki = wiki
+                                                                isDragging = true
+                                                            },
+                                                            onDrag = { change, dragAmount ->
+                                                                change.consume()
+                                                                offsetX += dragAmount.x
+                                                                dragOffset = offsetX
+                                                                
+                                                                // Show trash can after hold threshold
+                                                                if (System.currentTimeMillis() - dragStartTime.value > holdThreshold) {
+                                                                    showTrashCan = true
+                                                                }
+                                                            },
+                                                            onDragEnd = {
+                                                                // Check if dragged to trash can position
+                                                                if (showTrashCan && dragOffset.absoluteValue < 100) {
+                                                                    wikiToDelete = draggedWiki
+                                                                    showDeleteConfirmDialog = true
+                                                                } else {
+                                                                    // Calculate new position
+                                                                    val dragDistance = dragOffset
+                                                                    val itemWidth = size.width.toFloat()
+                                                                    val newPosition = (dragDistance / itemWidth).roundToInt()
+                                                                    
+                                                                    if (newPosition != 0) {
+                                                                        val targetIndex = (index + newPosition).coerceIn(0, wikis.size - 1)
+                                                                        if (targetIndex != index) {
+                                                                            viewModel.reorderWikis(index, targetIndex)
+                                                                        }
+                                                                    }
+                                                                }
+                                                                
+                                                                // Reset states
+                                                                draggedWiki = null
+                                                                isDragging = false
+                                                                dragOffset = 0f
+                                                                offsetX = 0f
+                                                                showTrashCan = false
+                                                            }
+                                                        )
+                                                    }
+                                                    .offset { IntOffset(offsetX.roundToInt(), 0) }
+                                                    .scale(if (isDragging && draggedWiki == wiki) 1.1f else 1f)
+                                            )
+                                        },
+                                        label = { Text(wiki.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                        selected = isSelected,
+                                        onClick = { viewModel.setCurrentWiki(wiki) }
+                                    )
+                                }
                             }
                         }
                     }
@@ -1284,54 +1470,41 @@ fun MainScreen(
             }
         }
 
-        if (showDeleteConfirmDialog && currentWiki != null) {
-            val isLocalFile = currentWiki?.url?.startsWith("file:") == true || 
-                              currentWiki?.url?.startsWith("content:") == true
-
-            AlertDialog(
-                onDismissRequest = { showDeleteConfirmDialog = false },
-                title = { Text("Delete Wiki") },
-                text = { 
-                    if (isLocalFile) {
-                        Text("Are you sure you want to remove '${currentWiki?.name}' from the list? The file itself will not be deleted.")
-                    } else {
-                        Text("Are you sure you want to delete '${currentWiki?.name}'?") 
-                    }
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            currentWiki?.let { viewModel.deleteWiki(it) }
-                            showDeleteConfirmDialog = false
-                        }
-                    ) {
-                        Text(if (isLocalFile) "Remove from list" else "Delete", color = MaterialTheme.colorScheme.error)
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                        Text("Cancel")
-                    }
-                }
-            )
-        }
-
-        if (showTagManagement) {
-            TagManagementDialog(
-                tags = viewModel.quickTags.collectAsState().value,
-                onAddTag = { viewModel.addQuickTag(it) },
-                onRemoveTag = { viewModel.removeQuickTag(it) },
-                onReorderTags = { from, to -> viewModel.reorderQuickTags(from, to) },
-                onDismiss = { showTagManagement = false }
-            )
-        }
-        
         if (showTemplateSelectionDialog) {
             TiddlerTemplateSelectionDialog(
                 onDismiss = { showTemplateSelectionDialog = false },
                 onTemplateSelected = { template ->
                     showTemplateSelectionDialog = false
                     viewModel.createSingleFileTiddler(context, template)
+                }
+            )
+        }
+
+        if (showDeleteConfirmDialog && (wikiToDelete != null || currentWiki != null)) {
+            val wiki = wikiToDelete ?: currentWiki
+            AlertDialog(
+                onDismissRequest = { 
+                    showDeleteConfirmDialog = false
+                    wikiToDelete = null
+                },
+                title = { Text("Delete Wiki") },
+                text = { Text("Are you sure you want to delete '${wiki?.name}'?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        wiki?.let { viewModel.deleteWiki(it) }
+                        showDeleteConfirmDialog = false
+                        wikiToDelete = null
+                    }) {
+                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { 
+                        showDeleteConfirmDialog = false 
+                        wikiToDelete = null
+                    }) {
+                        Text("Cancel")
+                    }
                 }
             )
         }

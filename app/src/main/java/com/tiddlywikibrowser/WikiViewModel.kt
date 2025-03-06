@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -29,6 +30,7 @@ import android.net.Uri
 import android.os.Environment
 import android.widget.Toast
 import java.io.File
+import com.tiddlywikibrowser.model.TiddlerTemplate
 
 /**
  * WebViewClient specifically designed to handle and fix raw HTML content
@@ -58,6 +60,37 @@ private class RawHtmlFixingWebViewClient(private val originalUrl: String) : WebV
         }
 
         return null
+    }
+}
+
+// Extension function for Map to help with clearing WebViews
+private fun MutableMap<String, WebView>.clearAllExcept(currentId: String?) {
+    val keysToRemove = keys.filter { it != currentId }
+    keysToRemove.forEach { key ->
+        this[key]?.let { webView ->
+            try {
+                webView.stopLoading()
+                webView.clearHistory()
+                webView.loadUrl("about:blank")
+                webView.removeAllViews()
+                webView.destroy()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        remove(key)
+    }
+}
+
+// Extension function for Map to help with recycling WebViews
+private fun MutableMap<String, WebView>.recycle(key: String) {
+    this[key]?.let { webView ->
+        try {
+            (webView.parent as? ViewGroup)?.removeView(webView)
+            webView.onPause()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }
 
@@ -93,7 +126,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
 
     // Add tiddler templates state
     private val _tiddlerTemplates = MutableStateFlow<List<TiddlerTemplate>>(emptyList())
-    val tiddlerTemplates: StateFlow<List<TiddlerTemplate>> = _tiddlerTemplates
+    val tiddlerTemplates: StateFlow<List<TiddlerTemplate>> = _tiddlerTemplates.asStateFlow()
 
     // Add this property to track WebView initialization state
     private val _isWebViewReady = MutableStateFlow(false)
@@ -823,37 +856,6 @@ class WikiViewModel(private val context: Context) : ViewModel() {
         ThreadManager.runOnBackground {
             try {
                 context.cacheDir.deleteRecursively()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    // Helper method to clear all WebViews except the current one
-    fun MutableMap<String, WebView>.clearAllExcept(currentId: String?) {
-        val keysToRemove = keys.filter { it != currentId }
-        keysToRemove.forEach { key ->
-            this[key]?.let { webView ->
-                try {
-                    webView.stopLoading()
-                    webView.clearHistory()
-                    webView.loadUrl("about:blank")
-                    webView.removeAllViews()
-                    webView.destroy()
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-            remove(key)
-        }
-    }
-
-    // Helper method to recycle WebView
-    fun MutableMap<String, WebView>.recycle(key: String) {
-        this[key]?.let { webView ->
-            try {
-                (webView.parent as? ViewGroup)?.removeView(webView)
-                webView.onPause()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
