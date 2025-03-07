@@ -31,6 +31,7 @@ import android.os.Environment
 import android.widget.Toast
 import java.io.File
 import com.tiddlywikibrowser.model.TiddlerTemplate
+import kotlinx.coroutines.delay
 
 /**
  * WebViewClient specifically designed to handle and fix raw HTML content
@@ -137,9 +138,42 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     private val RELOAD_PROTECTION_WINDOW = 5000L // 5 seconds window to detect rapid reloads
     private val MAX_RELOADS_IN_WINDOW = 2 // Maximum number of allowed reloads in the window
 
+    // Add state for crash recovery
+    private val _isRecovering = MutableStateFlow(false)
+    val isRecovering: StateFlow<Boolean> = _isRecovering
+
+    // Add crash tracking
+    private val _lastError = MutableStateFlow<String?>(null)
+    val lastError: StateFlow<String?> = _lastError
+
+    // Add tracking for first wiki load
+    private var isFirstWikiLoad = true
+
+    // Add new property to track first-time single file wiki load
+    private var isInitializingSingleFileWiki = false
+
     init {
-        // Load saved wikis and theme on initialization
+        setupCrashHandler()
         viewModelScope.launch {
+            // Ensure WebView is ready for single file wikis
+            try {
+                // Pre-initialize a blank WebView to ensure WebView subsystem is ready
+                val tempWebView = WebView(context).apply {
+                    settings.apply {
+                        javaScriptEnabled = true
+                        domStorageEnabled = true
+                        allowFileAccess = true
+                        allowContentAccess = true
+                    }
+                    loadUrl("about:blank")
+                }
+                delay(500) // Short delay to let WebView initialize
+                tempWebView.destroy()
+            } catch (e: Exception) {
+                Log.e("WikiViewModel", "Error pre-initializing WebView", e)
+            }
+
+            // Continue with normal initialization
             context.dataStore.data.collect { preferences ->
                 preferences[PreferencesKeys.IS_DARK_MODE]?.let { darkMode ->
                     _isDarkMode.value = darkMode
@@ -161,6 +195,82 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                 loadFavicons(faviconsJson)
 
                 _quickTags.value = parseQuickTags(tagsJson)
+            }
+        }
+    }
+
+    private fun setupCrashHandler() {
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            handleCrash(throwable)
+            defaultHandler?.uncaughtException(thread, throwable)
+        }
+    }
+
+    private fun handleCrash(throwable: Throwable) {
+        viewModelScope.launch(Dispatchers.Main) {
+            try {
+                _isRecovering.value = true
+                _lastError.value = throwable.message ?: "Unknown error"
+
+                // Clear problematic state
+                clearWebViews()
+                _currentWiki.value = null
+
+                // Save crash state to preferences
+                context.dataStore.edit { preferences ->
+                    preferences.remove(PreferencesKeys.CURRENT_WIKI)
+                }
+
+                // Force garbage collection to free memory
+                System.gc()
+
+                // Reset recovery state after a delay
+                delay(1000)
+                _isRecovering.value = false
+            } catch (e: Exception) {
+                // If recovery fails, at least try to clear state
+                _currentWiki.value = null
+                clearWebViews()
+            }
+        }
+    }
+
+    // Add recovery method that can be called from Activity
+    fun recoverFromCrash() {
+        viewModelScope.launch {
+            try {
+                _isRecovering.value = true
+
+                // Clear all WebView state
+                clearWebViews()
+                WebViewCache.clearAll()
+
+                // Clear current wiki to return to home screen
+                _currentWiki.value = null
+
+                // Clear preferences
+                context.dataStore.edit { preferences ->
+                    preferences.remove(PreferencesKeys.CURRENT_WIKI)
+                }
+
+                // Reload wiki list from preferences
+                var newWikiList = emptyList<WikiInstance>()
+                context.dataStore.data.collect { preferences ->
+                    val wikiListJson = preferences[PreferencesKeys.WIKI_LIST] ?: "[]"
+                    newWikiList = parseWikiList(wikiListJson)
+                    _allWikis.value = newWikiList
+                }
+
+                // Clear memory
+                System.gc()
+
+                delay(1000)
+                _isRecovering.value = false
+                _lastError.value = null
+            } catch (e: Exception) {
+                _currentWiki.value = null
+                _lastError.value = "Recovery failed: ${e.message ?: "Unknown error"}"
             }
         }
     }
@@ -259,7 +369,11 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     }
 
     fun addWiki(name: String, url: String) {
-        val newWiki = WikiInstance(name, url)
+        val newWiki = WikiInstance(
+            name = name,
+            url = url,
+            isLocalFile = url.startsWith("file:") || url.startsWith("content:")
+        )
         viewModelScope.launch {
             val newList = _allWikis.value + newWiki
             _allWikis.value = newList
@@ -271,70 +385,152 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     }
 
     fun setCurrentWiki(wiki: WikiInstance?) {
-        if (_currentWiki.value?.url != wiki?.url) {
-            Log.d("WikiViewModel", "Switching wiki to: ${wiki?.name}")
+        viewModelScope.launch {
+            try {
+                if (_currentWiki.value?.url != wiki?.url) {
+                    Log.d("WikiViewModel", "Switching wiki to: ${wiki?.name}")
 
-            // Save current wiki's state before switching
-            _currentWiki.value?.let { currentWiki ->
-                val key = currentWiki.idFromUrl ?: currentWiki.url
-                webViewCache[key]?.let { currentWebView ->
-                    // Ensure we save the "loaded" state with the WebView
-                    val isLoaded = currentWebView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
-                    Log.d("WikiViewModel", "Saving state for previous wiki: $key, loaded=$isLoaded")
+                    // Special handling for first-time single file wiki load
+                    if (isFirstWikiLoad && wiki?.isLocalFile == true) {
+                        Log.d("WikiViewModel", "First load of single file wiki, applying special handling")
+                        isInitializingSingleFileWiki = true
+                        _isWebViewReady.value = false
 
-                    // Cache the current WebView with its full state to preserve it
-                    WebViewCache.cacheWebView(key, currentWebView)
+                        try {
+                            // Create WebView with minimal settings first
+                            val webView = WebView(context).apply {
+                                settings.apply {
+                                    javaScriptEnabled = true
+                                    domStorageEnabled = true
+                                    allowFileAccess = true
+                                    allowContentAccess = true
+                                    defaultTextEncodingName = "UTF-8"
+                                }
+                            }
 
-                    // Pause the WebView to reduce resource usage
-                    currentWebView.onPause()
-                }
-            }
+                            // Setup a basic WebViewClient for initial load
+                            webView.webViewClient = object : WebViewClient() {
+                                override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                                    super.onPageStarted(view, url, favicon)
+                                    Log.d("WikiViewModel", "Initial page load started for single file wiki")
+                                }
 
-            // Update the current wiki
-            _currentWiki.value = wiki
+                                override fun onPageFinished(view: WebView?, url: String?) {
+                                    super.onPageFinished(view, url)
+                                    Log.d("WikiViewModel", "Initial page load finished for single file wiki")
+                                    if (url != "about:blank") {
+                                        view?.post {
+                                            _isWebViewReady.value = true
+                                        }
+                                    }
+                                }
 
-            if (wiki != null) {
-                val key = wiki.idFromUrl ?: wiki.url
-                Log.d("WikiViewModel", "Setting active key: $key")
+                                override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                                    super.onReceivedError(view, request, error)
+                                    Log.e("WikiViewModel", "Error loading single file wiki: ${error?.description}")
+                                    handleCrash(Exception("Failed to load single file wiki: ${error?.description}"))
+                                }
+                            }
 
-                // Set this as the active key in WebViewCache before pausing others
-                WebViewCache.setCurrentActiveKey(key)
+                            // Load blank page first
+                            webView.loadUrl("about:blank")
+                            delay(500)
 
-                // Pause all other WebViews
-                WebViewCache.pauseAllWebViewsExcept(key)
+                            // Now enable full settings
+                            webView.settings.apply {
+                                mediaPlaybackRequiresUserGesture = false
+                                mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                                useWideViewPort = true
+                                loadWithOverviewMode = true
+                                cacheMode = WebSettings.LOAD_NO_CACHE
+                                setGeolocationEnabled(false)
+                            }
 
-                viewModelScope.launch {
-                    try {
-                        // Get or create the WebView (this should restore from cache if available)
-                        val webView = getOrCreateWebView(wiki, context)
+                            // Store in cache
+                            val key = wiki.idFromUrl ?: wiki.url
+                            webViewCache[key] = webView
+                            WebViewCache.cacheWebView(key, webView)
 
-                        // Explicitly ensure we're preserving the loaded state
-                        val isLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
-                        Log.d("WikiViewModel", "Resuming wiki: $key, loaded=$isLoaded")
+                            // Load the actual content
+                            Log.d("WikiViewModel", "Loading single file wiki URL: ${wiki.url}")
+                            webView.loadUrl(wiki.url)
 
-                        // Resume the WebView without triggering a reload
-                        webView.onResume()
-                        WebViewCache.resumeWebView(key)
+                            isFirstWikiLoad = false
+                            isInitializingSingleFileWiki = false
+                        } catch (e: Exception) {
+                            Log.e("WikiViewModel", "Error initializing single file wiki", e)
+                            handleCrash(e)
+                            return@launch
+                        }
+                    }
 
-                        ThreadManager.runOnBackground {
+                    // Save current wiki's state before switching
+                    _currentWiki.value?.let { currentWiki ->
+                        val key = currentWiki.idFromUrl ?: currentWiki.url
+                        webViewCache[key]?.let { currentWebView ->
+                            // Ensure we save the "loaded" state with the WebView
+                            val isLoaded = currentWebView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
+                            Log.d("WikiViewModel", "Saving state for previous wiki: $key, loaded=$isLoaded")
+
+                            // Cache the current WebView with its full state to preserve it
+                            WebViewCache.cacheWebView(key, currentWebView)
+
+                            // Pause the WebView to reduce resource usage
+                            currentWebView.onPause()
+                        }
+                    }
+
+                    // Update the current wiki
+                    _currentWiki.value = wiki
+
+                    if (wiki != null) {
+                        val key = wiki.idFromUrl ?: wiki.url
+                        Log.d("WikiViewModel", "Setting active key: $key")
+
+                        // Set this as the active key in WebViewCache before pausing others
+                        WebViewCache.setCurrentActiveKey(key)
+
+                        // Pause all other WebViews
+                        WebViewCache.pauseAllWebViewsExcept(key)
+
+                        viewModelScope.launch {
                             try {
-                                // Update favicon if available
-                                webView.favicon?.let { bitmap ->
-                                    _faviconMap.value = _faviconMap.value + (wiki.url to bitmap)
+                                // Get or create the WebView (this should restore from cache if available)
+                                val webView = getOrCreateWebView(wiki, context)
+
+                                // Explicitly ensure we're preserving the loaded state
+                                val isLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
+                                Log.d("WikiViewModel", "Resuming wiki: $key, loaded=$isLoaded")
+
+                                // Resume the WebView without triggering a reload
+                                webView.onResume()
+                                WebViewCache.resumeWebView(key)
+
+                                ThreadManager.runOnBackground {
+                                    try {
+                                        // Update favicon if available
+                                        webView.favicon?.let { bitmap ->
+                                            _faviconMap.value = _faviconMap.value + (wiki.url to bitmap)
+                                        }
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    }
+                                }
+
+                                // Save current wiki to preferences
+                                context.dataStore.edit { preferences ->
+                                    preferences[PreferencesKeys.CURRENT_WIKI] = wikiToJson(wiki)
                                 }
                             } catch (e: Exception) {
-                                e.printStackTrace()
+                                Log.e("WikiViewModel", "Error switching wiki: ${e.message}", e)
                             }
                         }
-
-                        // Save current wiki to preferences
-                        context.dataStore.edit { preferences ->
-                            preferences[PreferencesKeys.CURRENT_WIKI] = wikiToJson(wiki)
-                        }
-                    } catch (e: Exception) {
-                        Log.e("WikiViewModel", "Error switching wiki: ${e.message}", e)
                     }
                 }
+            } catch (e: Exception) {
+                Log.e("WikiViewModel", "Error in setCurrentWiki", e)
+                isInitializingSingleFileWiki = false
+                handleCrash(e)
             }
         }
     }
@@ -403,271 +599,333 @@ class WikiViewModel(private val context: Context) : ViewModel() {
 
     // Improved WebView creation with better error handling and reload protection
     fun getOrCreateWebView(wiki: WikiInstance, context: Context): WebView {
-        val key = wiki.idFromUrl ?: wiki.url
+        return try {
+            val key = wiki.idFromUrl ?: wiki.url
 
-        // Check if we already have a cached WebView
-        WebViewCache.getCachedWebView(key)?.let { cachedWebView ->
-            return cachedWebView
-        }
-
-        return webViewCache[key] ?: synchronized(this) {
-            webViewCache[key]?.let { return it }
-
-            val webView = MainActivity.createWebView(context).apply {
-                settings.apply {
-                    // Force this to be true initially to avoid crashes
-                    blockNetworkImage = true
-                    loadsImagesAutomatically = false
-
-                    // CRITICAL: Set correct MIME type handling for HTML
-                    defaultTextEncodingName = "UTF-8"
-
-                    // Ensure media types are handled properly
-                    mediaPlaybackRequiresUserGesture = false
-
-                    // Make sure JS can run
-                    javaScriptEnabled = true
-                    domStorageEnabled = true
-
-                    // Fix for raw HTML display issue
-                    mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-
-                    // Ensure proper rendering of content
-                    useWideViewPort = true
-                    loadWithOverviewMode = true
-
-                    // For large wikis, use modern cache APIs instead of deprecated ones
-                    try {
+            // Special handling for first-time single file wiki
+            if (isInitializingSingleFileWiki) {
+                Log.d("WikiViewModel", "Creating WebView with special handling for single file wiki")
+                
+                return WebView(context).apply {
+                    settings.apply {
+                        // Essential settings first
+                        javaScriptEnabled = true
                         domStorageEnabled = true
-                        // Replace deprecated app cache with modern cache handling
-                        cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+                        allowFileAccess = true
+                        allowContentAccess = true
+                        
+                        // Defer loading of resources initially
+                        blockNetworkImage = true
+                        loadsImagesAutomatically = false
+                        
+                        // No caching for first load
+                        cacheMode = WebSettings.LOAD_NO_CACHE
+                        
+                        // Other essential settings
+                        defaultTextEncodingName = "UTF-8"
+                        useWideViewPort = true
+                        loadWithOverviewMode = true
                     }
-                }
-
-                // Create a custom WebViewClient that handles reload loops
-                webViewClient = object : WebViewClient() {
-                    private var isInitialLoad = true
-                    private var hasInjectedReloadProtection = false
-
-                    override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                        super.onPageStarted(view, url, favicon)
-
-                        // Track reloads to detect loops
-                        if (url != null && !isInitialLoad) {
-                            val now = System.currentTimeMillis()
-                            val previousReloads = reloadTracker[url] ?: 0L
-                            val reloadCount = previousReloads + 1
-                            reloadTracker[url] = reloadCount
-
-                            // If too many reloads in short period, inject protection
-                            if (reloadCount >= MAX_RELOADS_IN_WINDOW && !hasInjectedReloadProtection) {
-                                hasInjectedReloadProtection = true
-
-                                ThreadManager.runOnMain {
-                                    // Inject reload protection script
-                                    view?.evaluateJavascript("""
-                                        (function() {
-                                            // Block automatic reloads and refreshes
-                                            const originalReload = window.location.reload;
-                                            window.location.reload = function() {
-                                                console.log('Blocked automatic reload');
-                                                return false;
-                                            };
-                                            
-                                            // Intercept history API calls
-                                            const originalPushState = history.pushState;
-                                            history.pushState = function() {
-                                                console.log('Monitored pushState call');
-                                                return originalPushState.apply(this, arguments);
-                                            };
-                                            
-                                            // Intercept navigation attempts
-                                            window.addEventListener('beforeunload', function(e) {
-                                                e.preventDefault();
-                                                e.returnValue = '';
-                                                return '';
-                                            });
-                                            
-                                            // Stabilize TiddlyWiki
-                                            if (window.${'$'}tw) {
-                                                // Add stability patches for TiddlyWiki
-                                                try {
-                                                    // Prevent automatic saving that might cause reloads
-                                                    if (${'$'}tw.syncer) {
-                                                        ${'$'}tw.syncer.syncFromServer = function() {
-                                                            return false;
-                                                        };
-                                                    }
-                                                    
-                                                    // Prevent full page refresh actions
-                                                    if (${'$'}tw.pageRefreshers) {
-                                                        ${'$'}tw.pageRefreshers = [];
-                                                    }
-                                                } catch(e) {
-                                                    console.error("Failed to patch TiddlyWiki: " + e);
-                                                }
-                                            }
-                                            
-                                            console.log('Reload protection installed');
-                                            return "protection-installed";
-                                        })();
-                                    """.trimIndent(), null)
-                                }
-                            }
-                        }
-
-                        isInitialLoad = false
-                        _isWebViewReady.value = false
-
-                        favicon?.let { bitmap ->
-                            setFavicon(wiki.url, bitmap)
-                        }
-                    }
-
-                    override fun onPageFinished(view: WebView?, url: String?) {
-                        super.onPageFinished(view, url)
-
-                        // Reset reload tracking after a successful page load
-                        if (url != null) {
-                            reloadTracker.remove(url)
-                        }
-
-                        view?.post {
-                            view.settings.loadsImagesAutomatically = true
-                            view.settings.blockNetworkImage = false
-                            _isWebViewReady.value = true
-
-                            // Inject optimization for large wikis
-                            view.evaluateJavascript("""
-                                (function() {
-                                    // Check if this page is a TiddlyWiki
-                                    if (typeof window.${'$'}tw !== 'undefined') {
-                                        // Memory optimizations for large wikis
-                                        if (document.querySelector('.tc-story-river') && 
-                                            document.querySelectorAll('.tc-tiddler-frame').length > 20) {
-                                                
-                                            // It's a large wiki - optimize rendering
-                                            window.${'$'}tw.wiki.addEventListener("change", function(changes) {
-                                                if (Object.keys(changes).length > 10) {
-                                                    // Batch UI updates for large changes
-                                                    window.${'$'}tw.notifier.sortByPriority = true;
-                                                    return false; // Let notifier handle it
-                                                }
-                                            });
-                                            
-                                            // Prevent unwanted refreshes
-                                            const originalRefresh = window.${'$'}tw.wiki.refresh;
-                                            window.${'$'}tw.wiki.refresh = function(changes, source) {
-                                                if (source === "reloadPage") {
-                                                    console.log("Prevented reload-based refresh");
-                                                    return;
-                                                }
-                                                return originalRefresh.call(this, changes, source);
-                                            };
-                                            
-                                            return "large-wiki-optimized";
-                                        }
-                                    }
-                                    
-                                    // Fix common reload triggers
-                                    var reloadButtons = document.querySelectorAll('a[href="javascript:window.location.reload()"]');
-                                    reloadButtons.forEach(function(btn) {
-                                        btn.href = "javascript:void(0)";
-                                        btn.addEventListener('click', function(e) {
-                                            e.preventDefault();
-                                            // Allow manual reloads after cooldown period
-                                            var lastClick = parseInt(this.dataset.lastClick || 0);
-                                            var now = Date.now();
-                                            if (now - lastClick > 5000) {
-                                                this.dataset.lastClick = now;
-                                                // Soft refresh only what's needed
-                                                if (window.${'$'}tw && window.${'$'}tw.wiki) {
-                                                    window.${'$'}tw.wiki.clearCache();
-                                                    window.${'$'}tw.wiki.addTiddlers(window.${'$'}tw.wiki.tiddlers);
-                                                }
-                                            }
-                                        });
-                                    });
-                                    
-                                    return "reload-protection-applied";
-                                })();
-                            """.trimIndent(), null)
-                        }
-                    }
-
-                    // Fix content type issues for large wikis
-                    override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
-                        val url = request?.url?.toString() ?: return null
-
-                        // Intercept main page to ensure proper content handling
-                        if (url == wiki.url) {
-                            try {
-                                val connection = URL(url).openConnection()
-                                connection.setRequestProperty("Accept", "text/html,application/xhtml+xml")
-                                connection.connectTimeout = 10000
-                                connection.readTimeout = 15000
-                                connection.connect()
-
-                                // Always serve HTML content for the main wiki URL
-                                return WebResourceResponse(
-                                    "text/html",
-                                    "UTF-8",
-                                    connection.getInputStream()
-                                )
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
-                        }
-
-                        // Block potential problem resources
-                        if (url.contains("analytics") || url.contains("tracking") ||
-                            url.contains("google-analytics") || url.contains("facebook") ||
-                            url.contains("refresh.js") || url.contains("reload.js")) {
-                            return WebResourceResponse("text/plain", "UTF-8", "".byteInputStream())
-                        }
-
-                        return null
-                    }
-
-                    override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                        super.onReceivedError(view, request, error)
-                        if (request?.isForMainFrame == true) {
+                    
+                    // Use simplified WebViewClient for initial load
+                    webViewClient = object : WebViewClient() {
+                        override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                            super.onPageStarted(view, url, favicon)
                             _isWebViewReady.value = false
                         }
-                    }
-                }
-
-                // Only load for NEW webviews (not cached/restored ones)
-                post {
-                    try {
-                        // For large wikis, prioritize cache - fixed suspend function call
-                        viewModelScope.launch {
-                            analyzeWikiSize(wiki).collect { strategy ->
-                                if (strategy == WikiLoadStrategy.LARGE_WIKI) {
-                                    settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+                        
+                        override fun onPageFinished(view: WebView?, url: String?) {
+                            super.onPageFinished(view, url)
+                            if (url != "about:blank") {
+                                view?.post {
+                                    view.settings.apply {
+                                        blockNetworkImage = false
+                                        loadsImagesAutomatically = true
+                                        cacheMode = WebSettings.LOAD_DEFAULT
+                                    }
+                                    _isWebViewReady.value = true
                                 }
-                                applyWikiSizeOptimizations(this@apply, strategy)
-                            }
-
-                            // Only load URL for NEWLY CREATED webviews
-                            ThreadManager.runOnMain {
-                                loadUrl(wiki.url)
                             }
                         }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        // Fallback if analysis fails
-                        loadUrl(wiki.url)
                     }
+
+                    // Use formattedUrl instead of url
+                    loadUrl(wiki.formattedUrl)
                 }
             }
 
-            // Cache the WebView
-            webViewCache[key] = webView
-            WebViewCache.cacheWebView(key, webView)
-            webView
+            // Check if we already have a cached WebView
+            WebViewCache.getCachedWebView(key)?.let { cachedWebView ->
+                return cachedWebView
+            }
+
+            return webViewCache[key] ?: synchronized(this) {
+                webViewCache[key]?.let { return it }
+
+                val webView = MainActivity.createWebView(context).apply {
+                    settings.apply {
+                        // Force this to be true initially to avoid crashes
+                        blockNetworkImage = true
+                        loadsImagesAutomatically = false
+
+                        // CRITICAL: Set correct MIME type handling for HTML
+                        defaultTextEncodingName = "UTF-8"
+
+                        // Ensure media types are handled properly
+                        mediaPlaybackRequiresUserGesture = false
+
+                        // Make sure JS can run
+                        javaScriptEnabled = true
+                        domStorageEnabled = true
+
+                        // Fix for raw HTML display issue
+                        mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+
+                        // Ensure proper rendering of content
+                        useWideViewPort = true
+                        loadWithOverviewMode = true
+
+                        // For large wikis, use modern cache APIs instead of deprecated ones
+                        try {
+                            domStorageEnabled = true
+                            // Replace deprecated app cache with modern cache handling
+                            cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+
+                    // Create a custom WebViewClient that handles reload loops
+                    webViewClient = object : WebViewClient() {
+                        private var isInitialLoad = true
+                        private var hasInjectedReloadProtection = false
+
+                        override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                            super.onPageStarted(view, url, favicon)
+
+                            // Track reloads to detect loops
+                            if (url != null && !isInitialLoad) {
+                                val now = System.currentTimeMillis()
+                                val previousReloads = reloadTracker[url] ?: 0L
+                                val reloadCount = previousReloads + 1
+                                reloadTracker[url] = reloadCount
+
+                                // If too many reloads in short period, inject protection
+                                if (reloadCount >= MAX_RELOADS_IN_WINDOW && !hasInjectedReloadProtection) {
+                                    hasInjectedReloadProtection = true
+
+                                    ThreadManager.runOnMain {
+                                        // Inject reload protection script
+                                        view?.evaluateJavascript("""
+                                            (function() {
+                                                // Block automatic reloads and refreshes
+                                                const originalReload = window.location.reload;
+                                                window.location.reload = function() {
+                                                    console.log('Blocked automatic reload');
+                                                    return false;
+                                                };
+                                                
+                                                // Intercept history API calls
+                                                const originalPushState = history.pushState;
+                                                history.pushState = function() {
+                                                    console.log('Monitored pushState call');
+                                                    return originalPushState.apply(this, arguments);
+                                                };
+                                                
+                                                // Intercept navigation attempts
+                                                window.addEventListener('beforeunload', function(e) {
+                                                    e.preventDefault();
+                                                    e.returnValue = '';
+                                                    return '';
+                                                });
+                                                
+                                                // Stabilize TiddlyWiki
+                                                if (window.${'$'}tw) {
+                                                    // Add stability patches for TiddlyWiki
+                                                    try {
+                                                        // Prevent automatic saving that might cause reloads
+                                                        if (${'$'}tw.syncer) {
+                                                            ${'$'}tw.syncer.syncFromServer = function() {
+                                                                return false;
+                                                            };
+                                                        }
+                                                        
+                                                        // Prevent full page refresh actions
+                                                        if (${'$'}tw.pageRefreshers) {
+                                                            ${'$'}tw.pageRefreshers = [];
+                                                        }
+                                                    } catch(e) {
+                                                        console.error("Failed to patch TiddlyWiki: " + e);
+                                                    }
+                                                }
+                                                
+                                                console.log('Reload protection installed');
+                                                return "protection-installed";
+                                            })();
+                                        """.trimIndent(), null)
+                                    }
+                                }
+                            }
+
+                            isInitialLoad = false
+                            _isWebViewReady.value = false
+
+                            favicon?.let { bitmap ->
+                                setFavicon(wiki.url, bitmap)
+                            }
+                        }
+
+                        override fun onPageFinished(view: WebView?, url: String?) {
+                            super.onPageFinished(view, url)
+
+                            // Reset reload tracking after a successful page load
+                            if (url != null) {
+                                reloadTracker.remove(url)
+                            }
+
+                            view?.post {
+                                view.settings.loadsImagesAutomatically = true
+                                view.settings.blockNetworkImage = false
+                                _isWebViewReady.value = true
+
+                                // Inject optimization for large wikis
+                                view.evaluateJavascript("""
+                                    (function() {
+                                        // Check if this page is a TiddlyWiki
+                                        if (typeof window.${'$'}tw !== 'undefined') {
+                                            // Memory optimizations for large wikis
+                                            if (document.querySelector('.tc-story-river') && 
+                                                document.querySelectorAll('.tc-tiddler-frame').length > 20) {
+                                                    
+                                                // It's a large wiki - optimize rendering
+                                                window.${'$'}tw.wiki.addEventListener("change", function(changes) {
+                                                    if (Object.keys(changes).length > 10) {
+                                                        // Batch UI updates for large changes
+                                                        window.${'$'}tw.notifier.sortByPriority = true;
+                                                        return false; // Let notifier handle it
+                                                    }
+                                                });
+                                                
+                                                // Prevent unwanted refreshes
+                                                const originalRefresh = window.${'$'}tw.wiki.refresh;
+                                                window.${'$'}tw.wiki.refresh = function(changes, source) {
+                                                    if (source === "reloadPage") {
+                                                        console.log("Prevented reload-based refresh");
+                                                        return;
+                                                    }
+                                                    return originalRefresh.call(this, changes, source);
+                                                };
+                                                
+                                                return "large-wiki-optimized";
+                                            }
+                                        }
+                                        
+                                        // Fix common reload triggers
+                                        var reloadButtons = document.querySelectorAll('a[href="javascript:window.location.reload()"]');
+                                        reloadButtons.forEach(function(btn) {
+                                            btn.href = "javascript:void(0)";
+                                            btn.addEventListener('click', function(e) {
+                                                e.preventDefault();
+                                                // Allow manual reloads after cooldown period
+                                                var lastClick = parseInt(this.dataset.lastClick || 0);
+                                                var now = Date.now();
+                                                if (now - lastClick > 5000) {
+                                                    this.dataset.lastClick = now;
+                                                    // Soft refresh only what's needed
+                                                    if (window.${'$'}tw && window.${'$'}tw.wiki) {
+                                                        window.${'$'}tw.wiki.clearCache();
+                                                        window.${'$'}tw.wiki.addTiddlers(window.${'$'}tw.wiki.tiddlers);
+                                                    }
+                                                }
+                                            });
+                                        });
+                                        
+                                        return "reload-protection-applied";
+                                    })();
+                                """.trimIndent(), null)
+                            }
+                        }
+
+                        // Fix content type issues for large wikis
+                        override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+                            val url = request?.url?.toString() ?: return null
+
+                            // Intercept main page to ensure proper content handling
+                            if (url == wiki.url) {
+                                try {
+                                    val connection = URL(url).openConnection()
+                                    connection.setRequestProperty("Accept", "text/html,application/xhtml+xml")
+                                    connection.connectTimeout = 10000
+                                    connection.readTimeout = 15000
+                                    connection.connect()
+
+                                    // Always serve HTML content for the main wiki URL
+                                    return WebResourceResponse(
+                                        "text/html",
+                                        "UTF-8",
+                                        connection.getInputStream()
+                                    )
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            }
+
+                            // Block potential problem resources
+                            if (url.contains("analytics") || url.contains("tracking") ||
+                                url.contains("google-analytics") || url.contains("facebook") ||
+                                url.contains("refresh.js") || url.contains("reload.js")) {
+                                return WebResourceResponse("text/plain", "UTF-8", "".byteInputStream())
+                            }
+
+                            return null
+                        }
+
+                        override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                            super.onReceivedError(view, request, error)
+                            if (request?.isForMainFrame == true) {
+                                _isWebViewReady.value = false
+                            }
+                        }
+                    }
+
+                    // Only load for NEW webviews (not cached/restored ones)
+                    post {
+                        try {
+                            // For large wikis, prioritize cache - fixed suspend function call
+                            viewModelScope.launch {
+                                analyzeWikiSize(wiki).collect { strategy ->
+                                    if (strategy == WikiLoadStrategy.LARGE_WIKI) {
+                                        settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+                                    }
+                                    applyWikiSizeOptimizations(this@apply, strategy)
+                                }
+
+                                // Only load URL for NEWLY CREATED webviews
+                                ThreadManager.runOnMain {
+                                    loadUrl(wiki.formattedUrl)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            // Fallback if analysis fails
+                            loadUrl(wiki.formattedUrl)
+                        }
+                    }
+                }
+
+                // Cache the WebView
+                webViewCache[key] = webView
+                WebViewCache.cacheWebView(key, webView)
+                webView
+            }
+        } catch (e: Exception) {
+            // If WebView creation fails, trigger recovery
+            handleCrash(e)
+            // Return a blank WebView as fallback
+            WebView(context).apply {
+                settings.javaScriptEnabled = true
+                loadUrl("about:blank")
+            }
         }
     }
 
@@ -712,12 +970,42 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     }
 
     internal fun clearWebViews() {
-        _faviconMap.value.values.forEach { it.recycle() }
-        _faviconMap.value = emptyMap()
-        _favicon.value?.recycle()
-        _favicon.value = null
-        WebViewCache.clearAll()
-        webViewCache.clear()
+        try {
+            _faviconMap.value.values.forEach {
+                try {
+                    it.recycle()
+                } catch (e: Exception) {
+                    Log.e("WikiViewModel", "Error recycling favicon", e)
+                }
+            }
+            _faviconMap.value = emptyMap()
+
+            try {
+                _favicon.value?.recycle()
+            } catch (e: Exception) {
+                Log.e("WikiViewModel", "Error recycling main favicon", e)
+            }
+            _favicon.value = null
+
+            webViewCache.values.forEach { webView ->
+                try {
+                    webView.stopLoading()
+                    webView.clearHistory()
+                    webView.loadUrl("about:blank")
+                    webView.removeAllViews()
+                    webView.destroy()
+                } catch (e: Exception) {
+                    Log.e("WikiViewModel", "Error clearing WebView", e)
+                }
+            }
+            webViewCache.clear()
+            WebViewCache.clearAll()
+
+            // Force garbage collection
+            System.gc()
+        } catch (e: Exception) {
+            Log.e("WikiViewModel", "Error in clearWebViews", e)
+        }
     }
 
     override fun onCleared() {
@@ -756,6 +1044,9 @@ class WikiViewModel(private val context: Context) : ViewModel() {
             jsonArray.put(JSONObject().apply {
                 put("name", wiki.name)
                 put("url", wiki.url)
+                put("isLocalFile", wiki.isLocalFile)
+                wiki.sourceUrl?.let { put("sourceUrl", it) }
+                wiki.id?.let { put("id", it) }
             })
         }
         return jsonArray.toString()
@@ -1082,33 +1373,27 @@ class WikiViewModel(private val context: Context) : ViewModel() {
 
                 // Create a Uri for the new file
                 val fileUri = Uri.fromFile(outputFile)
-
                 val fileUrlString = fileUri.toString()
 
                 // Add the new tiddler to the list of wikis
                 val newWiki = WikiInstance(
                     name = template.name,
-                    url = fileUrlString
+                    url = fileUrlString,
+                    isLocalFile = true  // Ensure this is marked as a local file
                 )
 
                 withContext(Dispatchers.Main) {
                     // Add the wiki to the list
                     addWiki(newWiki.name, newWiki.url)
 
-                    // Set it as the current wiki
+                    // Set it as the current wiki after a small delay
+                    delay(500)  // Add small delay before setting as current
                     setCurrentWiki(newWiki)
 
-                    // Show a success message using a safe context (ActivityContext)
+                    // Show a success message using a safe context
                     if (context is androidx.activity.ComponentActivity) {
                         Toast.makeText(
                             context,
-                            "Created new tiddler: ${template.name}",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    } else {
-                        // Use application context as fallback
-                        Toast.makeText(
-                            context.applicationContext,
                             "Created new tiddler: ${template.name}",
                             Toast.LENGTH_SHORT
                         ).show()
@@ -1120,12 +1405,6 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                     if (context is androidx.activity.ComponentActivity) {
                         Toast.makeText(
                             context,
-                            "Error creating tiddler: ${e.message}",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    } else {
-                        Toast.makeText(
-                            context.applicationContext,
                             "Error creating tiddler: ${e.message}",
                             Toast.LENGTH_SHORT
                         ).show()

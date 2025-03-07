@@ -9,11 +9,24 @@ data class WikiInstance(
     val isLocalFile: Boolean = false,
     val sourceUrl: String? = null
 ) {
-    // Use the provided URL after formatting it, unless it's a local file
-    val formattedUrl: String = if (isLocalFile) url else formatUrl(url)
+    val formattedUrl: String = when {
+        // For local files and content URIs, preserve the original URL structure
+        isLocalFile -> {
+            when {
+                // Handle content URIs
+                url.startsWith("content://") -> url
+                // Handle file URIs
+                url.startsWith("file:///") -> url
+                url.startsWith("file://") -> "file:///${url.substring(7)}"
+                url.startsWith("file:/") -> "file:///${url.substring(6)}"
+                url.startsWith("file:") -> "file:///${url.substring(5)}"
+                else -> if (url.startsWith("/")) "file://$url" else url
+            }
+        }
+        // For regular URLs use the normal formatting
+        else -> formatUrl(url)
+    }
     
-    // For backward compatibility - some places in the code might still use the url property
-    // but we want it to always return the formatted URL
     val idFromUrl: String? get() = id ?: url
 
     companion object {
