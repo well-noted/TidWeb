@@ -9,7 +9,9 @@ Tidweb is an Android application that allows a user to manage and rapidly switch
 <p>
 <b>Some Fixes that need to be made: </b> <br><br>
 X Persistent ANR <br>
-- Notification Tray Favicon loading/caching
+- Notification Tray Favicon loading/caching <br>
+x Create Single File Wiki from template <br>
+x Save/Replace Single File Wiki from interface
 
 <b> Some additional features to be developed: </b>
 - Cache/sync for Offline-Mode <br>
