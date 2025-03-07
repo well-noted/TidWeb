@@ -28,6 +28,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import android.util.Log
 import android.net.Uri
 import android.os.Environment
+import android.os.Bundle
 import android.widget.Toast
 import java.io.File
 import com.tiddlywikibrowser.model.TiddlerTemplate
@@ -158,6 +159,9 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     private val _isWebViewSystemReady = MutableStateFlow(false)
     val isWebViewSystemReady: StateFlow<Boolean> = _isWebViewSystemReady
 
+    // Add state tracking for WebView initialization
+    private var webViewState = mutableMapOf<String, Bundle>()
+
     init {
         setupCrashHandler()
         viewModelScope.launch {
@@ -196,13 +200,9 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                     val wikis = parseWikiList(wikiListJson)
                     _allWikis.value = wikis
 
-                    // Now handle current wiki with delay if it's a single file
+                    // Now handle current wiki - removed delay for single file wikis
                     if (currentWikiJson != null) {
                         val current = parseWikiInstance(currentWikiJson)
-                        if (current?.isLocalFile == true) {
-                            // Add extra delay for single file wikis on first load
-                            delay(2000)
-                        }
                         _currentWiki.value = current
                     }
 
@@ -458,14 +458,24 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     }
 
     fun setCurrentWiki(wiki: WikiInstance?) {
-        // Don't allow wiki loading until WebView system is ready
-        if (!_isWebViewSystemReady.value) {
-            Log.d("WikiViewModel", "Waiting for WebView system to initialize...")
-            return
-        }
-
         viewModelScope.launch {
             try {
+                // Wait for WebView system to be ready with timeout
+                val startTime = System.currentTimeMillis()
+                while (!_isWebViewSystemReady.value) {
+                    if (System.currentTimeMillis() - startTime > 5000) {
+                        Log.e("WikiViewModel", "Timeout waiting for WebView system")
+                        break
+                    }
+                    delay(100)
+                }
+
+                // Don't proceed if system isn't ready
+                if (!_isWebViewSystemReady.value) {
+                    Log.e("WikiViewModel", "WebView system not ready, cannot set wiki")
+                    return@launch
+                }
+
                 if (_currentWiki.value?.url != wiki?.url) {
                     Log.d("WikiViewModel", "Switching wiki to: ${wiki?.name}")
 
@@ -625,26 +635,33 @@ class WikiViewModel(private val context: Context) : ViewModel() {
 
     private fun cleanupWebView(url: String) {
         webViewCache[url]?.let { oldWebView ->
-            // Check for active media before cleanup
-            oldWebView.evaluateJavascript(
-                """
-                (function() {
-                    const media = document.querySelector('audio,video');
-                    return media ? media.paused : true;
-                })()
-                """.trimIndent()
-            ) { isPausedResult ->
-                val isPaused = isPausedResult.toBooleanStrictOrNull() ?: true
-                if (isPaused) {
-                    // Only clean up if no active media
-                    (oldWebView.parent as? ViewGroup)?.removeView(oldWebView)
-                    oldWebView.stopLoading()
-                    oldWebView.clearHistory()
-                    oldWebView.loadUrl("about:blank")
-                    oldWebView.removeAllViews()
-                    oldWebView.destroy()
-                    webViewCache.remove(url)
+            try {
+                // Save state before cleanup
+                saveWebViewState(url, oldWebView)
+                
+                // Check for active media before cleanup
+                oldWebView.evaluateJavascript(
+                    """
+                    (function() {
+                        const media = document.querySelector('audio,video');
+                        return media ? media.paused : true;
+                    })()
+                    """.trimIndent()
+                ) { isPausedResult ->
+                    val isPaused = isPausedResult.toBooleanStrictOrNull() ?: true
+                    if (isPaused) {
+                        // Only clean up if no active media
+                        (oldWebView.parent as? ViewGroup)?.removeView(oldWebView)
+                        oldWebView.stopLoading()
+                        oldWebView.clearHistory()
+                        oldWebView.loadUrl("about:blank")
+                        oldWebView.removeAllViews()
+                        oldWebView.destroy()
+                        webViewCache.remove(url)
+                    }
                 }
+            } catch (e: Exception) {
+                Log.e("WikiViewModel", "Error in cleanupWebView", e)
             }
         }
     }
@@ -1354,6 +1371,24 @@ class WikiViewModel(private val context: Context) : ViewModel() {
         }
     }
 
+    private fun saveWebViewState(key: String, webView: WebView) {
+        val bundle = Bundle()
+        webView.saveState(bundle)
+        webViewState[key] = bundle
+    }
+
+    private fun restoreWebViewState(key: String, webView: WebView): Boolean {
+        return webViewState[key]?.let { bundle ->
+            try {
+                webView.restoreState(bundle)
+                true
+            } catch (e: Exception) {
+                Log.e("WikiViewModel", "Error restoring WebView state", e)
+                false
+            }
+        } ?: false
+    }
+
     /**
      * Load tiddler templates from the assets/tiddler_templates folder
      */
@@ -1464,9 +1499,8 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                 withContext(Dispatchers.Main) {
                     // Add the wiki to the list
                     addWiki(newWiki.name, newWiki.url)
-
-                    // Set it as the current wiki after a small delay
-                    delay(500)  // Add small delay before setting as current
+                    
+                    // Set it as the current wiki immediately
                     setCurrentWiki(newWiki)
 
                     // Show a success message using a safe context
@@ -1533,6 +1567,80 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                             preferences[PreferencesKeys.CURRENT_WIKI] = wikiToJson(newWiki)
                         }
                     }
+                }
+            }
+        }
+    }
+
+    /**
+     * Import a single file TiddlyWiki from a content URI
+     */
+    fun importLocalWikiFile(contentUri: Uri, fileName: String?) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // Get the input stream from the content URI
+                val inputStream = context.contentResolver.openInputStream(contentUri)
+                
+                if (inputStream == null) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Failed to open file", Toast.LENGTH_SHORT).show()
+                    }
+                    return@launch
+                }
+                
+                // Create directory if it doesn't exist
+                val documentsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+                val tidWebDir = File(documentsDir, "TidWeb")
+                if (!tidWebDir.exists()) {
+                    tidWebDir.mkdirs()
+                }
+                
+                // Generate a unique file name if not provided
+                val safeFileName = fileName?.takeIf { it.isNotBlank() }
+                    ?.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+                    ?: "imported_wiki_${System.currentTimeMillis()}.html"
+                
+                // If the filename doesn't end with .html, add it
+                val finalFileName = if (safeFileName.endsWith(".html", ignoreCase = true)) {
+                    safeFileName
+                } else {
+                    "$safeFileName.html"
+                }
+                
+                // Create the output file
+                val outputFile = File(tidWebDir, finalFileName)
+                val fileOutputStream = outputFile.outputStream()
+                
+                // Copy the file
+                val buffer = ByteArray(8192)
+                var bytesRead: Int
+                
+                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                    fileOutputStream.write(buffer, 0, bytesRead)
+                }
+                
+                // Clean up
+                inputStream.close()
+                fileOutputStream.close()
+                
+                // Create a file URI for the new file
+                val fileUri = Uri.fromFile(outputFile)
+                
+                // Extract a name from the filename
+                val displayName = fileName?.substringBeforeLast('.') 
+                    ?: contentUri.lastPathSegment
+                    ?: "Imported Wiki"
+                
+                // Add the wiki to the list
+                withContext(Dispatchers.Main) {
+                    addWiki(displayName, fileUri.toString())
+                    Toast.makeText(context, "Wiki imported successfully", Toast.LENGTH_SHORT).show()
+                }
+                
+            } catch (e: Exception) {
+                Log.e("WikiViewModel", "Error importing wiki", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Failed to import wiki: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }

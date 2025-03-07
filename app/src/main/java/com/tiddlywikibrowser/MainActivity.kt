@@ -21,6 +21,7 @@ import android.os.Environment
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.provider.OpenableColumns
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.*
@@ -124,6 +125,40 @@ class MainActivity : ComponentActivity() {
     // Add these properties for error handling
     private var showLoadErrorDialog by mutableStateOf(false)
     private var loadErrorWiki: WikiInstance? = null
+    
+    // Add temporary storage for wiki name during file selection
+    private var pendingWikiName by mutableStateOf<String?>(null)
+
+    // Create a file picker launcher
+    private val filePickerLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { contentUri ->
+            // Try to get a file name from the URI
+            val fileName = getFileNameFromUri(contentUri)
+            val displayName = pendingWikiName ?: fileName?.substringBeforeLast('.') ?: "Local Wiki"
+            
+            // Reset the pending name
+            pendingWikiName = null
+            
+            // Import the file using WikiViewModel
+            viewModel?.importLocalWikiFile(contentUri, fileName)
+            
+            // Close the dialog
+            showAddDialog = false
+        }
+    }
+    
+    // Helper function to get file name from URI
+    private fun getFileNameFromUri(uri: Uri): String? {
+        val cursor = contentResolver.query(uri, null, null, null, null)
+        return cursor?.use {
+            // Get the column indexes of the data
+            val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            it.moveToFirst()
+            it.getString(nameIndex)
+        }
+    }
 
     // Add method to access current WebView
     fun getCurrentWebView(): WebView? {
@@ -703,6 +738,12 @@ class MainActivity : ComponentActivity() {
                 onAdd = { name, url ->
                     viewModel.addWiki(name, url)
                     showAddDialog = false
+                },
+                onAddLocalFile = {
+                    // Handle local file selection
+                    pendingWikiName = null
+                    // Accept html, htm, and any other file type since TiddlyWiki can use various extensions
+                    filePickerLauncher.launch("*/*")
                 }
             )
         }
@@ -1515,7 +1556,8 @@ fun MainScreen(
 @Composable
 fun AddWikiDialog(
     onDismiss: () -> Unit,
-    onAdd: (String, String) -> Unit
+    onAdd: (String, String) -> Unit,
+    onAddLocalFile: () -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var url by remember { mutableStateOf("") }
@@ -1551,6 +1593,24 @@ fun AddWikiDialog(
                     supportingText = error?.let { { Text(it) } },
                     singleLine = true
                 )
+                
+                // Add a button to select a local file
+                OutlinedButton(
+                    onClick = onAddLocalFile,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Folder,
+                            contentDescription = "Select File",
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        Text("Select Local TiddlyWiki File")
+                    }
+                }
             }
         },
         confirmButton = {
