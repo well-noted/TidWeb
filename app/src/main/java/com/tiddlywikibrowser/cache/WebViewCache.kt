@@ -7,15 +7,18 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
 import java.util.concurrent.ConcurrentHashMap
+import java.util.LinkedHashMap
 
 object WebViewCache {
     private val webViewCache = ConcurrentHashMap<String, WebView>()
     private val webViewStates = ConcurrentHashMap<String, Bundle>()
     private val webViewLoadedState = ConcurrentHashMap<String, Boolean>()
+    private val lastAccessTime = LinkedHashMap<String, Long>()  // Track LRU
     private var tempWebView: WebView? = null
     private var isConfigurationChanging = false
     private var currentActiveKey: String? = null
-    private val TAG = "WebViewCache"
+    private const val MAX_CACHE_SIZE = 5  // Limit total cached WebViews
+    private const val TAG = "WebViewCache"
 
     fun setConfigurationChanging(changing: Boolean) {
         isConfigurationChanging = changing
@@ -61,13 +64,40 @@ object WebViewCache {
             webViewLoadedState[key] = isLoaded
             Log.d(TAG, "Cached WebView state for key: $key, loaded=$isLoaded")
             
+            // Update access time
+            updateAccessTime(key)
+            
             // Store in cache if it's not already there
             if (!webViewCache.containsKey(key)) {
                 webViewCache[key] = webView
                 Log.d(TAG, "Added WebView to cache for key: $key")
             }
+
+            // Trim cache if needed
+            if (webViewCache.size > MAX_CACHE_SIZE) {
+                trimCache()
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error caching WebView: ${e.message}")
+        }
+    }
+
+    private fun updateAccessTime(key: String) {
+        lastAccessTime[key] = System.currentTimeMillis()
+    }
+
+    private fun trimCache() {
+        if (webViewCache.size > MAX_CACHE_SIZE) {
+            // Find oldest WebView that isn't the current active one
+            val oldestKey = lastAccessTime.entries
+                .sortedBy { it.value }
+                .firstOrNull { it.key != currentActiveKey }
+                ?.key
+
+            oldestKey?.let { key ->
+                removeCachedWebView(key)
+                Log.d(TAG, "Trimmed cached WebView: $key")
+            }
         }
     }
 
@@ -77,6 +107,7 @@ object WebViewCache {
     fun getCachedWebView(key: String): WebView? {
         val webView = webViewCache[key]
         if (webView != null) {
+            updateAccessTime(key)
             Log.d(TAG, "Retrieved cached WebView for key: $key")
         }
         return webView
@@ -149,7 +180,7 @@ object WebViewCache {
             return false
         }
         
-        return webViewStates[key]?.let { state ->
+        return webViewStates[key]?.let { state -> 
             try {
                 webView.restoreState(state)
                 
@@ -245,7 +276,7 @@ object WebViewCache {
                             if (!window.__reloadBlockerInstalled) {
                                 console.log("[WebViewCache] Installing reload blocker");
                                 window.location.reload = function() { 
-                                    console.log("[Reload blocked] location.reload()");
+                                    console.log("[Reload blocked] location.reload()"); 
                                     return false; 
                                 };
                                 window.__reloadBlockerInstalled = true;
