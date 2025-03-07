@@ -35,6 +35,8 @@ import com.tiddlywikibrowser.model.TiddlerTemplate
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.async
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 /**
  * WebViewClient specifically designed to handle and fix raw HTML content
@@ -226,49 +228,47 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                         javaScriptEnabled = true
                         domStorageEnabled = true
                         allowFileAccess = true
-                        allowContentAccess = true
                         defaultTextEncodingName = "UTF-8"
                         mediaPlaybackRequiresUserGesture = false
                         useWideViewPort = true
                         loadWithOverviewMode = true
                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                        // Increase initial cache mode for better performance
+                        cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
                     }
+                }
 
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(view: WebView?, url: String?) {
-                            super.onPageFinished(view, url)
-                            if (url == "about:blank") {
-                                _isWebViewSystemReady.value = true
-                                view?.destroy()
+                // Load blank page with timeout using coroutine
+                withTimeoutOrNull(10000) { // Increased from 5s to 10s for slower devices
+                    suspendCancellableCoroutine<Unit> { continuation ->
+                        tempWebView.webViewClient = object : WebViewClient() {
+                            override fun onPageFinished(view: WebView?, url: String?) {
+                                super.onPageFinished(view, url)
+                                if (url == "about:blank" && !continuation.isCompleted) {
+                                    _isWebViewSystemReady.value = true
+                                    continuation.resume(Unit)
+                                    view?.destroy()
+                                }
+                            }
+                            
+                            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                                if (!continuation.isCompleted) {
+                                    continuation.resume(Unit)
+                                    _isWebViewSystemReady.value = true // Force ready on error
+                                }
                             }
                         }
+                        tempWebView.loadUrl("about:blank")
                     }
-                }
-
-                // Load blank page to ensure full initialization
-                tempWebView.loadUrl("about:blank")
-                
-                // Wait for initialization with timeout using coroutine
-                val initJob = async {
-                    withTimeoutOrNull(5000) {
-                        while (!_isWebViewSystemReady.value) {
-                            delay(100)
-                        }
-                        true
-                    }
-                }
-
-                // Wait for initialization to complete
-                if (initJob.await() != true) {
-                    // Timeout occurred
+                } ?: run {
+                    // Timeout occurred - force ready state
+                    Log.w("WikiViewModel", "WebView initialization timed out, forcing ready state")
                     _isWebViewSystemReady.value = true
-                    tempWebView.destroy()
                 }
             }
         } catch (e: Exception) {
             Log.e("WikiViewModel", "Error initializing WebView subsystem", e)
-            // Even if initialization fails, we need to continue
-            _isWebViewSystemReady.value = true
+            _isWebViewSystemReady.value = true // Ensure we don't block forever
         }
     }
 
