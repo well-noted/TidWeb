@@ -220,10 +220,11 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     }
 
     private suspend fun initializeWebViewSubsystem() {
+        var tempWebView: WebView? = null
         try {
             withContext(Dispatchers.Main) {
                 // Create a test WebView to ensure the system is ready
-                val tempWebView = WebView(context).apply {
+                tempWebView = WebView(context).apply {
                     settings.apply {
                         javaScriptEnabled = true
                         domStorageEnabled = true
@@ -241,7 +242,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                 // Load blank page with timeout using coroutine
                 withTimeoutOrNull(10000) { // Increased from 5s to 10s for slower devices
                     suspendCancellableCoroutine<Unit> { continuation ->
-                        tempWebView.webViewClient = object : WebViewClient() {
+                        tempWebView?.webViewClient = object : WebViewClient() {
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 super.onPageFinished(view, url)
                                 if (url == "about:blank" && !continuation.isCompleted) {
@@ -255,13 +256,26 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                                 if (!continuation.isCompleted) {
                                     continuation.resume(Unit)
                                     _isWebViewSystemReady.value = true // Force ready on error
+                                    Log.w("WikiViewModel", "WebView initialization error: ${error?.description}")
                                 }
                             }
                         }
-                        tempWebView.loadUrl("about:blank")
+                        tempWebView?.loadUrl("about:blank")
+
+                        // Add cancellation handler
+                        continuation.invokeOnCancellation {
+                            ThreadManager.runOnMain {
+                                try {
+                                    tempWebView?.stopLoading()
+                                    tempWebView?.destroy()
+                                } catch (e: Exception) {
+                                    Log.e("WikiViewModel", "Error cleaning up temp WebView", e)
+                                }
+                            }
+                        }
                     }
                 } ?: run {
-                    // Timeout occurred - force ready state
+                    // Timeout occurred - force ready state but log warning
                     Log.w("WikiViewModel", "WebView initialization timed out, forcing ready state")
                     _isWebViewSystemReady.value = true
                 }
@@ -269,6 +283,16 @@ class WikiViewModel(private val context: Context) : ViewModel() {
         } catch (e: Exception) {
             Log.e("WikiViewModel", "Error initializing WebView subsystem", e)
             _isWebViewSystemReady.value = true // Ensure we don't block forever
+            
+            // Notify about initialization error
+            _lastError.value = "WebView initialization error: ${e.message}"
+        } finally {
+            // Ensure cleanup even if initialization fails
+            try {
+                tempWebView?.destroy()
+            } catch (e: Exception) {
+                Log.e("WikiViewModel", "Error destroying temp WebView", e)
+            }
         }
     }
 
