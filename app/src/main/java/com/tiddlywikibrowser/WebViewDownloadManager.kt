@@ -17,6 +17,16 @@ import android.webkit.JavascriptInterface
 import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
+import android.app.AlertDialog
+import android.content.DialogInterface
+import android.webkit.WebSettings
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import android.content.Intent
+import androidx.core.content.FileProvider
+import android.os.Build
 
 /**
  * Manages downloads initiated from the WebView
@@ -30,6 +40,17 @@ class WebViewDownloadManager(private val context: Context) {
     private var pendingBlobUrl: String? = null
     private var pendingBlobFileName: String? = null
     private var pendingMimeType: String? = null
+    
+    private var currentWiki: WikiInstance? = null
+    private var viewModel: WikiViewModel? = null
+    
+    /**
+     * Set the current wiki and view model for auto-replacement
+     */
+    fun setCurrentWiki(wiki: WikiInstance?, model: WikiViewModel?) {
+        this.currentWiki = wiki
+        this.viewModel = model
+    }
     
     /**
      * Javascript interface to handle blob URL data
@@ -52,6 +73,15 @@ class WebViewDownloadManager(private val context: Context) {
     
     companion object {
         private const val TAG = "WebViewDownloadManager"
+        
+        // TiddlyWiki file types
+        private val TIDDLYWIKI_EXTENSIONS = arrayOf(".html", ".htm", ".tid", ".hta")
+        
+        // Check if a file is potentially a TiddlyWiki file
+        fun isTiddlyWikiFile(fileName: String): Boolean {
+            val lowerName = fileName.lowercase()
+            return TIDDLYWIKI_EXTENSIONS.any { lowerName.endsWith(it) }
+        }
     }
 
     /**
@@ -158,18 +188,23 @@ class WebViewDownloadManager(private val context: Context) {
             FileOutputStream(file).use { it.write(decodedBytes) }
             
             // Notify media scanner to make the file visible
-            val mediaScanIntent = android.content.Intent(android.content.Intent.ACTION_MEDIA_SCANNER_SCAN_FILE)
+            val mediaScanIntent = Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE)
             val contentUri = Uri.fromFile(file)
             mediaScanIntent.data = contentUri
             context.sendBroadcast(mediaScanIntent)
             
-            // Show success message
-            ThreadManager.runOnMain {
-                Toast.makeText(
-                    context,
-                    "Downloaded $fileName",
-                    Toast.LENGTH_SHORT
-                ).show()
+            // If this is a TiddlyWiki file, offer to associate it with current wiki
+            if (isTiddlyWikiFile(fileName)) {
+                offerToReplaceCurrentWiki(file)
+            } else {
+                // Show success message for non-wiki files
+                ThreadManager.runOnMain {
+                    Toast.makeText(
+                        context,
+                        "Downloaded $fileName",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Base64 download error", e)
@@ -195,7 +230,7 @@ class WebViewDownloadManager(private val context: Context) {
         try {
             // Generate a file name based on the URL or content disposition
             val fileName = generateFileName(url, mimeType)
-
+            
             // Create download request
             val request = DownloadManager.Request(Uri.parse(url)).apply {
                 // Set download description and notification visibility
@@ -218,7 +253,12 @@ class WebViewDownloadManager(private val context: Context) {
             }
 
             // Enqueue download
-            downloadManager.enqueue(request)
+            val downloadId = downloadManager.enqueue(request)
+            
+            // Register a receiver to listen for download completion
+            if (isTiddlyWikiFile(fileName)) {
+                trackHttpDownload(downloadId, fileName)
+            }
             
             // Show success message
             ThreadManager.runOnMain {
@@ -239,6 +279,164 @@ class WebViewDownloadManager(private val context: Context) {
                     Toast.LENGTH_LONG
                 ).show()
             }
+        }
+    }
+    
+    /**
+     * Track HTTP download to handle file when complete
+     */
+    private fun trackHttpDownload(downloadId: Long, fileName: String) {
+        // In a production app, you would register a BroadcastReceiver for ACTION_DOWNLOAD_COMPLETE
+        // Here we'll use a polling approach for simplicity
+        GlobalScope.launch(Dispatchers.IO) {
+            var isComplete = false
+            while (!isComplete) {
+                try {
+                    val query = DownloadManager.Query().setFilterById(downloadId)
+                    val cursor = downloadManager.query(query)
+                    
+                    if (cursor.moveToFirst()) {
+                        val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                        if (statusIndex != -1) {
+                            val status = cursor.getInt(statusIndex)
+                            
+                            if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                                // Get the downloaded file
+                                val localUriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
+                                if (localUriIndex != -1) {
+                                    val uri = cursor.getString(localUriIndex)
+                                    val file = File(Uri.parse(uri).path ?: "")
+                                    
+                                    // When file is successfully downloaded, offer to replace current wiki
+                                    withContext(Dispatchers.Main) {
+                                        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                                        val downloadedFile = File(downloadsDir, fileName)
+                                        if (downloadedFile.exists()) {
+                                            offerToReplaceCurrentWiki(downloadedFile)
+                                        }
+                                    }
+                                }
+                                isComplete = true
+                            } else if (status == DownloadManager.STATUS_FAILED) {
+                                isComplete = true
+                            }
+                        }
+                    }
+                    cursor.close()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error tracking download", e)
+                    isComplete = true
+                }
+                
+                // Wait a bit before checking again
+                kotlinx.coroutines.delay(1000)
+            }
+        }
+    }
+    
+    /**
+     * Offer to replace the current wiki with the downloaded file
+     */
+    private fun offerToReplaceCurrentWiki(file: File) {
+        // Only show dialog if we have current wiki and view model
+        if (currentWiki == null || viewModel == null) {
+            return
+        }
+        
+        ThreadManager.runOnMain {
+            val dialog = AlertDialog.Builder(context)
+                .setTitle("Replace Wiki?")
+                .setMessage("Do you want to use this downloaded file (${file.name}) as the current wiki?\n\nThe wiki will reload with this new file.")
+                .setPositiveButton("Replace") { _, _ ->
+                    replaceCurrentWiki(file)
+                }
+                .setNegativeButton("Just Save") { _, _ ->
+                    Toast.makeText(context, "Downloaded ${file.name}", Toast.LENGTH_SHORT).show()
+                }
+                .create()
+            
+            dialog.show()
+        }
+    }
+    
+    /**
+     * Replace the current wiki with the downloaded file
+     */
+    private fun replaceCurrentWiki(file: File) {
+        try {
+            val currentWikiCopy = currentWiki
+            val viewModelRef = viewModel
+            
+            if (currentWikiCopy == null || viewModelRef == null) {
+                Toast.makeText(context, "Cannot replace wiki: missing references", Toast.LENGTH_SHORT).show()
+                return
+            }
+            
+            // Create a content URI for the file using FileProvider
+            val contentUri = try {
+                // Get application ID for authority
+                val authority = context.packageName + ".fileprovider"
+                Log.d(TAG, "Creating FileProvider URI with authority: $authority")
+                
+                FileProvider.getUriForFile(context, authority, file)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error creating FileProvider URI: ${e.message}", e)
+                
+                // Fallback to direct file URI for API < 24 (not recommended but as emergency fallback)
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+                    Uri.fromFile(file)
+                } else {
+                    // Show detailed error and return without replacing
+                    ThreadManager.runOnMain {
+                        val errorMessage = "Unable to create FileProvider URI: ${e.message}\n" +
+                                "Authority: ${context.packageName}.fileprovider\n" +
+                                "File: ${file.absolutePath}\n" +
+                                "Exists: ${file.exists()}"
+                        
+                        Toast.makeText(
+                            context,
+                            "Failed to replace Wiki: $errorMessage",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                    return
+                }
+            }
+            
+            // Grant read permission to our own app for this URI
+            context.grantUriPermission(
+                context.packageName, 
+                contentUri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+            
+            Log.d(TAG, "Created content URI: $contentUri")
+            
+            // Create a new WikiInstance with the same name but pointing to the local file
+            val newWiki = WikiInstance(
+                name = currentWikiCopy.name,
+                url = contentUri.toString(),
+                isLocalFile = true,
+                sourceUrl = currentWikiCopy.url // Keep original URL as reference
+            )
+            
+            // Update the wiki in ViewModel
+            viewModelRef.updateWiki(currentWikiCopy, newWiki)
+            
+            // Show success message
+            Toast.makeText(
+                context,
+                "Wiki updated with the downloaded file",
+                Toast.LENGTH_SHORT
+            ).show()
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error replacing wiki", e)
+            Toast.makeText(
+                context,
+                "Failed to replace wiki: ${e.message}",
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
 }

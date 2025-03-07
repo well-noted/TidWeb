@@ -1,3 +1,4 @@
+com.tiddlywikibrowser:xml/file_paths = 0x7f140000
 com.tiddlywikibrowser:styleable/ViewBackgroundHelper = 0x7f13009c
 com.tiddlywikibrowser:styleable/Variant = 0x7f13009a
 com.tiddlywikibrowser:styleable/Toolbar = 0x7f130096

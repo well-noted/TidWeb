@@ -26,3 +26,4 @@ string theme_settings
 string wiki_name
 string wiki_url
 style Theme.TiddlyWikiBrowser
+xml file_paths

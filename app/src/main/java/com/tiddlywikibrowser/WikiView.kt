@@ -56,6 +56,12 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
     val downloadManager = remember { WebViewDownloadManager(context) }
     var localFileUrl by remember { mutableStateOf<String?>(null) }
     
+    // Set current wiki and view model for download manager
+    DisposableEffect(wiki.url, viewModel) {
+        downloadManager.setCurrentWiki(wiki, viewModel)
+        onDispose { }
+    }
+    
     // Simplified state tracking
     var isFirstLoad by remember(wiki.url) { mutableStateOf(true) }
     var hasContent by remember(wiki.url) { mutableStateOf(false) }

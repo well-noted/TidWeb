@@ -765,6 +765,9 @@ class WikiViewModel(private val context: Context) : ViewModel() {
         return JSONObject().apply {
             put("name", wiki.name)
             put("url", wiki.url)
+            put("isLocalFile", wiki.isLocalFile)
+            wiki.sourceUrl?.let { put("sourceUrl", it) }
+            wiki.id?.let { put("id", it) }
         }.toString()
     }
 
@@ -773,7 +776,13 @@ class WikiViewModel(private val context: Context) : ViewModel() {
             val jsonArray = JSONArray(json)
             List(jsonArray.length()) { i ->
                 val obj = jsonArray.getJSONObject(i)
-                WikiInstance(obj.getString("name"), obj.getString("url"))
+                WikiInstance(
+                    name = obj.getString("name"),
+                    url = obj.getString("url"),
+                    id = if (obj.has("id")) obj.getString("id") else null,
+                    isLocalFile = if (obj.has("isLocalFile")) obj.getBoolean("isLocalFile") else false,
+                    sourceUrl = if (obj.has("sourceUrl")) obj.getString("sourceUrl") else null
+                )
             }
         } catch (e: Exception) {
             emptyList()
@@ -783,7 +792,13 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     private fun parseWikiInstance(json: String): WikiInstance? {
         return try {
             val obj = JSONObject(json)
-            WikiInstance(obj.getString("name"), obj.getString("url"))
+            WikiInstance(
+                name = obj.getString("name"),
+                url = obj.getString("url"),
+                id = if (obj.has("id")) obj.getString("id") else null,
+                isLocalFile = if (obj.has("isLocalFile")) obj.getBoolean("isLocalFile") else false,
+                sourceUrl = if (obj.has("sourceUrl")) obj.getString("sourceUrl") else null
+            )
         } catch (e: Exception) {
             null
         }
@@ -1114,6 +1129,51 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                             "Error creating tiddler: ${e.message}",
                             Toast.LENGTH_SHORT
                         ).show()
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Update a wiki with new information, useful for replacing with downloaded files
+     */
+    fun updateWiki(oldWiki: WikiInstance, newWiki: WikiInstance) {
+        viewModelScope.launch {
+            // First update the wiki list
+            val newList = _allWikis.value.map { 
+                if (it.url == oldWiki.url) newWiki else it 
+            }
+            _allWikis.value = newList
+            
+            // Save the updated list
+            saveWikis(newList)
+            
+            // If this was the current wiki, update that reference
+            if (_currentWiki.value?.url == oldWiki.url) {
+                // Clear the old WebView
+                cleanupWebView(oldWiki.url)
+                WebViewCache.removeCachedWebView(oldWiki.url)
+                
+                // Set new wiki as current
+                _currentWiki.value = newWiki
+                
+                // Load the new wiki
+                ThreadManager.runOnMain {
+                    // Create a new WebView for the updated wiki
+                    val webView = getOrCreateWebView(newWiki, context)
+                    
+                    // Reset the prevent reload tag to force loading the new content
+                    webView.setTag(R.string.prevent_reload_tag, false)
+                    
+                    // Load the new URL
+                    webView.loadUrl(newWiki.url)
+                    
+                    // Save as current wiki in preferences
+                    viewModelScope.launch {
+                        context.dataStore.edit { preferences ->
+                            preferences[PreferencesKeys.CURRENT_WIKI] = wikiToJson(newWiki)
+                        }
                     }
                 }
             }

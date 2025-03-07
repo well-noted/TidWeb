@@ -1,9 +1,20 @@
 -- Merging decision tree log ---
+provider#androidx.core.content.FileProvider
+INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:80:9-88:20
+	android:grantUriPermissions
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:84:13-47
+	android:authorities
+		INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:82:13-64
+	android:exported
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:83:13-37
+	android:name
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:81:13-62
 manifest
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:2:1-79:12
-INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:2:1-79:12
-INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:2:1-79:12
-INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:2:1-79:12
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:2:1-90:12
+INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:2:1-90:12
+INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:2:1-90:12
+INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:2:1-90:12
 MERGED from [androidx.databinding:viewbinding:8.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\2fafe4247c5e7cd9b15c8a5ef9d0efad\transformed\jetified-viewbinding-8.2.0\AndroidManifest.xml:2:1-7:12
 MERGED from [com.google.android.material:material:1.11.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1c5904f247089f6bb261c7c0545a752f\transformed\material-1.11.0\AndroidManifest.xml:17:1-24:12
 MERGED from [com.google.accompanist:accompanist-flowlayout:0.32.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\85ddd974f589070077b281bf98f078e1\transformed\jetified-accompanist-flowlayout-0.32.0\AndroidManifest.xml:17:1-23:12
@@ -154,8 +165,8 @@ ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\Androi
 	android:name
 		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:11:22-89
 application
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:13:5-78:19
-INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:13:5-78:19
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:13:5-89:19
+INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:13:5-89:19
 MERGED from [com.google.android.material:material:1.11.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1c5904f247089f6bb261c7c0545a752f\transformed\material-1.11.0\AndroidManifest.xml:22:5-20
 MERGED from [com.google.android.material:material:1.11.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1c5904f247089f6bb261c7c0545a752f\transformed\material-1.11.0\AndroidManifest.xml:22:5-20
 MERGED from [androidx.constraintlayout:constraintlayout:2.0.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\f98c936a5b6add336c38fdc69b1a7fa6\transformed\constraintlayout-2.0.1\AndroidManifest.xml:9:5-20
@@ -296,6 +307,12 @@ action#android.media.browse.MediaBrowserService
 ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:75:17-83
 	android:name
 		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:75:25-80
+meta-data#android.support.FILE_PROVIDER_PATHS
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:85:13-87:54
+	android:resource
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:87:17-51
+	android:name
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:86:17-67
 uses-sdk
 INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml
