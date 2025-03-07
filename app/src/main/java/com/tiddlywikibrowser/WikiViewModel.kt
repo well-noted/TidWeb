@@ -32,6 +32,8 @@ import android.widget.Toast
 import java.io.File
 import com.tiddlywikibrowser.model.TiddlerTemplate
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.async
 
 /**
  * WebViewClient specifically designed to handle and fix raw HTML content
@@ -152,50 +154,121 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     // Add new property to track first-time single file wiki load
     private var isInitializingSingleFileWiki = false
 
+    // Add new property to track WebView initialization
+    private val _isWebViewSystemReady = MutableStateFlow(false)
+    val isWebViewSystemReady: StateFlow<Boolean> = _isWebViewSystemReady
+
     init {
         setupCrashHandler()
         viewModelScope.launch {
-            // Ensure WebView is ready for single file wikis
             try {
-                // Pre-initialize a blank WebView to ensure WebView subsystem is ready
+                // Step 1: Initialize WebView subsystem
+                initializeWebViewSubsystem()
+                
+                // Step 2: Wait for WebView to be fully ready
+                val startTime = System.currentTimeMillis()
+                while (!_isWebViewSystemReady.value) {
+                    if (System.currentTimeMillis() - startTime > 10000) { // 10 second timeout
+                        Log.e("WikiViewModel", "WebView initialization timed out")
+                        break
+                    }
+                    delay(100)
+                }
+
+                // Step 3: Force set ready state if needed
+                if (!_isWebViewSystemReady.value) {
+                    _isWebViewSystemReady.value = true
+                }
+
+                // Step 4: Only now start loading preferences and wikis
+                context.dataStore.data.collect { preferences ->
+                    val wikiListJson = preferences[PreferencesKeys.WIKI_LIST] ?: "[]"
+                    val currentWikiJson = preferences[PreferencesKeys.CURRENT_WIKI]
+                    val faviconsJson = preferences[PreferencesKeys.FAVICONS] ?: "{}"
+                    val tagsJson = preferences[PreferencesKeys.QUICK_TAGS] ?: "[]"
+
+                    // Update dark mode first as it doesn't depend on WebView
+                    preferences[PreferencesKeys.IS_DARK_MODE]?.let { darkMode ->
+                        _isDarkMode.value = darkMode
+                    }
+
+                    // Load wiki list first
+                    val wikis = parseWikiList(wikiListJson)
+                    _allWikis.value = wikis
+
+                    // Now handle current wiki with delay if it's a single file
+                    if (currentWikiJson != null) {
+                        val current = parseWikiInstance(currentWikiJson)
+                        if (current?.isLocalFile == true) {
+                            // Add extra delay for single file wikis on first load
+                            delay(2000)
+                        }
+                        _currentWiki.value = current
+                    }
+
+                    // Load favicons last as they're not critical
+                    loadFavicons(faviconsJson)
+                    _quickTags.value = parseQuickTags(tagsJson)
+                }
+            } catch (e: Exception) {
+                Log.e("WikiViewModel", "Error during initialization", e)
+                _isWebViewSystemReady.value = true // Ensure we don't block forever
+            }
+        }
+    }
+
+    private suspend fun initializeWebViewSubsystem() {
+        try {
+            withContext(Dispatchers.Main) {
+                // Create a test WebView to ensure the system is ready
                 val tempWebView = WebView(context).apply {
                     settings.apply {
                         javaScriptEnabled = true
                         domStorageEnabled = true
                         allowFileAccess = true
                         allowContentAccess = true
+                        defaultTextEncodingName = "UTF-8"
+                        mediaPlaybackRequiresUserGesture = false
+                        useWideViewPort = true
+                        loadWithOverviewMode = true
+                        mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                     }
-                    loadUrl("about:blank")
+
+                    webViewClient = object : WebViewClient() {
+                        override fun onPageFinished(view: WebView?, url: String?) {
+                            super.onPageFinished(view, url)
+                            if (url == "about:blank") {
+                                _isWebViewSystemReady.value = true
+                                view?.destroy()
+                            }
+                        }
+                    }
                 }
-                delay(500) // Short delay to let WebView initialize
-                tempWebView.destroy()
-            } catch (e: Exception) {
-                Log.e("WikiViewModel", "Error pre-initializing WebView", e)
+
+                // Load blank page to ensure full initialization
+                tempWebView.loadUrl("about:blank")
+                
+                // Wait for initialization with timeout using coroutine
+                val initJob = async {
+                    withTimeoutOrNull(5000) {
+                        while (!_isWebViewSystemReady.value) {
+                            delay(100)
+                        }
+                        true
+                    }
+                }
+
+                // Wait for initialization to complete
+                if (initJob.await() != true) {
+                    // Timeout occurred
+                    _isWebViewSystemReady.value = true
+                    tempWebView.destroy()
+                }
             }
-
-            // Continue with normal initialization
-            context.dataStore.data.collect { preferences ->
-                preferences[PreferencesKeys.IS_DARK_MODE]?.let { darkMode ->
-                    _isDarkMode.value = darkMode
-                }
-
-                val wikiListJson = preferences[PreferencesKeys.WIKI_LIST] ?: "[]"
-                val currentWikiJson = preferences[PreferencesKeys.CURRENT_WIKI]
-                val faviconsJson = preferences[PreferencesKeys.FAVICONS] ?: "{}"
-                val tagsJson = preferences[PreferencesKeys.QUICK_TAGS] ?: "[]"
-
-                val wikis = parseWikiList(wikiListJson)
-                _allWikis.value = wikis
-
-                if (currentWikiJson != null) {
-                    val current = parseWikiInstance(currentWikiJson)
-                    _currentWiki.value = current
-                }
-                // Load cached favicons
-                loadFavicons(faviconsJson)
-
-                _quickTags.value = parseQuickTags(tagsJson)
-            }
+        } catch (e: Exception) {
+            Log.e("WikiViewModel", "Error initializing WebView subsystem", e)
+            // Even if initialization fails, we need to continue
+            _isWebViewSystemReady.value = true
         }
     }
 
@@ -385,6 +458,12 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     }
 
     fun setCurrentWiki(wiki: WikiInstance?) {
+        // Don't allow wiki loading until WebView system is ready
+        if (!_isWebViewSystemReady.value) {
+            Log.d("WikiViewModel", "Waiting for WebView system to initialize...")
+            return
+        }
+
         viewModelScope.launch {
             try {
                 if (_currentWiki.value?.url != wiki?.url) {
