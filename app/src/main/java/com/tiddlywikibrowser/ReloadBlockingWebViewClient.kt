@@ -138,10 +138,18 @@ class ReloadBlockingWebViewClient(
     }
     
     /**
-     * Prevent unwanted redirects that could cause reloads
+     * Prevent unwanted redirects that could cause reloads, but allow downloads
      */
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
         val url = request?.url?.toString() ?: return false
+        
+        // Allow download URLs to pass through
+        if (url.startsWith("blob:") || 
+            isDownloadableFileType(url) ||
+            request.requestHeaders["Content-Disposition"]?.contains("attachment") == true) {
+            Log.d(TAG, "Allowing download URL: $url")
+            return false
+        }
         
         // Block same-page refreshes
         if (url == view?.url) {
@@ -159,6 +167,23 @@ class ReloadBlockingWebViewClient(
         
         // Allow other navigation
         return false 
+    }
+    
+    /**
+     * Check if the URL points to a downloadable file based on extension
+     */
+    private fun isDownloadableFileType(url: String): Boolean {
+        val downloadExtensions = arrayOf(
+            ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+            ".zip", ".rar", ".7z", ".tar", ".gz", ".apk",
+            ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp",
+            ".mp3", ".mp4", ".wav", ".avi", ".mov", ".mkv",
+            ".txt", ".csv", ".json", ".xml", ".html", ".htm",
+            ".exe", ".msi", ".dmg", ".iso"
+        )
+        
+        val lowercaseUrl = url.lowercase()
+        return downloadExtensions.any { lowercaseUrl.endsWith(it) }
     }
     
     /**
@@ -228,6 +253,11 @@ class ReloadBlockingWebViewClient(
      */
     override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
         val url = request?.url?.toString() ?: return null
+        
+        // Don't block download resources
+        if (isDownloadableFileType(url)) {
+            return null
+        }
         
         // Block reload-triggering resources
         if (url.contains("refresh.js") || url.contains("reload.js") || 

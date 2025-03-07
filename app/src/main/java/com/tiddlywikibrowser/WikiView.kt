@@ -53,6 +53,7 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
     val wikiCache = remember { TiddlyWikiCache(context) }
     val wikiSplitter = remember { TiddlyWikiSplitter(context) }
     val fileManager = remember { WebViewFileManager(context) }
+    val downloadManager = remember { WebViewDownloadManager(context) }
     var localFileUrl by remember { mutableStateOf<String?>(null) }
     
     // Simplified state tracking
@@ -182,7 +183,14 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                             // Always allow initial load
                             blockNetworkImage = false
                             loadsImagesAutomatically = true
+                            
+                            // Enable file download support
+                            allowFileAccess = true
+                            setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW)
                         }
+                        
+                        // Set up download listener
+                        downloadManager.setupDownloadListener(webView)
                         
                         // Set WebView to visible
                         webView.visibility = android.view.View.VISIBLE
