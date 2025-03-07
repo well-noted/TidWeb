@@ -19,11 +19,11 @@ X Improved handling for UI
 </p>
 
 
-This version of TidWeb introduces compatibility with Single-File Wikis
-![image](https://github.com/user-attachments/assets/3d7c6e0d-68d8-415f-b31f-8b3d9361ae0a)
-This feature allows the user either the option to build from a template or to upload an html from their file-system:
+This version of TidWeb introduces compatibility with Single-File Wikis<br>
+![image](https://github.com/user-attachments/assets/3d7c6e0d-68d8-415f-b31f-8b3d9361ae0a)<br><br>
+This feature allows the user either the option to build from a template or to upload an html from their file-system:<br>
 
 ![image](https://github.com/user-attachments/assets/1a64b76a-e59a-4b4b-a311-6428a8ed65ce) ![image](https://github.com/user-attachments/assets/6e76356c-8cd8-4d2a-aaa3-f6c53b006fd8)
 
-
+<br><br>
 
