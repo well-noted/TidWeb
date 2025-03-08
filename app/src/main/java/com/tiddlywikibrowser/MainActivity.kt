@@ -196,6 +196,8 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        
+
         @SuppressLint("SetJavaScriptEnabled")
         internal fun createWebView(context: Context): WebView {
             val webView = WebView(context.applicationContext)  // Use applicationContext to prevent memory leaks

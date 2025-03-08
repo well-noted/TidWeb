@@ -36,7 +36,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.async
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.Job
 import kotlin.coroutines.resume
+import com.tiddlywikibrowser.R
+
+// Add navigation throttling variables
+private var lastNavigationTime = 0L
+private val NAVIGATION_THROTTLE_MS = 300L
+private var pendingNavigation: WikiInstance? = null
+private var navigationJob: Job? = null
 
 /**
  * WebViewClient specifically designed to handle and fix raw HTML content
@@ -68,6 +76,8 @@ private class RawHtmlFixingWebViewClient(private val originalUrl: String) : WebV
         return null
     }
 }
+
+
 
 // Extension function for Map to help with clearing WebViews
 private fun MutableMap<String, WebView>.clearAllExcept(currentId: String?) {
@@ -481,7 +491,33 @@ class WikiViewModel(private val context: Context) : ViewModel() {
         }
     }
 
+    // Replace setCurrentWiki with throttled version
     fun setCurrentWiki(wiki: WikiInstance?) {
+        // Cancel any pending navigations
+        navigationJob?.cancel()
+        
+        // Throttle rapid navigations
+        val now = System.currentTimeMillis()
+        if (now - lastNavigationTime < NAVIGATION_THROTTLE_MS) {
+            // Store this as pending and schedule it
+            pendingNavigation = wiki
+            navigationJob = viewModelScope.launch {
+                delay(NAVIGATION_THROTTLE_MS)
+                pendingNavigation?.let { delayed ->
+                    lastNavigationTime = System.currentTimeMillis()
+                    performNavigation(delayed)
+                    pendingNavigation = null
+                }
+            }
+        } else {
+            // Immediate navigation
+            lastNavigationTime = now
+            performNavigation(wiki)
+        }
+    }
+
+    // Move the actual navigation logic here
+    private fun performNavigation(wiki: WikiInstance?) {
         viewModelScope.launch {
             try {
                 // Wait for WebView system to be ready with timeout
@@ -641,7 +677,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                     }
                 }
             } catch (e: Exception) {
-                Log.e("WikiViewModel", "Error in setCurrentWiki", e)
+                Log.e("WikiViewModel", "Error in performNavigation", e)
                 isInitializingSingleFileWiki = false
                 handleCrash(e)
             }
