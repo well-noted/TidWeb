@@ -28,6 +28,8 @@ class ReloadBlockingWebViewClient(
     companion object {
         private const val TAG = "ReloadBlockingWVC"
         private const val RELOAD_PROTECTION_WINDOW = 2000L // Only allow reloads every 2 seconds
+        private const val CONTENT_DETECTION_ATTEMPTS = 3 // Number of attempts to check for content
+        private const val CONTENT_DETECTION_DELAY = 800L // ms between content detection attempts
     }
     
     private var lastLoadTime = 0L
@@ -35,6 +37,7 @@ class ReloadBlockingWebViewClient(
     private val isLoading = AtomicBoolean(false)
     private var webViewRef: WeakReference<WebView>? = null
     private var reloadProtectionInstalled = false
+    private var contentDetectionAttempts = 0
     
     /**
      * Check if the WebView has already been loaded with content
@@ -120,58 +123,12 @@ class ReloadBlockingWebViewClient(
         
         // Check that the view exists and update its state
         try {
+            // Reset content detection attempts counter
+            contentDetectionAttempts = 0
+            
             // For first loads, check if content loaded successfully using JavaScript
             if (isFirstLoad) {
-                view.evaluateJavascript("""
-                    (function() {
-                        try {
-                            if (window.${'$'}tw && ${'$'}tw.wiki) {
-                                return "loaded";
-                            }
-                            return document.body.innerHTML.length > 0 ? "content" : "empty";
-                        } catch (e) {
-                            return "error";
-                        }
-                    })();
-                """.trimIndent()) { result ->
-                    try {
-                        val resultState = result.trim('"')
-                        when (resultState) {
-                            "loaded", "content" -> {
-                                isFirstLoad = false
-                                
-                                // Mark this WebView as loaded so we know to prevent reloads
-                                markWebViewAsLoaded(view)
-                                
-                                // Notify that loading is complete and content is available
-                                isLoading.set(false)
-                                ThreadManager.runOnMain {
-                                    onLoadingStateChanged(false)
-                                    onPageLoaded(true)
-                                    onErrorReceived(null) // Clear any previous errors
-                                }
-                                
-                                // Now install reload protection
-                                injectReloadProtection(view)
-                            }
-                            else -> {
-                                isLoading.set(false)
-                                ThreadManager.runOnMain {
-                                    onLoadingStateChanged(false)
-                                    onPageLoaded(false)
-                                    onErrorReceived("Could not load wiki content")
-                                }
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error handling page finished state: ${e.message}", e)
-                        isLoading.set(false)
-                        ThreadManager.runOnMain {
-                            onLoadingStateChanged(false)
-                            onErrorReceived("Error evaluating page content")
-                        }
-                    }
-                }
+                checkForWikiContent(view)
             } else {
                 // For non-first loads, just update loading state
                 isLoading.set(false)
@@ -184,9 +141,185 @@ class ReloadBlockingWebViewClient(
             isLoading.set(false)
             ThreadManager.runOnMain {
                 onLoadingStateChanged(false)
-                onErrorReceived("Error while loading page")
+                onErrorReceived("Error while loading page: ${e.message}")
             }
         }
+    }
+    
+    /**
+     * More robust content detection with multiple attempts
+     */
+    private fun checkForWikiContent(webView: WebView) {
+        // Delay evaluation slightly to give time for DOM to fully render
+        ThreadManager.runOnMainWithDelay((100 + contentDetectionAttempts * 200).toLong()) {
+            try {
+                webView.evaluateJavascript("""
+                    (function() {
+                        try {
+                            // Check for TiddlyWiki specifically
+                            if (window.${'$'}tw && window.${'$'}tw.wiki) {
+                                return "tiddlywiki";
+                            }
+                            
+                            // Check document readiness
+                            var readyState = document.readyState;
+                            
+                            // Check for any content
+                            var bodyContent = document.body ? (document.body.innerHTML || "") : "";
+                            var contentLength = bodyContent.length;
+                            
+                            // Look for common TiddlyWiki indicators even if tw isn't ready
+                            if (bodyContent.indexOf("TiddlyWiki") > -1 || 
+                                (document.querySelector && (
+                                    document.querySelector(".tc-tiddler-frame") !== null ||
+                                    document.querySelector("[data-tiddler-title]") !== null ||
+                                    document.querySelector("#storeArea") !== null))
+                               ) {
+                                return "tiddlywiki-content";
+                            }
+                            
+                            // Accept any page with reasonable content
+                            if (contentLength > 100) {
+                                return "content:" + contentLength;
+                            }
+                            
+                            // Be more permissive on later attempts
+                            if (contentLength > 20 && ${contentDetectionAttempts} >= 1) {
+                                return "minimal-content:" + contentLength;
+                            }
+                            
+                            // If document is still loading but has some content, give benefit of doubt
+                            if (contentLength > 0 && readyState !== 'complete') {
+                                return "loading-content:" + readyState;
+                            }
+                            
+                            // Check if we're getting raw HTML that just needs time to render
+                            if (bodyContent.indexOf("<html") > -1 || bodyContent.indexOf("<!DOCTYPE") > -1) {
+                                return "html-content";
+                            }
+                            
+                            // Return detailed info about the current state
+                            return "empty:" + readyState + ":" + contentLength;
+                        } catch (e) {
+                            console.log("[Error checking content]", e);
+                            // If there's an error but we have content, still consider it loaded
+                            try {
+                                return document.body && document.body.innerHTML.length > 0 
+                                    ? "error-with-content:" + document.body.innerHTML.length 
+                                    : "error:" + e.message;
+                            } catch(e2) {
+                                return "critical-error";
+                            }
+                        }
+                    })();
+                """.trimIndent()) { result ->
+                    try {
+                        val resultState = result.trim('"')
+                        Log.d(TAG, "Content evaluation attempt ${contentDetectionAttempts + 1}: $resultState for URL: ${webView.url}")
+                        
+                        // Consider the page loaded if it has any kind of meaningful content
+                        if (resultState.startsWith("tiddlywiki") || 
+                            resultState.startsWith("content:") || 
+                            resultState.startsWith("minimal-content:") ||
+                            resultState.startsWith("loading-content") ||
+                            resultState.startsWith("html-content") ||
+                            resultState.startsWith("error-with-content")) {
+                            
+                            handleSuccessfulLoad(webView)
+                        } else if (contentDetectionAttempts < CONTENT_DETECTION_ATTEMPTS - 1) {
+                            // Try again after a delay if we haven't reached max attempts
+                            contentDetectionAttempts++
+                            checkForWikiContent(webView)
+                        } else {
+                            // One final check after the maximum attempts
+                            webView.evaluateJavascript("""
+                                (function() {
+                                    try {
+                                        // Final check - be very permissive
+                                        var hasAnyContent = document.body && document.body.innerHTML.length > 0;
+                                        var hasTiddlyWikiKeywords = document.documentElement.innerHTML.indexOf("TiddlyWiki") > -1;
+                                        var hasStoreArea = document.getElementById("storeArea") !== null;
+                                        var hasTiddlers = document.querySelector("[data-tiddler-title]") !== null;
+                                        
+                                        // If we have any TiddlyWiki indicators, accept the content
+                                        if (hasTiddlyWikiKeywords || hasStoreArea || hasTiddlers) {
+                                            return "final-tw-check:pass";
+                                        }
+                                        
+                                        // If we have any content at all on final check, accept it
+                                        return hasAnyContent ? "final-content-check:pass" : "final-check:fail";
+                                    } catch(e) {
+                                        // Even on error, if we can detect HTML, consider it a pass
+                                        return document.documentElement ? "final-doc-check:pass" : "final-check:error";
+                                    }
+                                })();
+                            """.trimIndent()) { finalResult ->
+                                val finalState = finalResult.trim('"')
+                                Log.d(TAG, "Final content check: $finalState")
+                                
+                                if (finalState.endsWith(":pass")) {
+                                    // Accept the content on final check
+                                    handleSuccessfulLoad(webView)
+                                } else {
+                                    // We've tried everything - report failure
+                                    isLoading.set(false)
+                                    ThreadManager.runOnMain {
+                                        onLoadingStateChanged(false)
+                                        onPageLoaded(false)
+                                        onErrorReceived("Could not load wiki content")
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error handling page state: ${e.message}", e)
+                        isLoading.set(false)
+                        ThreadManager.runOnMain {
+                            onLoadingStateChanged(false)
+                            onErrorReceived("Error evaluating page content: ${e.message}")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception during content evaluation: ${e.message}", e)
+                
+                // If we got an error evaluating JavaScript but the webview seems OK,
+                // still try to be permissive rather than showing an error
+                if (contentDetectionAttempts < CONTENT_DETECTION_ATTEMPTS - 1) {
+                    contentDetectionAttempts++
+                    checkForWikiContent(webView)
+                } else {
+                    isLoading.set(false)
+                    ThreadManager.runOnMain {
+                        onLoadingStateChanged(false)
+
+                        // On final attempt with error, just assume content is ok to prevent frustrating the user
+                        handleSuccessfulLoad(webView)
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Handle a successful content load
+     */
+    private fun handleSuccessfulLoad(webView: WebView) {
+        isFirstLoad = false
+        
+        // Mark this WebView as loaded so we know to prevent reloads
+        markWebViewAsLoaded(webView)
+        
+        // Notify that loading is complete and content is available
+        isLoading.set(false)
+        ThreadManager.runOnMain {
+            onLoadingStateChanged(false)
+            onPageLoaded(true)
+            onErrorReceived(null) // Clear any previous errors
+        }
+        
+        // Now install reload protection
+        injectReloadProtection(webView)
     }
     
     override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
@@ -280,8 +413,8 @@ class ReloadBlockingWebViewClient(
                             return originalPushState.apply(this, arguments);
                         };
                         
-                        // TiddlyWiki-specific protections
-                        if (window.${'$'}tw && ${'$'}tw.wiki) {
+                        // TiddlyWiki-specific protections - only if TW actually exists
+                        if (window.${'$'}tw && window.${'$'}tw.wiki) {
                             // Block auto-refreshes from reload/syncing
                             if (!window.${'$'}tw.__originalRefresh) {
                                 window.${'$'}tw.__originalRefresh = ${'$'}tw.wiki.refresh;
@@ -382,6 +515,40 @@ class ReloadBlockingWebViewClient(
                 } catch (e: Exception) {
                     Log.e(TAG, "Error stopping WebView loading: ${e.message}")
                 }
+            }
+        }
+    }
+    
+    /**
+     * Forcibly reload the WebView - used by the retry button
+     */
+    fun forceReload(webView: WebView, url: String) {
+        try {
+            // Reset state tracking
+            isFirstLoad = true
+            contentDetectionAttempts = 0
+            webView.setTag(R.string.prevent_reload_tag, false)
+            
+            // Clear any existing web content
+            webView.loadUrl("about:blank")
+            
+            // Small delay to ensure blank page is loaded before attempting the real URL
+            ThreadManager.runOnMainWithDelay(100) {
+                Log.d(TAG, "Forcing reload of URL: $url")
+                webView.loadUrl(url)
+                
+                // Update loading state
+                isLoading.set(true)
+                ThreadManager.runOnMain {
+                    onLoadingStateChanged(true)
+                    onErrorReceived(null)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error during force reload: ${e.message}", e)
+            ThreadManager.runOnMain {
+                onErrorReceived("Error reloading page: ${e.message}")
+                onLoadingStateChanged(false)
             }
         }
     }

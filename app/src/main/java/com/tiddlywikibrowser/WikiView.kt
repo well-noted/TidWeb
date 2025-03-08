@@ -166,35 +166,51 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                         )
                         Button(
                             onClick = {
-                                errorState = null
+                                // Set loading state first to show progress indicator
                                 isLoading = true
-                                // Retry loading with reload protection
-                                localFileUrl?.let { url ->
-                                    val now = System.currentTimeMillis()
-                                    if (now - lastLoadTime > 5000) { // Only allow reloads every 5 seconds
-                                        lastLoadTime = now
-                                        // Use normal loading for explicit user request
-                                        viewModel.getOrCreateWebView(wiki, context)?.let { webView ->
-                                            // Reset the tag to allow an actual reload
-                                            webView.setTag(R.string.prevent_reload_tag, false)
-                                            webView.loadUrl(url)
-                                        }
-                                    }
-                                } ?: run {
-                                    val now = System.currentTimeMillis()
-                                    if (now - lastLoadTime > 5000) {
-                                        lastLoadTime = now
-                                        // Use normal loading for explicit user request
-                                        viewModel.getOrCreateWebView(wiki, context)?.let { webView ->
-                                            // Reset the tag to allow an actual reload
-                                            webView.setTag(R.string.prevent_reload_tag, false)
-                                            webView.loadUrl(wiki.url)
-                                        }
-                                    }
+                                errorState = null
+                                
+                                // Fetch the URL to load
+                                val urlToLoad = localFileUrl ?: wiki.url
+                                
+                                // Use our new forceReload method that properly resets WebView state
+                                viewModel.getOrCreateWebView(wiki, context)?.let { webView ->
+                                    // Reset all state flags in both WebView and client
+                                    webView.setTag(R.string.prevent_reload_tag, false)
+                                    webViewClientState.value?.forceReload(webView, urlToLoad)
+                                    
+                                    // Also reset our compose state
+                                    isFirstLoad = true 
+                                    hasContent = false
+                                    lastLoadTime = System.currentTimeMillis()
                                 }
                             }
                         ) {
                             Text("Retry")
+                        }
+                        
+                        // Add a secondary option for hard reload
+                        TextButton(
+                            onClick = {
+                                // Completely recreate the WebView for a clean slate
+                                WebViewCache.removeCachedWebView(wikiKey)
+                                isLoading = true
+                                errorState = null
+                                isFirstLoad = true
+                                hasContent = false
+                                
+                                // Small delay to let removal finish
+                                ThreadManager.runOnMainWithDelay(100) {
+                                    val urlToLoad = localFileUrl ?: wiki.url
+                                    
+                                    // This will create a fresh WebView since we just removed the cached one
+                                    viewModel.getOrCreateWebView(wiki, context)?.let { webView ->
+                                        webView.loadUrl(urlToLoad)
+                                    }
+                                }
+                            }
+                        ) {
+                            Text("Hard Reload")
                         }
                     }
                 }
