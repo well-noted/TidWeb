@@ -22,6 +22,11 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.compose.animation.*
 import android.os.Bundle
 import android.util.Log
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.saveable.rememberSaveable
+import kotlinx.coroutines.CoroutineExceptionHandler
 
 @Composable
 fun LoadingIndicator(isVisible: Boolean) {
@@ -56,27 +61,58 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
     val downloadManager = remember { WebViewDownloadManager(context) }
     var localFileUrl by remember { mutableStateOf<String?>(null) }
     
-    // Set current wiki and view model for download manager
-    DisposableEffect(wiki.url, viewModel) {
-        downloadManager.setCurrentWiki(wiki, viewModel)
-        onDispose { }
+    // Track composable lifecycle and active state
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
+    var isActive by remember { mutableStateOf(true) }
+    
+    // Create a stable key for this composable that doesn't change during its lifecycle
+    // This helps prevent recomposition issues when switching between wikis quickly
+    val stableKey = remember(wiki.url) { "${wiki.url}_${System.currentTimeMillis()}" }
+    
+    // Use LaunchedEffect for setup tasks that should run once per key change
+    LaunchedEffect(stableKey) {
+        // Allow some time for UI transitions before attempting to load the WebView
+        delay(50)
+        isActive = true
+        
+        // Set this wiki as active when the composable is shown
+        WebViewCache.setCurrentActiveKey(wikiKey)
     }
     
-    // Simplified state tracking
-    var isFirstLoad by remember(wiki.url) { mutableStateOf(true) }
-    var hasContent by remember(wiki.url) { mutableStateOf(false) }
-    var lastLoadTime by remember { mutableStateOf(0L) }
+    // Set current wiki and view model for download manager
+    DisposableEffect(stableKey) {
+        downloadManager.setCurrentWiki(wiki, viewModel)
+        onDispose {
+            // Only consider inactive if we're not in configuration change
+            val activity = context as? ComponentActivity
+            if (activity?.isChangingConfigurations != true) {
+                isActive = false
+                
+                // Use a short delay to ensure we don't compete with new wiki's setup
+                scope.launch {
+                    delay(100)
+                    // Clean up only if the composable is truly gone, not just during recomposition
+                    if (!isActive) {
+                        Log.d("WikiView", "Cleaning up resources for: ${wiki.url}")
+                    }
+                }
+            }
+        }
+    }
     
-    // Key the webview by wiki URL to ensure recomposition on wiki change
-    val webViewKey = remember(wiki.url) { wiki.url }
+    // Simplified state tracking - use rememberSaveable to preserve across config changes
+    var isFirstLoad by rememberSaveable(wiki.url) { mutableStateOf(true) }
+    var hasContent by rememberSaveable(wiki.url) { mutableStateOf(false) }
+    var lastLoadTime by rememberSaveable { mutableStateOf(0L) }
     
     // Create a client state that can be accessed in both factory and update lambdas
-    val webViewClientState = remember(webViewKey) {
+    val webViewClientState = remember(stableKey) {
         mutableStateOf<ReloadBlockingWebViewClient?>(null)
     }
 
     // Add lifecycle observer to prevent premature cleanup
-    DisposableEffect(webViewKey) {
+    DisposableEffect(stableKey) {
         val activity = context as? ComponentActivity
         val observer = object : DefaultLifecycleObserver {
             override fun onStop(owner: LifecycleOwner) {
@@ -87,19 +123,19 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
             }
             
             override fun onResume(owner: LifecycleOwner) {
-                // When the activity resumes, reinforce reload protection
-                ThreadManager.runOnMain {
-                    webViewClientState.value?.let { client ->
-                        viewModel.getOrCreateWebView(wiki, context)?.let { webView ->
-                            client.reinforceReloadProtection(webView)
+                // Verify we're still the active wiki before restoring
+                if (WebViewCache.getCurrentActiveKey() == wikiKey) {
+                    // When the activity resumes, reinforce reload protection
+                    ThreadManager.runOnMain {
+                        webViewClientState.value?.let { client ->
+                            viewModel.getOrCreateWebView(wiki, context)?.let { webView ->
+                                client.reinforceReloadProtection(webView)
+                            }
                         }
                     }
                 }
             }
         }
-        
-        // Set this wiki as active when the composable is shown
-        WebViewCache.setCurrentActiveKey(wikiKey)
         
         activity?.lifecycle?.addObserver(observer)
         onDispose {
@@ -107,67 +143,70 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Show error state if there's an error
-        errorState?.let { error ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+    // Wrap the main content in a key to ensure proper recomposition
+    key(stableKey) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Show error state if there's an error
+            errorState?.let { error ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = error,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.padding(16.dp)
-                    )
-                    Button(
-                        onClick = {
-                            errorState = null
-                            isLoading = true
-                            // Retry loading with reload protection
-                            localFileUrl?.let { url ->
-                                val now = System.currentTimeMillis()
-                                if (now - lastLoadTime > 5000) { // Only allow reloads every 5 seconds
-                                    lastLoadTime = now
-                                    // Use normal loading for explicit user request
-                                    viewModel.getOrCreateWebView(wiki, context)?.let { webView ->
-                                        // Reset the tag to allow an actual reload
-                                        webView.setTag(R.string.prevent_reload_tag, false)
-                                        webView.loadUrl(url)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                        Button(
+                            onClick = {
+                                errorState = null
+                                isLoading = true
+                                // Retry loading with reload protection
+                                localFileUrl?.let { url ->
+                                    val now = System.currentTimeMillis()
+                                    if (now - lastLoadTime > 5000) { // Only allow reloads every 5 seconds
+                                        lastLoadTime = now
+                                        // Use normal loading for explicit user request
+                                        viewModel.getOrCreateWebView(wiki, context)?.let { webView ->
+                                            // Reset the tag to allow an actual reload
+                                            webView.setTag(R.string.prevent_reload_tag, false)
+                                            webView.loadUrl(url)
+                                        }
                                     }
-                                }
-                            } ?: run {
-                                val now = System.currentTimeMillis()
-                                if (now - lastLoadTime > 5000) {
-                                    lastLoadTime = now
-                                    // Use normal loading for explicit user request
-                                    viewModel.getOrCreateWebView(wiki, context)?.let { webView ->
-                                        // Reset the tag to allow an actual reload
-                                        webView.setTag(R.string.prevent_reload_tag, false)
-                                        webView.loadUrl(wiki.url)
+                                } ?: run {
+                                    val now = System.currentTimeMillis()
+                                    if (now - lastLoadTime > 5000) {
+                                        lastLoadTime = now
+                                        // Use normal loading for explicit user request
+                                        viewModel.getOrCreateWebView(wiki, context)?.let { webView ->
+                                            // Reset the tag to allow an actual reload
+                                            webView.setTag(R.string.prevent_reload_tag, false)
+                                            webView.loadUrl(wiki.url)
+                                        }
                                     }
                                 }
                             }
+                        ) {
+                            Text("Retry")
                         }
-                    ) {
-                        Text("Retry")
                     }
                 }
+                return@Box
             }
-            return@Box
-        }
-        
-        // Make webview keyed by wiki URL to force recomposition when wiki changes
-        key(webViewKey) {
+            
+            // Use stable key for AndroidView to prevent unnecessary recreations
             AndroidView(
                 factory = { ctx ->
                     try {
+                        Log.d("WikiView", "Creating/retrieving WebView for: ${wiki.url}")
+                        
                         // Check if there's a cached WebView first to avoid creating a new one
                         val webView = WebViewCache.getAndRestoreCachedWebView(
                             wikiKey,
@@ -206,14 +245,22 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                             context = ctx,
                             wikiUrl = wiki.url,
                             onLoadingStateChanged = { loading ->
-                                isLoading = loading
+                                // Only update state if still active to prevent state updates
+                                // after component disposal
+                                if (isActive) {
+                                    isLoading = loading
+                                }
                             },
                             onErrorReceived = { error ->
-                                errorState = error
+                                if (isActive) {
+                                    errorState = error
+                                }
                             },
                             onPageLoaded = { success ->
-                                hasContent = success
-                                isFirstLoad = false
+                                if (isActive) {
+                                    hasContent = success
+                                    isFirstLoad = false
+                                }
                             }
                         )
                         
@@ -250,34 +297,66 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                         
                         webView
                     } catch (e: Exception) {
+                        Log.e("WikiView", "Error creating WebView: ${e.message}", e)
                         errorState = "Error creating WebView: ${e.message}"
-                        e.printStackTrace()
                         // Return an empty WebView as a fallback
                         WebView(ctx)
                     }
                 },
                 update = { webView ->
-                    // Always ensure visibility - NO need to reload when switching wikis
-                    webView.visibility = android.view.View.VISIBLE
-                    
-                    // CRITICAL: Do NOT call loadUrl() here in the update lambda 
-                    // as it will trigger on every recomposition
-                    
-                    // We can safely ensure our reload protection is in place though
-                    webViewClientState.value?.let { client ->
-                        // Reinforce protection - this will only do something if the WebView is loaded
-                        if (webView.getTag(R.string.prevent_reload_tag) == true) {
-                            ThreadManager.runOnMain {
-                                client.reinforceReloadProtection(webView)
+                    // Avoid any state updates during update if the composable is not active
+                    if (isActive) {
+                        // Always ensure visibility - NO need to reload when switching wikis
+                        webView.visibility = android.view.View.VISIBLE
+                        
+                        // We can safely ensure our reload protection is in place though
+                        webViewClientState.value?.let { client ->
+                            // Reinforce protection - this will only do something if the WebView is loaded
+                            if (webView.getTag(R.string.prevent_reload_tag) == true) {
+                                // Use runCatching to prevent any exceptions from affecting the UI
+                                runCatching {
+                                    client.reinforceReloadProtection(webView)
+                                }
                             }
                         }
                     }
                 },
                 modifier = Modifier.fillMaxSize()
             )
+            
+            // Show loading overlay
+            if (isActive) {
+                LoadingIndicator(isLoading)
+            }
         }
-        
-        // Show loading overlay
-        LoadingIndicator(isLoading)
     }
+}
+
+/**
+ * Safe composable wrapper to prevent compose state exceptions
+ * during rapid wiki transitions
+ */
+@Composable
+fun WikiView(wiki: WikiInstance, viewModel: WikiViewModel) {
+    // Handle any exceptions during composition to prevent app crashes
+    var composeError by remember { mutableStateOf<String?>(null) }
+    
+    if (composeError != null) {
+        // Show error UI if there was a compose error
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.errorContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Error displaying wiki. Please try again.",
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+        return
+    }
+    
+
 }

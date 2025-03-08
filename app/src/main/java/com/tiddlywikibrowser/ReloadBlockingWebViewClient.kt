@@ -9,6 +9,10 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.os.Bundle
 import android.util.Log
+import java.lang.ref.WeakReference
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * A specialized WebViewClient that blocks unwanted reloads when switching between wikis
@@ -24,13 +28,13 @@ class ReloadBlockingWebViewClient(
     companion object {
         private const val TAG = "ReloadBlockingWVC"
         private const val RELOAD_PROTECTION_WINDOW = 2000L // Only allow reloads every 2 seconds
-        
-        // The tag key used to mark WebViews that have already been loaded
-        private const val LOADED_STATE_KEY = "wiki_loaded_state"
     }
     
     private var lastLoadTime = 0L
     private var isFirstLoad = true
+    private val isLoading = AtomicBoolean(false)
+    private var webViewRef: WeakReference<WebView>? = null
+    private var reloadProtectionInstalled = false
     
     /**
      * Check if the WebView has already been loaded with content
@@ -44,6 +48,7 @@ class ReloadBlockingWebViewClient(
      */
     private fun markWebViewAsLoaded(view: WebView?) {
         view?.setTag(R.string.prevent_reload_tag, true)
+        webViewRef = WeakReference(view)
     }
     
     /**
@@ -51,7 +56,11 @@ class ReloadBlockingWebViewClient(
      */
     fun saveWebViewState(webView: WebView): Bundle {
         val bundle = Bundle()
-        webView.saveState(bundle)
+        try {
+            webView.saveState(bundle)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving WebView state: ${e.message}")
+        }
         return bundle
     }
     
@@ -59,81 +68,136 @@ class ReloadBlockingWebViewClient(
      * Restore the WebView state
      */
     fun restoreWebViewState(webView: WebView, bundle: Bundle) {
-        webView.restoreState(bundle)
+        try {
+            webView.restoreState(bundle)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error restoring WebView state: ${e.message}")
+        }
     }
     
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+        // Use a safe implementation to prevent NPEs
+        if (view == null) return
+        
         super.onPageStarted(view, url, favicon)
         
+        // Avoid multiple loading indicators
+        if (isLoading.compareAndSet(false, true)) {
+            // Only update loading state if we're actually loading
+            ThreadManager.runOnMain {
+                onLoadingStateChanged(true)
+            }
+        }
+        
         // Skip checking for reloads if this is the first load for this WebView
-        if (!isFirstLoad && view != null) {
+        if (!isFirstLoad) {
             // If this isn't the first load and it's too soon since the last load,
             // and the WebView has already been loaded, block this reload
             val now = System.currentTimeMillis()
             if (now - lastLoadTime < RELOAD_PROTECTION_WINDOW && isWebViewLoaded(view)) {
                 Log.d(TAG, "Blocking reload for $url - too soon after previous load")
                 view.stopLoading()
+                
+                // Reset loading state since we stopped the load
+                isLoading.set(false)
+                ThreadManager.runOnMain {
+                    onLoadingStateChanged(false)
+                }
                 return
             }
         }
         
-        // For valid loads, track the state and notify listener
+        // For valid loads, track the state
         lastLoadTime = System.currentTimeMillis()
-        onLoadingStateChanged(true)
-        onErrorReceived(null) // Clear any previous errors
+        webViewRef = WeakReference(view)
     }
     
     override fun onPageFinished(view: WebView?, url: String?) {
+        // Use a safe implementation to prevent NPEs
+        if (view == null) return
+        
         super.onPageFinished(view, url)
         
         // Check that the view exists and update its state
-        if (view != null) {
+        try {
             // For first loads, check if content loaded successfully using JavaScript
             if (isFirstLoad) {
                 view.evaluateJavascript("""
                     (function() {
-                        if (window.${'$'}tw && ${'$'}tw.wiki) {
-                            return "loaded";
+                        try {
+                            if (window.${'$'}tw && ${'$'}tw.wiki) {
+                                return "loaded";
+                            }
+                            return document.body.innerHTML.length > 0 ? "content" : "empty";
+                        } catch (e) {
+                            return "error";
                         }
-                        return document.body.innerHTML.length > 0 ? "content" : "empty";
                     })();
                 """.trimIndent()) { result ->
-                    when (result.trim('"')) {
-                        "loaded", "content" -> {
-                            isFirstLoad = false
-                            
-                            // Mark this WebView as loaded so we know to prevent reloads
-                            markWebViewAsLoaded(view)
-                            
-                            // Notify that loading is complete and content is available
-                            onLoadingStateChanged(false)
-                            onPageLoaded(true)
-                            
-                            // Now install reload protection
-                            injectReloadProtection(view)
+                    try {
+                        val resultState = result.trim('"')
+                        when (resultState) {
+                            "loaded", "content" -> {
+                                isFirstLoad = false
+                                
+                                // Mark this WebView as loaded so we know to prevent reloads
+                                markWebViewAsLoaded(view)
+                                
+                                // Notify that loading is complete and content is available
+                                isLoading.set(false)
+                                ThreadManager.runOnMain {
+                                    onLoadingStateChanged(false)
+                                    onPageLoaded(true)
+                                    onErrorReceived(null) // Clear any previous errors
+                                }
+                                
+                                // Now install reload protection
+                                injectReloadProtection(view)
+                            }
+                            else -> {
+                                isLoading.set(false)
+                                ThreadManager.runOnMain {
+                                    onLoadingStateChanged(false)
+                                    onPageLoaded(false)
+                                    onErrorReceived("Could not load wiki content")
+                                }
+                            }
                         }
-                        else -> {
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error handling page finished state: ${e.message}", e)
+                        isLoading.set(false)
+                        ThreadManager.runOnMain {
                             onLoadingStateChanged(false)
-                            onPageLoaded(false)
-                            onErrorReceived("Could not load wiki content")
+                            onErrorReceived("Error evaluating page content")
                         }
                     }
                 }
             } else {
                 // For non-first loads, just update loading state
-                onLoadingStateChanged(false)
+                isLoading.set(false)
+                ThreadManager.runOnMain {
+                    onLoadingStateChanged(false)
+                }
             }
-        } else {
-            // If view is null somehow, update loading state anyway
-            onLoadingStateChanged(false)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in onPageFinished: ${e.message}", e)
+            isLoading.set(false)
+            ThreadManager.runOnMain {
+                onLoadingStateChanged(false)
+                onErrorReceived("Error while loading page")
+            }
         }
     }
     
     override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
         super.onReceivedError(view, request, error)
+        
         if (request?.isForMainFrame == true) {
-            onErrorReceived("Error loading page: ${error?.description}")
-            onLoadingStateChanged(false)
+            isLoading.set(false)
+            ThreadManager.runOnMain {
+                onErrorReceived("Error loading page: ${error?.description}")
+                onLoadingStateChanged(false)
+            }
         }
     }
     
@@ -190,62 +254,83 @@ class ReloadBlockingWebViewClient(
      * Inject JavaScript to prevent unwanted reload attempts from within the page
      */
     private fun injectReloadProtection(webView: WebView) {
-        webView.evaluateJavascript("""
-            (function() {
-                // Basic reload prevention
-                if (window.__reloadProtectionInstalled) {
-                    return; // Already installed
-                }
-                
-                // Block various reload methods
-                window.location.reload = function() { 
-                    console.log("[Reload blocked] location.reload()");
-                    return false; 
-                };
-                window.stop = function() { 
-                    console.log("[Reload blocked] window.stop()");
-                    return false; 
-                };
-                
-                // Block reload attempts through history API
-                const originalPushState = history.pushState;
-                history.pushState = function() {
-                    console.log("[History API] Monitoring pushState");
-                    return originalPushState.apply(this, arguments);
-                };
-                
-                // TiddlyWiki-specific protections
-                if (window.${'$'}tw && ${'$'}tw.wiki) {
-                    // Block auto-refreshes from reload/syncing
-                    const originalRefresh = ${'$'}tw.wiki.refresh;
-                    ${'$'}tw.wiki.refresh = function(changes, source) {
-                        if (source === 'load' || source === 'reload') {
-                            console.log("[Reload blocked] ${'$'}tw.wiki.refresh from source: " + source);
-                            return false;
-                        }
-                        return originalRefresh.apply(this, arguments);
-                    };
-                    
-                    // Allow saving without reload
-                    if (${'$'}tw.syncer) {
-                        const originalLoadTiddler = ${'$'}tw.syncer.loadTiddler;
-                        ${'$'}tw.syncer.loadTiddler = function(title) {
-                            console.log("[Syncer] Loading tiddler without reload: " + title);
-                            try {
-                                return originalLoadTiddler.apply(this, arguments);
-                            } catch (e) {
-                                console.log("[Syncer] Error loading tiddler: " + e);
-                                return null;
-                            }
-                        };
+        try {
+            webView.evaluateJavascript("""
+                (function() {
+                    // Basic reload prevention
+                    if (window.__reloadProtectionInstalled) {
+                        return "already_installed"; // Already installed
                     }
-                }
-                
-                // Mark as installed
-                window.__reloadProtectionInstalled = true;
-                console.log("[Reload Protection] Successfully installed");
-            })();
-        """.trimIndent(), null)
+                    
+                    try {
+                        // Block various reload methods
+                        window.location.reload = function() { 
+                            console.log("[Reload blocked] location.reload()");
+                            return false; 
+                        };
+                        window.stop = function() { 
+                            console.log("[Reload blocked] window.stop()");
+                            return false; 
+                        };
+                        
+                        // Block reload attempts through history API
+                        const originalPushState = history.pushState;
+                        history.pushState = function() {
+                            console.log("[History API] Monitoring pushState");
+                            return originalPushState.apply(this, arguments);
+                        };
+                        
+                        // TiddlyWiki-specific protections
+                        if (window.${'$'}tw && ${'$'}tw.wiki) {
+                            // Block auto-refreshes from reload/syncing
+                            if (!window.${'$'}tw.__originalRefresh) {
+                                window.${'$'}tw.__originalRefresh = ${'$'}tw.wiki.refresh;
+                                ${'$'}tw.wiki.refresh = function(changes, source) {
+                                    if (source === 'load' || source === 'reload') {
+                                        console.log("[Reload blocked] ${'$'}tw.wiki.refresh from source: " + source);
+                                        return false;
+                                    }
+                                    return window.${'$'}tw.__originalRefresh.apply(this, arguments);
+                                };
+                            }
+                            
+                            // Allow saving without reload
+                            if (${'$'}tw.syncer && !window.${'$'}tw.__originalLoadTiddler) {
+                                window.${'$'}tw.__originalLoadTiddler = ${'$'}tw.syncer.loadTiddler;
+                                ${'$'}tw.syncer.loadTiddler = function(title) {
+                                    console.log("[Syncer] Loading tiddler without reload: " + title);
+                                    try {
+                                        return window.${'$'}tw.__originalLoadTiddler.apply(this, arguments);
+                                    } catch (e) {
+                                        console.log("[Syncer] Error loading tiddler: " + e);
+                                        return null;
+                                    }
+                                };
+                                
+                                // Add safe mode to prevent auto-refresh
+                                if (${'$'}tw.safeMode === undefined) {
+                                    ${'$'}tw.safeMode = true;
+                                    console.log("[${'$'}tw] Enabled TiddlyWiki safe mode");
+                                }
+                            }
+                        }
+                        
+                        // Mark as installed
+                        window.__reloadProtectionInstalled = true;
+                        console.log("[Reload Protection] Successfully installed");
+                        return "installed";
+                    } catch (e) {
+                        console.error("[Reload Protection] Error installing: " + e);
+                        return "error: " + e.message;
+                    }
+                })();
+            """.trimIndent()) { result ->
+                reloadProtectionInstalled = result.contains("installed")
+                Log.d(TAG, "Reload protection installation result: $result")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error injecting reload protection: ${e.message}", e)
+        }
     }
     
     /**
@@ -276,6 +361,28 @@ class ReloadBlockingWebViewClient(
     fun reinforceReloadProtection(webView: WebView) {
         if (isWebViewLoaded(webView)) {
             injectReloadProtection(webView)
+        }
+    }
+    
+    /**
+     * Cancels any ongoing loads and resets the loading state
+     * Call this when cleaning up to ensure we don't have dangling state
+     */
+    fun cancelLoading() {
+        if (isLoading.compareAndSet(true, false)) {
+            ThreadManager.runOnMain {
+                onLoadingStateChanged(false)
+            }
+        }
+        
+        webViewRef?.get()?.let { webView ->
+            if (webView.isAttachedToWindow) {
+                try {
+                    webView.stopLoading()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error stopping WebView loading: ${e.message}")
+                }
+            }
         }
     }
 }
