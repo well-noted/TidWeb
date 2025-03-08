@@ -2,10 +2,13 @@ package com.tiddlywikibrowser
 
 import android.content.Context
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import java.util.concurrent.ConcurrentHashMap
 import java.util.LinkedHashMap
 
@@ -49,30 +52,92 @@ object WebViewCache {
         }
     }
 
+    private fun monitorWebViewStateSize(key: String, bundle: Bundle) {
+    ThreadManager.runOnBackground {
+        try {
+            val parcel = android.os.Parcel.obtain()
+            bundle.writeToParcel(parcel, 0)
+            val sizeBytes = parcel.dataSize()
+            parcel.recycle()
+            
+            if (sizeBytes > 500 * 1024) { // 500KB
+                Log.e(TAG, "WebView state for $key is too large: ${sizeBytes/1024}KB!")
+                
+                // Remove problematic state to prevent crashes
+                ThreadManager.runOnMain {
+                    webViewStates.remove(key)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error measuring bundle size: ${e.message}")
+        }
+    }
+}
+
+fun checkForLeakedWebViews() {
+    ThreadManager.runOnBackground {
+        val leakedKeys = mutableListOf<String>()
+        
+        webViewCache.forEach { (key, webView) ->
+            if (key != currentActiveKey && webView.parent != null) {
+                // This is a potential leak - the WebView is attached but not active
+                Log.w(TAG, "Potential WebView leak detected for key: $key")
+                leakedKeys.add(key)
+            }
+        }
+        
+        // Fix leaks on main thread
+        if (leakedKeys.isNotEmpty()) {
+            ThreadManager.runOnMain {
+                leakedKeys.forEach { key ->
+                    webViewCache[key]?.let { webView ->
+                        try {
+                            (webView.parent as? ViewGroup)?.removeView(webView)
+                            Log.d(TAG, "Fixed leaked WebView for key: $key")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error fixing WebView leak: ${e.message}")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
     /**
      * Cache a WebView with its state for future restoration
      */
-    fun cacheWebView(key: String, webView: WebView) {
+fun cacheWebView(key: String, webView: WebView) {
+    ThreadManager.runOnMain {
         try {
-            // Always save the state even if we already have the WebView cached
+            // Limit bundle size to prevent TransactionTooLargeException
             val bundle = Bundle()
             webView.saveState(bundle)
-            webViewStates[key] = bundle
             
-            // Track loaded state - CRITICAL for preventing reloads
+            // Check bundle size and trim if necessary
+            if (bundle.sizeAsParcel() > 400 * 1024) { // 400KB limit
+                Log.w(TAG, "WebView state bundle too large, using minimal state")
+                val minimalBundle = Bundle()
+                minimalBundle.putString("url", webView.url)
+                webViewStates[key] = minimalBundle
+            } else {
+                webViewStates[key] = bundle
+            }
+            
+            // Track loaded state
             val isLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
             webViewLoadedState[key] = isLoaded
-            Log.d(TAG, "Cached WebView state for key: $key, loaded=$isLoaded")
             
             // Update access time
             updateAccessTime(key)
             
-            // Store in cache if it's not already there
+            // Store in cache if not already there
             if (!webViewCache.containsKey(key)) {
+                // Ensure WebView is detached from any parent
+                (webView.parent as? ViewGroup)?.removeView(webView)
                 webViewCache[key] = webView
-                Log.d(TAG, "Added WebView to cache for key: $key")
             }
-
+            
             // Trim cache if needed
             if (webViewCache.size > MAX_CACHE_SIZE) {
                 trimCache()
@@ -81,6 +146,19 @@ object WebViewCache {
             Log.e(TAG, "Error caching WebView: ${e.message}")
         }
     }
+}
+
+// Helper extension function for Bundle size estimation
+private fun Bundle.sizeAsParcel(): Int {
+    val parcel = android.os.Parcel.obtain()
+    try {
+        parcel.setDataPosition(0)
+        writeToParcel(parcel, 0)
+        return parcel.dataSize()
+    } finally {
+        parcel.recycle()
+    }
+}
 
     private fun updateAccessTime(key: String) {
         lastAccessTime[key] = System.currentTimeMillis()
@@ -95,7 +173,9 @@ object WebViewCache {
                 ?.key
 
             oldestKey?.let { key ->
-                removeCachedWebView(key)
+                ThreadManager.runOnMain { 
+                    removeCachedWebView(key)
+                }
                 Log.d(TAG, "Trimmed cached WebView: $key")
             }
         }
@@ -120,52 +200,59 @@ object WebViewCache {
         val existingWebView = webViewCache[key]
         
         if (existingWebView != null) {
-            Log.d(TAG, "Restoring cached WebView for key: $key")
-            
-            // Make sure the WebView is detached from any previous parent
-            (existingWebView.parent as? ViewGroup)?.removeView(existingWebView)
-            
-            // Critical fix: Ensure we restore the state ONLY if the WebView doesn't already have content
-            val isAlreadyLoaded = existingWebView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
-            
-            if (!isAlreadyLoaded) {
-                // Only restore state if the WebView isn't already loaded with content
-                webViewStates[key]?.let { state ->
-                    try {
-                        existingWebView.restoreState(state)
-                        Log.d(TAG, "State restored for WebView: $key")
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to restore state: ${e.message}")
-                    }
-                }
-            } else {
-                Log.d(TAG, "WebView already has content, skipping state restore to prevent reload")
+            // Make sure detachment happens on the main thread
+            ThreadManager.runOnMain {
+                (existingWebView.parent as? ViewGroup)?.removeView(existingWebView)
             }
             
-            // Make it visible
-            existingWebView.visibility = View.VISIBLE
-            
-            // Always restore loaded state tag when we have it
-            if (webViewLoadedState[key] == true) {
-                existingWebView.setTag(R.string.prevent_reload_tag, true)
-                Log.d(TAG, "Restored loaded state tag for WebView: $key")
+            // Only restore state after ensuring proper detachment
+            ThreadManager.runOnMainWithDelay(50) {
+                val isAlreadyLoaded = existingWebView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
+                if (!isAlreadyLoaded) {
+                    webViewStates[key]?.let { state ->
+                        try {
+                            existingWebView.restoreState(state)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to restore state: ${e.message}")
+                        }
+                    }
+                }
             }
             
             return existingWebView
         } else {
             Log.d(TAG, "No cached WebView found for key: $key, creating new one")
             
-            // Create a new WebView using the provided factory function
-            val newWebView = newWebViewFactory()
-            
-            // New WebViews start with loaded=false
-            newWebView.setTag(R.string.prevent_reload_tag, false)
-            
-            // Cache the new WebView
-            webViewCache[key] = newWebView
-            
-            return newWebView
+            // Create new WebView with proper error handling
+            return try {
+                val newWebView = newWebViewFactory()
+                
+                // New WebViews start with loaded=false
+                newWebView.setTag(R.string.prevent_reload_tag, false)
+                
+                // Cache the new WebView
+                webViewCache[key] = newWebView
+                
+                newWebView
+            } catch (e: Exception) {
+                Log.e(TAG, "Error creating WebView: ${e.message}")
+                WebView(existingWebView?.context ?: getContextSafely()).apply {
+                    loadUrl("about:blank")
+                }
+            }
         }
+    }
+    
+    // This helper method ensures we have a context to create a fallback WebView
+    private fun getContextSafely(): Context {
+        // Try to use context from an existing WebView if available
+        webViewCache.values.firstOrNull()?.context?.let {
+            return it
+        }
+        
+        // If no context available and we're trying to create a WebView, this is a serious error
+        // We'll use application context as a last resort, but it should be provided by the app
+        throw IllegalStateException("No valid context available to create WebView")
     }
 
     /**
@@ -230,6 +317,29 @@ object WebViewCache {
             }
         }
     }
+
+
+
+fun onLowMemory() {
+    // Keep only the active WebView and discard others
+    val keysToRemove = webViewCache.keys.filter { it != currentActiveKey }
+    for (key in keysToRemove) {
+        ThreadManager.runOnBackground {
+            removeCachedWebView(key)
+        }
+    }
+    
+    // Clean up other resources
+    webViewStates.keys.filter { it != currentActiveKey }.forEach {
+        webViewStates.remove(it)
+    }
+    webViewLoadedState.keys.filter { it != currentActiveKey }.forEach {
+        webViewLoadedState.remove(it)
+    }
+    
+    // Force garbage collection
+    System.gc()
+}
 
     /**
      * Resume a specific WebView
