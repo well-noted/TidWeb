@@ -1139,7 +1139,8 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     }
 
     fun setFrameVisible(visible: Boolean) {
-        viewModelScope.launch {
+        // Update on the main thread to ensure UI state changes immediately
+        ThreadManager.runOnMain {
             _isFrameVisible.value = visible
         }
     }
