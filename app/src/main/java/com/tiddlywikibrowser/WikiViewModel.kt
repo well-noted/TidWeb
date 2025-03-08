@@ -37,14 +37,17 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.async
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.resume
 import com.tiddlywikibrowser.R
 
-// Add navigation throttling variables
+// Add improved navigation throttling variables
 private var lastNavigationTime = 0L
-private val NAVIGATION_THROTTLE_MS = 300L
+private val NAVIGATION_THROTTLE_MS = 500L // Increased from 300ms to 500ms
 private var pendingNavigation: WikiInstance? = null
 private var navigationJob: Job? = null
+private val navigationMutex = Mutex() // Add mutex for thread-safe navigation
 
 /**
  * WebViewClient specifically designed to handle and fix raw HTML content
@@ -491,28 +494,42 @@ class WikiViewModel(private val context: Context) : ViewModel() {
         }
     }
 
-    // Replace setCurrentWiki with throttled version
+    // Replace setCurrentWiki with improved synchronized version
     fun setCurrentWiki(wiki: WikiInstance?) {
-        // Cancel any pending navigations
-        navigationJob?.cancel()
-        
-        // Throttle rapid navigations
-        val now = System.currentTimeMillis()
-        if (now - lastNavigationTime < NAVIGATION_THROTTLE_MS) {
-            // Store this as pending and schedule it
-            pendingNavigation = wiki
-            navigationJob = viewModelScope.launch {
-                delay(NAVIGATION_THROTTLE_MS)
-                pendingNavigation?.let { delayed ->
-                    lastNavigationTime = System.currentTimeMillis()
-                    performNavigation(delayed)
-                    pendingNavigation = null
+        viewModelScope.launch {
+            // Use mutex to ensure only one navigation happens at a time
+            navigationMutex.withLock {
+                // Cancel any pending navigations
+                navigationJob?.cancel()
+                
+                // Throttle rapid navigations
+                val now = System.currentTimeMillis()
+                if (now - lastNavigationTime < NAVIGATION_THROTTLE_MS) {
+                    // If we're trying to navigate too quickly, schedule it for later
+                    Log.d("WikiViewModel", "Navigation throttled, scheduling delayed navigation to: ${wiki?.name}")
+                    pendingNavigation = wiki
+                    
+                    // Clear previous job if exists
+                    navigationJob?.cancel()
+                    
+                    // Schedule the navigation after the throttle period
+                    navigationJob = viewModelScope.launch {
+                        delay(NAVIGATION_THROTTLE_MS)
+                        navigationMutex.withLock {
+                            pendingNavigation?.let { delayed ->
+                                lastNavigationTime = System.currentTimeMillis()
+                                Log.d("WikiViewModel", "Executing delayed navigation to: ${delayed.name}")
+                                performNavigation(delayed)
+                                pendingNavigation = null
+                            }
+                        }
+                    }
+                } else {
+                    // Immediate navigation
+                    lastNavigationTime = now
+                    performNavigation(wiki)
                 }
             }
-        } else {
-            // Immediate navigation
-            lastNavigationTime = now
-            performNavigation(wiki)
         }
     }
 
@@ -520,7 +537,13 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     private fun performNavigation(wiki: WikiInstance?) {
         viewModelScope.launch {
             try {
-                // Wait for WebView system to be ready with timeout
+                // If navigation is to the current wiki, don't do anything
+                if (_currentWiki.value?.url == wiki?.url) {
+                    Log.d("WikiViewModel", "Already on wiki: ${wiki?.name}, ignoring navigation")
+                    return@launch
+                }
+                
+                // Ensure WebView system is ready
                 val startTime = System.currentTimeMillis()
                 while (!_isWebViewSystemReady.value) {
                     if (System.currentTimeMillis() - startTime > 5000) {
@@ -616,23 +639,34 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                     // Save current wiki's state before switching
                     _currentWiki.value?.let { currentWiki ->
                         val key = currentWiki.idFromUrl ?: currentWiki.url
+                        // Add a safety check for null WebView
                         webViewCache[key]?.let { currentWebView ->
-                            // Ensure we save the "loaded" state with the WebView
-                            val isLoaded = currentWebView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
-                            Log.d("WikiViewModel", "Saving state for previous wiki: $key, loaded=$isLoaded")
+                            try {
+                                // Ensure we save the "loaded" state with the WebView
+                                val isLoaded = currentWebView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
+                                Log.d("WikiViewModel", "Saving state for previous wiki: $key, loaded=$isLoaded")
 
-                            // Cache the current WebView with its full state to preserve it
-                            WebViewCache.cacheWebView(key, currentWebView)
+                                // Cache the current WebView with its full state to preserve it
+                                WebViewCache.cacheWebView(key, currentWebView)
 
-                            // Pause the WebView to reduce resource usage
-                            currentWebView.onPause()
+                                // Pause the WebView to reduce resource usage
+                                currentWebView.onPause()
+                            } catch (e: Exception) {
+                                Log.e("WikiViewModel", "Error saving state for previous wiki", e)
+                            }
                         }
                     }
 
-                    // Update the current wiki
-                    _currentWiki.value = wiki
+                    // Ensure the navigation doesn't proceed if the wiki is null
+                    if (wiki == null) {
+                        _currentWiki.value = null
+                        return@launch
+                    }
 
-                    if (wiki != null) {
+                    try {
+                        // Use a single atomic update of the current wiki
+                        _currentWiki.value = wiki
+
                         val key = wiki.idFromUrl ?: wiki.url
                         Log.d("WikiViewModel", "Setting active key: $key")
 
@@ -642,6 +676,10 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                         // Pause all other WebViews
                         WebViewCache.pauseAllWebViewsExcept(key)
 
+                        // Add a delay to ensure UI has time to process state changes
+                        delay(50)
+
+                        // Get or create the WebView after the UI state is updated
                         viewModelScope.launch {
                             try {
                                 // Get or create the WebView (this should restore from cache if available)
@@ -674,6 +712,8 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                                 Log.e("WikiViewModel", "Error switching wiki: ${e.message}", e)
                             }
                         }
+                    } catch (e: Exception) {
+                        Log.e("WikiViewModel", "Error updating current wiki state", e)
                     }
                 }
             } catch (e: Exception) {
