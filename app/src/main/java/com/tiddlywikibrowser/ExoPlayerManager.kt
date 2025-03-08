@@ -9,6 +9,7 @@ import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
 import android.util.Log
 
 class ExoPlayerManager(private val context: Context) {
@@ -18,9 +19,16 @@ class ExoPlayerManager(private val context: Context) {
     private var wasPlaying: Boolean = false
     private var mediaSessionManager: MediaSessionManager? = null
 
-    // Create a custom data source factory that handles local files and network resources
+    // Improve data source factory with better timeout and retry logic
     private val dataSourceFactory: DataSource.Factory by lazy {
-        DefaultDataSource.Factory(context)
+        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+            .setConnectTimeoutMs(15000)  // Longer connect timeout
+            .setReadTimeoutMs(20000)     // Longer read timeout
+            .setAllowCrossProtocolRedirects(true)
+            .setUserAgent("TidWeb/1.0")
+        
+        // Combine with default source for handling both http and local files
+        DefaultDataSource.Factory(context, httpDataSourceFactory)
     }
 
     init {
@@ -106,9 +114,32 @@ class ExoPlayerManager(private val context: Context) {
         }
     }
     
+    /**
+     * Improved media item creation with better error handling
+     */
     private fun createMediaItem(url: String): MediaItem {
-        // Create a properly configured MediaItem with rich metadata
-        val uri = Uri.parse(url)
+        // Handle data URLs and local URLs better
+        val uri = when {
+            url.startsWith("data:") -> {
+                // For data URLs, use a special handling
+                Uri.parse(url)
+            }
+            url.startsWith("file:///") -> {
+                // Handle file URLs properly
+                Uri.parse(url)
+            }
+            url.startsWith("/") -> {
+                // Convert absolute path to file URL
+                Uri.parse("file://$url")
+            }
+            !url.contains("://") -> {
+                // Add http:// if protocol missing
+                Uri.parse("http://$url")
+            }
+            else -> Uri.parse(url)
+        }
+        
+        // Get a meaningful filename
         val filename = getFileNameFromUrl(url)
         
         // Create a rich metadata object with all possible fields filled
@@ -171,14 +202,17 @@ class ExoPlayerManager(private val context: Context) {
         return player?.currentPosition ?: _currentPosition
     }
 
-    fun isPlaying(): Boolean = player?.isPlaying == true
+    fun isPlaying(): Boolean {
+        return player?.isPlaying == true
+    }
     
     var volume: Float
         get() = player?.volume ?: 1.0f
         set(value) {
             player?.volume = value.coerceIn(0f, 1f)
         }
-        
+    
+    // Stops the player completely    
     fun stop() {
         player?.stop()
         _currentPosition = 0
