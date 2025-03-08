@@ -27,6 +27,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import kotlinx.coroutines.CoroutineExceptionHandler
+import android.webkit.JavascriptInterface
 
 @Composable
 fun LoadingIndicator(isVisible: Boolean) {
@@ -364,12 +365,16 @@ private fun injectScrollDetectionScript(webView: WebView, viewModel: WikiViewMod
             // Remove any existing scroll handler to avoid duplicates
             if (window.tidScrollHandler) {
                 document.removeEventListener('scroll', window.tidScrollHandler);
+                clearTimeout(window.scrollTimer);
             }
             
             // Improved scroll detection for hiding/showing UI
             let lastScrollY = window.scrollY || 0;
             let lastScrollTime = 0;
             let scrollTimer = null;
+            let isScrollingDown = false;
+            let barState = true; // true = visible, false = hidden
+            
             const scrollThreshold = 20; // Minimum pixels to trigger direction change
             const timeThreshold = 100; // Minimum ms between scroll events to process
             
@@ -380,34 +385,45 @@ private fun injectScrollDetectionScript(webView: WebView, viewModel: WikiViewMod
                 // Don't process every scroll event - throttle for performance
                 if (now - lastScrollTime < timeThreshold) return;
                 
+                // Clear any pending timer
+                clearTimeout(scrollTimer);
+                
                 // Determine scroll direction when moving significantly
                 if (Math.abs(scrollY - lastScrollY) > scrollThreshold) {
-                    const isScrollingDown = scrollY > lastScrollY;
+                    // Update the direction state
+                    isScrollingDown = scrollY > lastScrollY;
                     
-                    // Show when scrolling up, hide when scrolling down
-                    // Use the JavascriptInterface to communicate with Android
-                    window.ScrollInterface.onScroll(!isScrollingDown);
+                    // Only change state if needed
+                    if (isScrollingDown && barState) {
+                        // Hide bars when scrolling down
+                        barState = false;
+                        window.ScrollInterface.onScroll(false);
+                    } else if (!isScrollingDown && !barState) {
+                        // Show bars when scrolling up
+                        barState = true; 
+                        window.ScrollInterface.onScroll(true);
+                    }
                     
+                    // Update tracking variables
                     lastScrollY = scrollY;
                     lastScrollTime = now;
                 }
                 
-                // Also show UI when at the top of the page
-                if (scrollY <= 5) {
+                // Special case: Always show UI when at the top of the page
+                if (scrollY <= 5 && !barState) {
+                    barState = true;
                     window.ScrollInterface.onScroll(true);
                 }
-                
-                // Auto-hide timer - when scrolling stops, show the UI again
-                clearTimeout(scrollTimer);
-                scrollTimer = setTimeout(function() {
-                    window.ScrollInterface.onScroll(true);
-                }, 3000);
             };
             
             // Add the event listener with the stored handler
             document.addEventListener('scroll', window.tidScrollHandler, { passive: true });
             
+            // Store reference to the timer
+            window.scrollTimer = scrollTimer;
+            
             // Initial state - show UI bars
+            barState = true;
             window.ScrollInterface.onScroll(true);
             
             // Handle touch events to improve responsiveness
@@ -415,16 +431,28 @@ private fun injectScrollDetectionScript(webView: WebView, viewModel: WikiViewMod
                 clearTimeout(scrollTimer);
             }, { passive: true });
             
+            // Don't automatically show on touch end
             document.addEventListener('touchend', function() {
-                // Wait a bit after touch ends to see if it becomes a scroll
-                scrollTimer = setTimeout(function() {
-                    window.ScrollInterface.onScroll(true);
-                }, 1000);
+                // No auto-show behavior, maintain the current state
             }, { passive: true });
             
             return true;
         })();
     """, null)
+    
+    // Also add a second JavaScript interface for scroll callbacks
+    try {
+        webView.addJavascriptInterface(object {
+            @JavascriptInterface
+            fun onScroll(showBars: Boolean) {
+                ThreadManager.runOnMain {
+                    viewModel.setFrameVisible(showBars)
+                }
+            }
+        }, "ScrollInterface")
+    } catch (e: Exception) {
+        Log.e("WikiView", "Failed to add JavaScript interface", e)
+    }
 }
 
 /**
