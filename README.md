@@ -12,6 +12,9 @@ X Persistent ANR <br>
 - Notification Tray Favicon loading/caching <br>
 x Create Single File Wiki from template <br>
 x Save/Replace Single File Wiki from interface
+- Restore Media Functionality
+- Restore Scroll-to-hide/show navbar
+- Store webview in memory when background
 
 <b> Some additional features to be developed: </b>
 - Cache/sync for Offline-Mode <br>

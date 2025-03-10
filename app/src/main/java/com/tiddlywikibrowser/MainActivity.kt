@@ -196,7 +196,99 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        
+        internal val mediaMonitorScript = """
+            (function() {
+                let lastUpdate = Date.now();
+                const UPDATE_INTERVAL = 250;
+                let activeMediaElement = null;
+                let monitoringInterval = null;
+
+                function updateMediaState() {
+                    const now = Date.now();
+                    if (now - lastUpdate < UPDATE_INTERVAL) return;
+                    lastUpdate = now;
+
+                    if (!activeMediaElement) {
+                        // Only search for media if we don't have an active element
+                        const mediaElement = document.querySelector('audio,video');
+                        if (mediaElement) {
+                            activeMediaElement = mediaElement;
+                            setupMediaElement(mediaElement);
+                        }
+                    } else if (activeMediaElement.ended || activeMediaElement.error) {
+                        // Reset if media ended or errored
+                        activeMediaElement = null;
+                        return;
+                    }
+
+                    if (activeMediaElement) {
+                        updateMediaMetadata(activeMediaElement);
+                    }
+                }
+
+                function setupMediaElement(mediaElement) {
+                    const events = ['play', 'pause', 'playing', 'timeupdate', 'seeking', 'seeked', 'durationchange', 'loadedmetadata', 'ended', 'error'];
+                    events.forEach(event => {
+                        mediaElement.addEventListener(event, () => updateMediaMetadata(mediaElement));
+                    });
+                }
+
+                function updateMediaMetadata(mediaElement) {
+                    let title = mediaElement.getAttribute('title') || '';
+                    let artist = mediaElement.getAttribute('artist') || '';
+                    
+                    if (!title) {
+                        const currentTiddler = mediaElement.closest('[data-tiddler-title]');
+                        if (currentTiddler) {
+                            title = currentTiddler.getAttribute('data-tiddler-title');
+                        }
+                    }
+                    
+                    if (!title) {
+                        const metaTitle = document.querySelector('meta[property="og:title"]');
+                        if (metaTitle) title = metaTitle.content;
+                    }
+                    
+                    if (!artist) {
+                        const metaArtist = document.querySelector('meta[property="og:audio:artist"]');
+                        if (metaArtist) artist = metaArtist.content;
+                    }
+
+                    const duration = mediaElement.duration ? Math.floor(mediaElement.duration * 1000) : 0;
+                    const position = mediaElement.currentTime ? Math.floor(mediaElement.currentTime * 1000) : 0;
+                    
+                    window.MediaInterface.onMediaStateChange(
+                        title || document.title,
+                        artist || 'TiddlyWiki Audio',
+                        duration,
+                        position,
+                        !mediaElement.paused
+                    );
+                }
+
+                // Start monitoring for media elements
+                monitoringInterval = setInterval(updateMediaState, UPDATE_INTERVAL);
+
+                // Add custom skip functions
+                window.skipForward = function() {
+                    if (activeMediaElement) {
+                        activeMediaElement.currentTime = Math.min(
+                            activeMediaElement.duration,
+                            activeMediaElement.currentTime + 15
+                        );
+                    }
+                };
+
+                window.skipBackward = function() {
+                    if (activeMediaElement) {
+                        activeMediaElement.currentTime = Math.max(
+                            0,
+                            activeMediaElement.currentTime - 15
+                        );
+                    }
+                };
+            })();
+        """.trimIndent()
 
         @SuppressLint("SetJavaScriptEnabled")
         internal fun createWebView(context: Context): WebView {
@@ -334,6 +426,27 @@ class MainActivity : ComponentActivity() {
 
             // Create a WebChromeClient to manage rendering lifecycle
             webView.webChromeClient = object : WebChromeClient() {
+                private var customView: View? = null
+                private var customViewCallback: CustomViewCallback? = null
+                
+                override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                    customView = view
+                    customViewCallback = callback
+                    (context as? MainActivity)?.let { activity ->
+                        if (view is PlayerView) {
+                            activity.exoPlayerManager.getOrCreatePlayer().also { player ->
+                                view.player = player
+                            }
+                        }
+                    }
+                }
+
+                override fun onHideCustomView() {
+                    customViewCallback?.onCustomViewHidden()
+                    customView = null
+                    customViewCallback = null
+                }
+                
                 override fun onProgressChanged(view: WebView?, newProgress: Int) {
                     super.onProgressChanged(view, newProgress)
                     
@@ -374,204 +487,23 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            webView.webViewClient = object : WebViewClient() {
-                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                    super.onPageStarted(view, url, favicon)
-                    
-                    // CRITICAL FIX: Immediately inject safety scripts to prevent auto-closing and navigation
-                    view?.evaluateJavascript("""
-                        (function() {
-                            // Override window.close
-                            window.close = function() { 
-                                console.log('Window close prevented');
-                                return false; 
-                            };
-                            
-                            // Override history methods to prevent app minimizing
-                            if (window.history) {
-                                window.history.original_back = window.history.back;
-                                window.history.back = function() {
-                                    // Only allow back navigation within TiddlyWiki context
-                                    if (document.body.classList.contains('tc-body')) {
-                                        var story = document.querySelector('.tc-story-river');
-                                        if (story && story.children.length > 1) {
-                                            // Internal TiddlyWiki navigation - allow it
-                                            return window.history.original_back.apply(window.history);
-                                        }
-                                    }
-                                    console.log('History back prevented');
-                                    return false;
-                                };
-                            }
-                            
-                            // Improve scroll performance
-                            document.addEventListener('scroll', function() {}, { passive: true });
-                            
-                            // Throttle heavy DOM operations
-                            const observer = new MutationObserver((mutations) => {
-                                if (mutations.length > 100) {
-                                    console.log('Throttling large DOM mutation batch');
-                                    requestAnimationFrame(() => {
-                                        requestAnimationFrame(() => {
-                                            // Process after two animation frames
-                                        });
-                                    });
-                                }
-                            });
-                            
-                            // Start observing once document is loaded
-                            document.addEventListener('DOMContentLoaded', () => {
-                                observer.observe(document.body, { 
-                                    childList: true, 
-                                    subtree: true,
-                                    attributes: true 
-                                });
-                            });
-                        })();
-                    """, null)
-                    
-                    // Optimize document rendering with progressive loading
-                    view?.evaluateJavascript("""
-                        (function() {
-                            // Reduce style calculation overhead
-                            document.documentElement.style.visibility = 'hidden';
-                            
-                            window.addEventListener('DOMContentLoaded', function() {
-                                // Defer non-critical parsing and rendering
-                                requestAnimationFrame(function() {
-                                    document.documentElement.style.visibility = 'visible';
-                                });
-                            });
-                        })();
-                    """, null)
-                }
-                
-                override fun onPageFinished(view: WebView?, url: String?) {
-                    super.onPageFinished(view, url)
-                    
-                    // Progressive enhancement using low-priority thread to avoid ANR
-                    ThreadManager.runOnLowPriority {
-                        // Enable images in phases to avoid jank
-                        ThreadManager.runOnBackgroundWithDelay(100) {
-                            ThreadManager.runOnMain {
-                                view?.settings?.blockNetworkImage = false
-                            }
-                        }
-                        
-                        // Load image content in a staggered way
-                        view?.evaluateJavascript("""
-                            (function() {
-                                // Enable lazy loading for images
-                                const images = Array.from(document.querySelectorAll('img:not([loading])'));
-                                
-                                // Process in small batches to avoid jank
-                                function processNextBatch(startIndex) {
-                                    const batch = images.slice(startIndex, startIndex + 5);
-                                    if (batch.length === 0) return;
-                                    
-                                    setTimeout(function() {
-                                        batch.forEach(img => {
-                                            if (!img.loading) img.loading = 'lazy';
-                                            if (!img.decoding) img.decoding = 'async';
-                                        });
-                                        processNextBatch(startIndex + 5);
-                                    }, 50);
-                                }
-                                
-                                if (images.length > 0) {
-                                    processNextBatch(0);
-                                }
-                                
-                                return true;
-                            })();
-                        """, null)
-                    }
-                }
+            // Use an AssetLoader to handle file access
+            val assetLoader = WebViewAssetLoader.Builder()
+                .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
+                .addPathHandler("/res/", WebViewAssetLoader.ResourcesPathHandler(context))
+                .build()
 
-                // The rest of the existing WebViewClient implementation...
+            webView.webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(
                     view: WebView?,
                     request: WebResourceRequest?
                 ): WebResourceResponse? {
-                    val url = request?.url?.toString() ?: return null
-                    
-                    // Block analytics and tracking to improve performance
-                    if (url.contains("analytics") || url.contains("tracking") || 
-                        url.contains("google-analytics") || url.contains("facebook.com") ||
-                        url.contains("tracker") || url.contains("pixel.gif")) {
-                        return WebResourceResponse("text/plain", "UTF-8", "".byteInputStream())
-                    }
-                    
-                    return null
-                }
-                
-                // Add error handling to prevent WebView crashes
-                override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                    super.onReceivedError(view, request, error)
-                    if (request?.isForMainFrame == true) {
-                        ThreadManager.runOnMain {
-                            view?.loadUrl("about:blank")
-                            view?.loadDataWithBaseURL(
-                                null,
-                                "<html><body><h3>Unable to load page</h3><p>Please check your connection and try again.</p></body></html>",
-                                "text/html",
-                                "utf-8",
-                                null
-                            )
+                    request?.url?.let { url ->
+                        if (url.scheme == "file") {
+                            return assetLoader.shouldInterceptRequest(url)
                         }
                     }
-                }
-
-                override fun onReceivedHttpError(
-                    view: WebView?,
-                    request: WebResourceRequest?,
-                    errorResponse: WebResourceResponse?
-                ) {
-                    super.onReceivedHttpError(view, request, errorResponse)
-                    if (request?.isForMainFrame == true) {
-                        ThreadManager.runOnMain {
-                            // Show error dialog through MainActivity
-                            (context as? MainActivity)?.let { activity ->
-                                activity.viewModel?.currentWiki?.value?.let { wiki ->
-                                    activity.loadErrorWiki = wiki
-                                    activity.showLoadErrorDialog = true
-                                }
-                            }
-                        }
-                    }
-                }
-
-                override fun onReceivedSslError(
-                    view: WebView?,
-                    handler: SslErrorHandler?,
-                    error: SslError?
-                ) {
-                    ThreadManager.runOnMain {
-                        // Show error dialog through MainActivity
-                        (context as? MainActivity)?.let { activity ->
-                            activity.viewModel?.currentWiki?.value?.let { wiki ->
-                                activity.loadErrorWiki = wiki
-                                activity.showLoadErrorDialog = true
-                            }
-                        }
-                    }
-                    handler?.cancel()
-                }
-
-                // Add this to prevent navigation that might close the app
-                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                    val url = request?.url?.toString() ?: return false
-                    
-                    // If the URL is a special scheme that might close the app, block it
-                    if (url.startsWith("intent:") || 
-                        url.startsWith("market:") || 
-                        url.startsWith("tel:") ||
-                        url.startsWith("geo:")) {
-                        return true
-                    }
-                    
-                    // For normal URLs, let the WebView handle them
-                    return false
+                    return super.shouldInterceptRequest(view, request)
                 }
             }
 
@@ -615,9 +547,49 @@ class MainActivity : ComponentActivity() {
                 ) {
                     ThreadManager.runOnMain {
                         try {
-                            (context as? MainActivity)?.mediaSessionManager?.onMediaEvent(
-                                event, elementId, currentTime, duration, src, title
-                            )
+                            (context as? MainActivity)?.let { activity ->
+                                when (event) {
+                                    "play" -> {
+                                        if (src != null) activity.exoPlayerManager.playMedia(src)
+                                        activity.mediaSessionManager.updatePlaybackState(true, (currentTime * 1000).toLong())
+                                        activity.mediaSessionManager.updateMetadata(
+                                            title = title ?: "TiddlyWiki Audio",
+                                            artist = "TiddlyWiki",
+                                            duration = (duration * 1000).toLong()
+                                        )
+                                    }
+                                    "pause" -> {
+                                        activity.mediaSessionManager.updatePlaybackState(false, (currentTime * 1000).toLong())
+                                    }
+                                    "timeupdate" -> {
+                                        activity.mediaSessionManager.updatePlaybackState(true, (currentTime * 1000).toLong())
+                                    }
+                                    "ended" -> {
+                                        activity.mediaSessionManager.updatePlaybackState(false, (duration * 1000).toLong())
+                                    }
+                                    "loadedmetadata" -> {
+                                        activity.mediaSessionManager.updateMetadata(
+                                            title = title ?: "TiddlyWiki Audio",
+                                            artist = "TiddlyWiki",
+                                            duration = (duration * 1000).toLong()
+                                        )
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                }
+
+                @JavascriptInterface
+                fun onMediaStateChange(title: String?, artist: String?, duration: Long, position: Long, isPlaying: Boolean) {
+                    ThreadManager.runOnMain {
+                        try {
+                            (context as? MainActivity)?.let { activity ->
+                                activity.mediaSessionManager.updateMetadata(title, artist, duration)
+                                activity.mediaSessionManager.updatePlaybackState(isPlaying, position)
+                            }
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }
@@ -628,6 +600,17 @@ class MainActivity : ComponentActivity() {
             try {
                 webView.addJavascriptInterface(ScrollInterface(context.applicationContext), "ScrollInterface")
                 webView.addJavascriptInterface(MediaInterface(context.applicationContext), "Android")
+                webView.addJavascriptInterface(MediaInterface(context.applicationContext), "MediaInterface")
+                webView.addJavascriptInterface(object : Any() {
+                    @JavascriptInterface
+                    fun playMedia(url: String) {
+                        (context as? MainActivity)?.let { activity ->
+                            activity.runOnUiThread {
+                                activity.exoPlayerManager.playMedia(url)
+                            }
+                        }
+                    }
+                }, "ExoPlayerInterface")
             } catch (e: Exception) {
                 e.printStackTrace()
             }

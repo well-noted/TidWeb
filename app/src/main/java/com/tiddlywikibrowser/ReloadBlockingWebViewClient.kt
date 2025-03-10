@@ -126,6 +126,16 @@ class ReloadBlockingWebViewClient(
             // Reset content detection attempts counter
             contentDetectionAttempts = 0
             
+            // Enable media features when page is loaded
+            view.settings?.blockNetworkImage = false
+            view.settings?.loadsImagesAutomatically = true
+            view.settings?.mediaPlaybackRequiresUserGesture = false // Allow autoplay for media
+            
+            // Inject media monitor script if available
+            (context as? MainActivity)?.let { activity ->
+                view.evaluateJavascript(MainActivity.mediaMonitorScript, null)
+            }
+            
             // For first loads, check if content loaded successfully using JavaScript
             if (isFirstLoad) {
                 checkForWikiContent(view)
@@ -335,35 +345,66 @@ class ReloadBlockingWebViewClient(
     }
     
     /**
-     * Prevent unwanted redirects that could cause reloads, but allow downloads
+     * Prevent unwanted redirects that could cause reloads, but allow downloads and navigation
      */
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-        val url = request?.url?.toString() ?: return false
+        if (view == null || request == null) return false
         
-        // Allow download URLs to pass through
-        if (url.startsWith("blob:") || 
-            isDownloadableFileType(url) ||
-            request.requestHeaders["Content-Disposition"]?.contains("attachment") == true) {
-            Log.d(TAG, "Allowing download URL: $url")
-            return false
+        try {
+            val url = request.url.toString()
+            
+            // Handle media URLs specially
+            if (url.startsWith("blob:") ||
+                isMediaUrl(url)) {
+                Log.d(TAG, "Allowing media URL: $url")
+                return false
+            }
+            
+            // Allow download URLs to pass through
+            if (isDownloadableFileType(url)) {
+                // Safely access headers with null check
+                val headers = request.requestHeaders
+                val contentDisposition = headers?.get("Content-Disposition")
+                if (contentDisposition?.contains("attachment") == true) {
+                    Log.d(TAG, "Allowing download URL with attachment: $url")
+                    return false
+                }
+                
+                Log.d(TAG, "Allowing download URL: $url")
+                return false
+            }
+            
+            // Block same-page refreshes
+            if (url == view.url) {
+                Log.d(TAG, "Blocking same-page refresh: $url")
+                return true
+            }
+            
+            // Prevent navigation to special URLs that would cause reloads
+            if (url.contains("about:blank") || 
+                url.contains("javascript:location.reload()") || 
+                url.contains("javascript:window.location.reload()")) {
+                Log.d(TAG, "Blocking reload URL: $url")
+                return true
+            }
+            
+            // Allow wiki-internal navigation (fragments and TiddlyWiki navigation)
+            if (url.contains("#") || isTiddlyWikiNavigation(url, view.url)) {
+                Log.d(TAG, "Allowing wiki-internal navigation: $url")
+                return false
+            }
+            
+            // Allow navigation to regular HTTP/HTTPS URLs
+            if ((url.startsWith("http://") || url.startsWith("https://")) && request.isForMainFrame) {
+                Log.d(TAG, "Allowing normal navigation to: $url")
+                return false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in shouldOverrideUrlLoading: ${e.message}", e)
         }
         
-        // Block same-page refreshes
-        if (url == view?.url) {
-            Log.d(TAG, "Blocking same-page refresh: $url")
-            return true
-        }
-        
-        // Prevent navigation to special URLs that would cause reloads
-        if (url.contains("about:blank") || 
-            url.contains("javascript:location.reload()") || 
-            url.contains("javascript:window.location.reload()")) {
-            Log.d(TAG, "Blocking reload URL: $url")
-            return true
-        }
-        
-        // Allow other navigation
-        return false 
+        // Allow any other navigation by default
+        return false
     }
     
     /**
@@ -384,7 +425,37 @@ class ReloadBlockingWebViewClient(
     }
     
     /**
+     * Check if a URL is for media content
+     */
+    private fun isMediaUrl(url: String): Boolean {
+        val mediaExtensions = arrayOf(
+            ".mp3", ".mp4", ".m4a", ".wav", ".ogg", ".webm", ".flac", 
+            ".aac", ".mov", ".mkv", ".avi"
+        )
+        
+        val lowercaseUrl = url.lowercase()
+        return mediaExtensions.any { lowercaseUrl.endsWith(it) } ||
+               lowercaseUrl.contains("audio") ||
+               lowercaseUrl.contains("video") ||
+               lowercaseUrl.contains("media")
+    }
+    
+    /**
+     * Check if navigation is within the same TiddlyWiki
+     */
+    private fun isTiddlyWikiNavigation(newUrl: String, currentUrl: String?): Boolean {
+        if (currentUrl == null) return false
+        
+        // If the base URL is the same (ignoring fragments), it's internal navigation
+        val newUrlBase = newUrl.substringBefore('#')
+        val currentUrlBase = currentUrl.substringBefore('#')
+        
+        return newUrlBase == currentUrlBase
+    }
+    
+    /**
      * Inject JavaScript to prevent unwanted reload attempts from within the page
+     * while allowing proper media handling
      */
     private fun injectReloadProtection(webView: WebView) {
         try {
@@ -447,6 +518,36 @@ class ReloadBlockingWebViewClient(
                                 }
                             }
                         }
+                        
+                        // Improve media handling
+                        document.querySelectorAll('audio, video').forEach(function(media) {
+                            media.addEventListener('error', function(e) {
+                                console.error('Media error:', e.target.error);
+                                if (window.MediaInterface) {
+                                    window.MediaInterface.onMediaEvent(
+                                        'error',
+                                        e.target.id || 'unknown',
+                                        e.target.currentTime || 0,
+                                        e.target.duration || 0,
+                                        e.target.src || '',
+                                        e.target.getAttribute('title') || 'Error'
+                                    );
+                                }
+                            });
+                        });
+                        
+                        // Improve link handling
+                        document.addEventListener('click', function(e) {
+                            // Check if clicked element is a link
+                            let link = e.target.closest('a');
+                            if (link && link.href) {
+                                // Special handling for in-wiki navigation
+                                if (link.classList.contains('tc-tiddlylink')) {
+                                    // Let internal wiki links work normally
+                                    return true;
+                                }
+                            }
+                        }, true);
                         
                         // Mark as installed
                         window.__reloadProtectionInstalled = true;
