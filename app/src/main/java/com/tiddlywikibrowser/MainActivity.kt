@@ -946,32 +946,77 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun handleWikiSelection(selectedWiki: WikiInstance, textToShare: String?, selectedTags: List<String>) {
-        lifecycleScope.launch {
-            try {
-                // First, show loading state in UI
-                withContext(Dispatchers.Main) {
-                    // Show loading indicator (implementation not shown)
-                }
-
-                // Preload in background
-                withContext(Dispatchers.IO) {
-                    viewModel?.preloadWebView(selectedWiki, this@MainActivity)
-                }
-
-                // Then update UI
-                withContext(Dispatchers.Main) {
-                    viewModel?.setCurrentWiki(selectedWiki)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                withContext(Dispatchers.Main) {
-                    // Show error dialog
-                    loadErrorWiki = selectedWiki
-                    showLoadErrorDialog = true
+       private fun handleWikiSelection(selectedWiki: WikiInstance, textToShare: String?, selectedTags: List<String>) {
+        viewModel?.setCurrentWiki(selectedWiki)
+        Handler(Looper.getMainLooper()).postDelayed({
+            getCurrentWebView()?.evaluateJavascript("""
+                (function() {
+                    try {
+                        console.log('Checking TiddlyWiki state...');
+                        var tiddlywiki = window['${'$'}tw'];
+                        if (!tiddlywiki || !tiddlywiki.wiki) {
+                            console.log('TiddlyWiki object not found');
+                            return { status: 'not_ready' };
+                        }
+                        
+                        var title = 'Shared Content ' + new Date().toISOString();
+                        var processedText = ${JSONObject.quote(textToShare ?: "")}.replace(/\\\\n/g, "\n").replace(/\\\\t/g, "\t").replace(/\\n/g, "\n").replace(/\\t/g, "\t");
+                        processedText = processedText.replace(/(\n\s*){5,}/g, "\n".repeat(5));
+                        var tags = ${JSONArray(selectedTags).toString()};
+                        
+                        tiddlywiki.wiki.addTiddler({
+                            title: title,
+                            text: processedText,
+                            tags: tags
+                        });
+                        
+                        // Verify tiddler was created
+                        var tiddler = tiddlywiki.wiki.getTiddler(title);
+                        if (!tiddler) {
+                            return { status: 'error', message: 'Failed to create tiddler' };
+                        }
+                        
+                        // Try to navigate to the new tiddler
+                        if (tiddlywiki.story && typeof tiddlywiki.story.navigateTiddler === 'function') {
+                            tiddlywiki.story.navigateTiddler(title);
+                            console.log('Navigated to tiddler:', title);
+                        }
+                        
+                        // Attempt to trigger a save if possible
+                        if (typeof tiddlywiki.wiki.saveWiki === 'function') {
+                            tiddlywiki.wiki.saveWiki();
+                        }
+                        
+                        return { status: 'success', title: title };
+                    } catch (e) {
+                        console.error('Error creating tiddler:', e);
+                        return { status: 'error', message: e.toString() };
+                    }
+                })();
+            """.trimIndent()) { result ->
+                try {
+                    val jsonResult = JSONObject(result)
+                    when (jsonResult.getString("status")) {
+                        "not_ready" -> {
+                            // Try again after a longer delay
+                            Handler(Looper.getMainLooper()).postDelayed({
+                                handleWikiSelection(selectedWiki, textToShare, selectedTags)
+                            }, 2000)
+                        }
+                        "success" -> {
+                            Toast.makeText(this, "Content shared to ${selectedWiki.name}", Toast.LENGTH_SHORT).show()
+                        }
+                        "error" -> {
+                            val message = jsonResult.optString("message", "Unknown error")
+                            Toast.makeText(this, "Failed to create tiddler: $message", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Error processing tiddler creation", Toast.LENGTH_LONG).show()
+                    e.printStackTrace()
                 }
             }
-        }
+        }, 1000)
     }
 
     // Monitor memory conditions to prevent ANR
@@ -1537,6 +1582,16 @@ fun MainScreen(
                         Text("Cancel")
                     }
                 }
+            )
+        }
+
+        if (showTagManagement) {
+            TagManagementDialog(
+                tags = viewModel.quickTags.collectAsState().value,
+                onAddTag = { viewModel.addQuickTag(it) },
+                onRemoveTag = { viewModel.removeQuickTag(it) },
+                onReorderTags = { from, to -> viewModel.reorderQuickTags(from, to) },
+                onDismiss = { showTagManagement = false }
             )
         }
     }
