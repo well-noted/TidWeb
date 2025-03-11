@@ -1024,20 +1024,65 @@ class MainActivity : ComponentActivity() {
         super.onPause()
         webViewPaused = true
         exoPlayerManager.onPause()
-        viewModel?.pauseAllWebViews()
+        viewModel?.let { vm ->
+            // Save state for current WebView
+            vm.currentWiki.value?.let { wiki ->
+                val key = wiki.idFromUrl ?: wiki.url
+                WebViewCache.cacheWebView(key, vm.getOrCreateWebView(wiki, this))
+            }
+            vm.pauseAllWebViews()
+        }
+        
+        // Dispatch pause event to WebView
+        getCurrentWebView()?.evaluateJavascript("""
+            (function() {
+                const event = new Event('pause');
+                document.dispatchEvent(event);
+            })();
+        """.trimIndent(), null)
     }
 
     override fun onResume() {
         super.onResume()
         webViewPaused = false
         exoPlayerManager.onResume()
-        viewModel?.resumeCurrentWebView(viewModel?.currentWiki?.value)
+        
+        viewModel?.let { vm ->
+            vm.currentWiki.value?.let { wiki ->
+                val key = wiki.idFromUrl ?: wiki.url
+                // Resume current WebView with state restoration
+                vm.resumeCurrentWebView(wiki)
+                // Dispatch resume event
+                getCurrentWebView()?.evaluateJavascript("""
+                    (function() {
+                        const event = new Event('resume');
+                        document.dispatchEvent(event);
+                    })();
+                """.trimIndent(), null)
+            }
+        }
         
         // When resuming, get the current WebView and set it for the MediaSessionManager
         getCurrentWebView()?.let { webView ->
             mediaSessionManager.setWebView(webView)
             // Bind to service to ensure continuity of playback controls
             mediaSessionManager.bindToService()
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Don't cleanup if we're just changing configurations
+        if (!isChangingConfigurations) {
+            viewModel?.let { vm ->
+                vm.currentWiki.value?.let { wiki ->
+                    val key = wiki.idFromUrl ?: wiki.url
+                    // Save full state before stopping
+                    vm.getOrCreateWebView(wiki, this)?.let { webView ->
+                        WebViewCache.cacheWebView(key, webView)
+                    }
+                }
+            }
         }
     }
 
@@ -1064,7 +1109,8 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        if (!webViewPaused) {
+        // Only clear WebViews if we're actually being destroyed, not during configuration changes
+        if (!isChangingConfigurations && !webViewPaused) {
             viewModel?.clearWebViews()
             viewModel = null
         }

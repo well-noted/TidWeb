@@ -9,6 +9,8 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.os.Bundle
 import android.util.Log
+import android.view.View
+import android.webkit.WebSettings
 import java.lang.ref.WeakReference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -61,6 +63,28 @@ class ReloadBlockingWebViewClient(
         val bundle = Bundle()
         try {
             webView.saveState(bundle)
+            // Save additional state
+            webView.evaluateJavascript("""
+                (function() {
+                    return JSON.stringify({
+                        scroll: {
+                            x: window.scrollX,
+                            y: window.scrollY
+                        },
+                        media: {
+                            hasMedia: !!document.querySelector('audio,video'),
+                            playing: !document.querySelector('audio,video')?.paused,
+                            currentTime: document.querySelector('audio,video')?.currentTime || 0
+                        }
+                    });
+                })();
+            """.trimIndent()) { result ->
+                try {
+                    bundle.putString("extended_state", result)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error saving extended state: ${e.message}")
+                }
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error saving WebView state: ${e.message}")
         }
@@ -73,6 +97,32 @@ class ReloadBlockingWebViewClient(
     fun restoreWebViewState(webView: WebView, bundle: Bundle) {
         try {
             webView.restoreState(bundle)
+            // Restore additional state
+            bundle.getString("extended_state")?.let { state ->
+                webView.evaluateJavascript("""
+                    (function() {
+                        try {
+                            const state = ${state};
+                            if (state.scroll) {
+                                window.scrollTo(state.scroll.x, state.scroll.y);
+                            }
+                            if (state.media && state.media.hasMedia) {
+                                const media = document.querySelector('audio,video');
+                                if (media) {
+                                    media.currentTime = state.media.currentTime;
+                                    if (state.media.playing) {
+                                        media.play();
+                                    }
+                                }
+                            }
+                            return true;
+                        } catch(e) {
+                            console.error('Error restoring state:', e);
+                            return false;
+                        }
+                    })();
+                """.trimIndent(), null)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error restoring WebView state: ${e.message}")
         }
@@ -127,13 +177,47 @@ class ReloadBlockingWebViewClient(
             contentDetectionAttempts = 0
             
             // Enable media features when page is loaded
-            view.settings?.blockNetworkImage = false
-            view.settings?.loadsImagesAutomatically = true
-            view.settings?.mediaPlaybackRequiresUserGesture = false // Allow autoplay for media
+            view.settings?.apply {
+                blockNetworkImage = false
+                loadsImagesAutomatically = true
+                mediaPlaybackRequiresUserGesture = false // Allow autoplay for media
+                domStorageEnabled = true // Ensure DOM storage is enabled for state
+                databaseEnabled = true // Enable database storage
+                setRenderPriority(WebSettings.RenderPriority.HIGH) // Improve rendering performance
+            }
+            
+            // Preserve WebView state
+            view.setLayerType(View.LAYER_TYPE_HARDWARE, null)
             
             // Inject media monitor script if available
             (context as? MainActivity)?.let { activity ->
                 view.evaluateJavascript(MainActivity.mediaMonitorScript, null)
+                // Add state preservation script
+                view.evaluateJavascript("""
+                    (function() {
+                        if (!window.__statePreservationInstalled) {
+                            // Save media state before backgrounding
+                            document.addEventListener('pause', function() {
+                                const media = document.querySelector('audio,video');
+                                if (media) {
+                                    media.__wasPlaying = !media.paused;
+                                    media.__currentTime = media.currentTime;
+                                }
+                            });
+                            
+                            // Restore media state after foregrounding
+                            document.addEventListener('resume', function() {
+                                const media = document.querySelector('audio,video');
+                                if (media && media.__wasPlaying) {
+                                    media.currentTime = media.__currentTime || 0;
+                                    media.play();
+                                }
+                            });
+                            
+                            window.__statePreservationInstalled = true;
+                        }
+                    })();
+                """.trimIndent(), null)
             }
             
             // For first loads, check if content loaded successfully using JavaScript

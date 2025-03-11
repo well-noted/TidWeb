@@ -128,7 +128,10 @@ object WebViewCache {
      */
     fun cacheWebView(key: String, webView: WebView) {
         if (isActiveOperation()) {
-            Log.d(TAG, "Skipping cacheWebView operation as another operation is in progress")
+            Log.d(TAG, "Throttling cacheWebView operation - another operation in progress")
+            ThreadManager.runOnMainWithDelay(100) {
+                cacheWebView(key, webView)
+            }
             return
         }
         
@@ -137,37 +140,43 @@ object WebViewCache {
         ThreadManager.runOnMain {
             try {
                 cacheLock.write {
-                    // Limit bundle size to prevent TransactionTooLargeException
+                    // Save complete WebView state including scroll position
                     val bundle = Bundle()
                     webView.saveState(bundle)
                     
-                    // Check bundle size and trim if necessary
-                    if (bundle.sizeAsParcel() > 400 * 1024) { // 400KB limit
-                        Log.w(TAG, "WebView state bundle too large, using minimal state")
-                        val minimalBundle = Bundle()
-                        minimalBundle.putString("url", webView.url)
-                        webViewStates[key] = minimalBundle
-                    } else {
-                        webViewStates[key] = bundle
-                    }
-                    
-                    // Track loaded state
+                    // Track loaded state and other metadata
                     val isLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
                     webViewLoadedState[key] = isLoaded
-                    
-                    // Update access time
+                    webViewStates[key] = bundle
                     updateAccessTime(key)
+                    
+                    // Before caching, preserve active media state
+                    webView.evaluateJavascript("""
+                        (function() {
+                            const media = document.querySelector('audio,video');
+                            if (media) {
+                                return JSON.stringify({
+                                    hasMedia: true,
+                                    currentTime: media.currentTime,
+                                    isPlaying: !media.paused,
+                                    duration: media.duration,
+                                    volume: media.volume,
+                                    src: media.src
+                                });
+                            }
+                            return '{"hasMedia":false}';
+                        })();
+                    """.trimIndent()) { result ->
+                        try {
+                            bundle.putString("media_state", result.trim('"'))
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error saving media state: ${e.message}")
+                        }
+                    }
                     
                     // Store in cache if not already there
                     if (!webViewCache.containsKey(key)) {
-                        // Ensure WebView is detached from any parent
-                        (webView.parent as? ViewGroup)?.removeView(webView)
                         webViewCache[key] = webView
-                    }
-                    
-                    // Trim cache if needed
-                    if (webViewCache.size > MAX_CACHE_SIZE) {
-                        trimCache()
                     }
                 }
             } catch (e: Exception) {
@@ -457,6 +466,32 @@ object WebViewCache {
                                 webViewStates[key]?.let { state ->
                                     try {
                                         webView.restoreState(state)
+                                        
+                                        // Restore media state if present
+                                        state.getString("media_state")?.let { mediaState ->
+                                            webView.evaluateJavascript("""
+                                                (function() {
+                                                    try {
+                                                        const state = ${mediaState};
+                                                        if (state.hasMedia) {
+                                                            const media = document.querySelector('audio,video');
+                                                            if (media) {
+                                                                media.currentTime = ${state}.currentTime || 0;
+                                                                media.volume = ${state}.volume || 1;
+                                                                if (${state}.isPlaying) {
+                                                                    media.play();
+                                                                }
+                                                            }
+                                                        }
+                                                        return true;
+                                                    } catch(e) {
+                                                        console.error('Error restoring media state:', e);
+                                                        return false;
+                                                    }
+                                                })();
+                                            """.trimIndent(), null)
+                                        }
+                                        
                                         Log.d(TAG, "Restored state during resume for WebView: $key")
                                     } catch (e: Exception) {
                                         Log.e(TAG, "Error restoring state during resume: ${e.message}")
@@ -465,7 +500,7 @@ object WebViewCache {
                             } else {
                                 Log.d(TAG, "Skipping state restore on resume (already loaded): $key")
                             }
-                            
+
                             // Always restore the loaded state flag from our cache
                             if (webViewLoadedState[key] == true) {
                                 webView.setTag(R.string.prevent_reload_tag, true)
@@ -476,30 +511,6 @@ object WebViewCache {
                             currentActiveKey = key
                             
                             Log.d(TAG, "Resumed WebView: $key")
-                        }
-                        
-                        // Apply JavaScript to prevent reloads after resuming
-                        if (webView.getTag(R.string.prevent_reload_tag) == true) {
-                            webView.evaluateJavascript("""
-                                (function() {
-                                    // Basic reload prevention for resumed WebViews
-                                    if (!window.__reloadBlockerInstalled) {
-                                        console.log("[WebViewCache] Installing reload blocker");
-                                        window.location.reload = function() { 
-                                            console.log("[Reload blocked] location.reload()"); 
-                                            return false; 
-                                        };
-                                        window.__reloadBlockerInstalled = true;
-                                        
-                                        // Safe way to disable reloads for TiddlyWiki
-                                        if (window.${'$'}tw && window.${'$'}tw.safeMode === undefined) {
-                                            window.${'$'}tw.safeMode = true;
-                                            console.log("[WebViewCache] Enabled TiddlyWiki safe mode");
-                                        }
-                                    }
-                                    return true;
-                                })();
-                            """.trimIndent(), null)
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "Failed to resume WebView: ${e.message}")

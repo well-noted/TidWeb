@@ -1,20 +1,20 @@
 -- Merging decision tree log ---
 provider#androidx.core.content.FileProvider
-INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:80:9-88:20
+INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:80:9-88:20
 	android:grantUriPermissions
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:84:13-47
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:84:13-47
 	android:authorities
-		INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:82:13-64
+		INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:82:13-64
 	android:exported
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:83:13-37
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:83:13-37
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:81:13-62
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:81:13-62
 manifest
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:2:1-90:12
-INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:2:1-90:12
-INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:2:1-90:12
-INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:2:1-90:12
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:2:1-90:12
+INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:2:1-90:12
+INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:2:1-90:12
+INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:2:1-90:12
 MERGED from [androidx.databinding:viewbinding:8.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\2fafe4247c5e7cd9b15c8a5ef9d0efad\transformed\jetified-viewbinding-8.2.0\AndroidManifest.xml:2:1-7:12
 MERGED from [com.google.android.material:material:1.11.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1c5904f247089f6bb261c7c0545a752f\transformed\material-1.11.0\AndroidManifest.xml:17:1-24:12
 MERGED from [com.google.accompanist:accompanist-flowlayout:0.32.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\85ddd974f589070077b281bf98f078e1\transformed\jetified-accompanist-flowlayout-0.32.0\AndroidManifest.xml:17:1-23:12
@@ -121,52 +121,52 @@ MERGED from [androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.g
 MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\31cd04cf25c7807e7cbe73d5cec0f4ff\transformed\jetified-startup-runtime-1.1.1\AndroidManifest.xml:17:1-33:12
 MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\3353b37d8952c15feaaecb926ade2d72\transformed\jetified-tracing-1.0.0\AndroidManifest.xml:17:1-24:12
 	package
-		INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml
+		INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml
 	android:versionName
-		INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml
+		INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml
 	android:versionCode
-		INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml
+		INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml
 	xmlns:android
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:2:11-69
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:2:11-69
 uses-permission#android.permission.INTERNET
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:3:5-67
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:3:5-67
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:3:22-64
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:3:22-64
 uses-permission#android.permission.ACCESS_NETWORK_STATE
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:4:5-79
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:4:5-79
 MERGED from [androidx.media3:media3-exoplayer:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\28f07efe1c19814dbca39a9d8b74939a\transformed\jetified-media3-exoplayer-1.2.0\AndroidManifest.xml:22:5-79
 MERGED from [androidx.media3:media3-exoplayer:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\28f07efe1c19814dbca39a9d8b74939a\transformed\jetified-media3-exoplayer-1.2.0\AndroidManifest.xml:22:5-79
 MERGED from [androidx.media3:media3-common:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1af7831adb57d922e8dc2cac73072c6e\transformed\jetified-media3-common-1.2.0\AndroidManifest.xml:22:5-79
 MERGED from [androidx.media3:media3-common:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1af7831adb57d922e8dc2cac73072c6e\transformed\jetified-media3-common-1.2.0\AndroidManifest.xml:22:5-79
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:4:22-76
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:4:22-76
 uses-permission#android.permission.WRITE_EXTERNAL_STORAGE
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:5:5-6:37
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:5:5-6:37
 	android:maxSdkVersion
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:6:9-35
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:6:9-35
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:5:22-78
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:5:22-78
 uses-permission#android.permission.READ_EXTERNAL_STORAGE
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:7:5-8:37
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:7:5-8:37
 	android:maxSdkVersion
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:8:9-35
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:8:9-35
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:7:22-77
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:7:22-77
 uses-permission#android.permission.WAKE_LOCK
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:9:5-68
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:9:5-68
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:9:22-65
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:9:22-65
 uses-permission#android.permission.FOREGROUND_SERVICE
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:10:5-77
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:10:5-77
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:10:22-74
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:10:22-74
 uses-permission#android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:11:5-92
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:11:5-92
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:11:22-89
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:11:22-89
 application
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:13:5-89:19
-INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:13:5-89:19
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:13:5-89:19
+INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:13:5-89:19
 MERGED from [com.google.android.material:material:1.11.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1c5904f247089f6bb261c7c0545a752f\transformed\material-1.11.0\AndroidManifest.xml:22:5-20
 MERGED from [com.google.android.material:material:1.11.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1c5904f247089f6bb261c7c0545a752f\transformed\material-1.11.0\AndroidManifest.xml:22:5-20
 MERGED from [androidx.constraintlayout:constraintlayout:2.0.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\f98c936a5b6add336c38fdc69b1a7fa6\transformed\constraintlayout-2.0.1\AndroidManifest.xml:9:5-20
@@ -188,135 +188,135 @@ MERGED from [androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.g
 MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\31cd04cf25c7807e7cbe73d5cec0f4ff\transformed\jetified-startup-runtime-1.1.1\AndroidManifest.xml:25:5-31:19
 MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\31cd04cf25c7807e7cbe73d5cec0f4ff\transformed\jetified-startup-runtime-1.1.1\AndroidManifest.xml:25:5-31:19
 	android:extractNativeLibs
-		INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml
+		INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml
 	android:requestLegacyExternalStorage
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:20:9-52
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:20:9-52
 	android:appComponentFactory
 		ADDED from [androidx.core:core:1.12.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\508f4f285c70bd05e94ccd64f3e25d3a\transformed\core-1.12.0\AndroidManifest.xml:28:18-86
 	android:supportsRtl
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:18:9-35
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:18:9-35
 	android:label
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:16:9-41
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:16:9-41
 	android:hardwareAccelerated
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:22:9-43
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:22:9-43
 	android:roundIcon
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:17:9-54
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:17:9-54
 	android:persistent
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:24:9-34
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:24:9-34
 	android:largeHeap
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:23:9-33
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:23:9-33
 	android:icon
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:15:9-43
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:15:9-43
 	android:allowBackup
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:14:9-35
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:14:9-35
 	android:theme
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:21:9-55
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:21:9-55
 	android:usesCleartextTraffic
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:19:9-44
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:19:9-44
 activity#com.tiddlywikibrowser.MainActivity
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:26:9-55:20
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:26:9-55:20
 	android:launchMode
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:30:13-44
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:30:13-44
 	android:hardwareAccelerated
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:32:13-47
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:32:13-47
 	android:exported
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:28:13-36
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:28:13-36
 	android:keepScreenOn
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:33:13-40
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:33:13-40
 	android:configChanges
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:29:13-87
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:29:13-87
 	android:documentLaunchMode
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:34:13-54
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:34:13-54
 	android:theme
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:31:13-59
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:31:13-59
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:27:13-41
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:27:13-41
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:35:13-38:29
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:35:13-38:29
 action#android.intent.action.MAIN
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:36:17-69
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:36:17-69
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:36:25-66
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:36:25-66
 category#android.intent.category.LAUNCHER
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:37:17-77
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:37:17-77
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:37:27-74
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:37:27-74
 intent-filter#action:name:android.intent.action.VIEW+category:name:android.intent.category.BROWSABLE+category:name:android.intent.category.DEFAULT
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:39:13-43:29
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:39:13-43:29
 action#android.intent.action.VIEW
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:40:17-69
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:40:17-69
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:40:25-66
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:40:25-66
 category#android.intent.category.DEFAULT
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:41:17-76
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:41:17-76
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:41:27-73
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:41:27-73
 category#android.intent.category.BROWSABLE
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:42:17-78
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:42:17-78
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:42:27-75
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:42:27-75
 intent-filter#action:name:android.intent.action.SEND+category:name:android.intent.category.DEFAULT+data:mimeType:text/plain
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:45:13-49:29
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:45:13-49:29
 action#android.intent.action.SEND
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:46:17-69
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:46:17-69
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:46:25-66
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:46:25-66
 data
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:48:17-55
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:48:17-55
 	android:mimeType
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:48:23-52
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:48:23-52
 intent-filter#action:name:android.intent.action.SEND_MULTIPLE+category:name:android.intent.category.DEFAULT+data:mimeType:text/plain
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:50:13-54:29
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:50:13-54:29
 action#android.intent.action.SEND_MULTIPLE
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:51:17-78
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:51:17-78
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:51:25-75
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:51:25-75
 receiver#androidx.media.session.MediaButtonReceiver
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:58:9-63:20
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:58:9-63:20
 	android:exported
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:59:13-36
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:59:13-36
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:58:19-76
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:58:19-76
 intent-filter#action:name:android.intent.action.MEDIA_BUTTON
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:60:13-62:29
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:60:13-62:29
 action#android.intent.action.MEDIA_BUTTON
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:61:17-77
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:61:17-77
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:61:25-74
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:61:25-74
 activity#com.tiddlywikibrowser.SettingsActivity
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:65:9-69:50
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:65:9-69:50
 	android:label
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:67:13-45
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:67:13-45
 	android:hardwareAccelerated
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:69:13-47
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:69:13-47
 	android:theme
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:68:13-59
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:68:13-59
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:66:13-45
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:66:13-45
 service#com.tiddlywikibrowser.MediaPlaybackService
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:71:9-77:19
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:71:9-77:19
 	android:exported
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:72:13-37
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:72:13-37
 	android:foregroundServiceType
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:73:13-58
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:73:13-58
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:71:18-54
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:71:18-54
 intent-filter#action:name:android.media.browse.MediaBrowserService
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:74:13-76:29
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:74:13-76:29
 action#android.media.browse.MediaBrowserService
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:75:17-83
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:75:17-83
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:75:25-80
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:75:25-80
 meta-data#android.support.FILE_PROVIDER_PATHS
-ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:85:13-87:54
+ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:85:13-87:54
 	android:resource
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:87:17-51
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:87:17-51
 	android:name
-		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml:86:17-67
+		ADDED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml:86:17-67
 uses-sdk
-INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
-INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml
-INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml
+INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml
+INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml
 MERGED from [androidx.databinding:viewbinding:8.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\2fafe4247c5e7cd9b15c8a5ef9d0efad\transformed\jetified-viewbinding-8.2.0\AndroidManifest.xml:5:5-44
 MERGED from [androidx.databinding:viewbinding:8.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\2fafe4247c5e7cd9b15c8a5ef9d0efad\transformed\jetified-viewbinding-8.2.0\AndroidManifest.xml:5:5-44
 MERGED from [com.google.android.material:material:1.11.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1c5904f247089f6bb261c7c0545a752f\transformed\material-1.11.0\AndroidManifest.xml:20:5-44
@@ -528,9 +528,9 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\tetuo\.gradle\cach
 MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\3353b37d8952c15feaaecb926ade2d72\transformed\jetified-tracing-1.0.0\AndroidManifest.xml:20:5-22:41
 MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\3353b37d8952c15feaaecb926ade2d72\transformed\jetified-tracing-1.0.0\AndroidManifest.xml:20:5-22:41
 	android:targetSdkVersion
-		INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml
+		INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml
 	android:minSdkVersion
-		INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\Another-attempt\TidWeb\app\src\main\AndroidManifest.xml
+		INJECTED from C:\Users\tetuo\TidWeb-main\Backup\Refactor\TidWeb\app\src\main\AndroidManifest.xml
 activity#androidx.compose.ui.tooling.PreviewActivity
 ADDED from [androidx.compose.ui:ui-tooling-android:1.5.4] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\2c755a32ec6e8214dd316a63991d8359\transformed\jetified-ui-tooling-release\AndroidManifest.xml:23:9-25:39
 	android:exported
