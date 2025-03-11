@@ -1336,14 +1336,14 @@ fun MainScreen(
                 enter = slideInVertically(
                     initialOffsetY = { -it },
                     animationSpec = tween(
-                        durationMillis = 150,
-                        easing = LinearOutSlowInEasing
+                        durationMillis = 200,  // Match scroll detection speed
+                        easing = FastOutSlowInEasing
                     )
                 ),
                 exit = slideOutVertically(
                     targetOffsetY = { -it },
                     animationSpec = tween(
-                        durationMillis = 100,
+                        durationMillis = 200,  // Keep consistent with enter
                         easing = FastOutLinearInEasing
                     )
                 )
@@ -1351,7 +1351,8 @@ fun MainScreen(
                 Surface(
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 3.dp,
-                    shadowElevation = 3.dp
+                    shadowElevation = 3.dp,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     TopAppBar(
                         title = { Text(currentWiki?.name ?: "TiddlyWiki Browser") },
@@ -1516,14 +1517,14 @@ fun MainScreen(
                 enter = slideInVertically(
                     initialOffsetY = { it },
                     animationSpec = tween(
-                        durationMillis = 150,
-                        easing = LinearOutSlowInEasing
+                        durationMillis = 200,  // Match scroll detection speed
+                        easing = FastOutSlowInEasing
                     )
                 ),
                 exit = slideOutVertically(
                     targetOffsetY = { it },
                     animationSpec = tween(
-                        durationMillis = 100,
+                        durationMillis = 200,  // Keep consistent with enter
                         easing = FastOutLinearInEasing
                     )
                 )
@@ -1558,7 +1559,8 @@ fun MainScreen(
                     Surface(
                         color = MaterialTheme.colorScheme.surface,
                         tonalElevation = 3.dp,
-                        shadowElevation = 3.dp
+                        shadowElevation = 3.dp,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         NavigationBar {
                             if (wikis.isEmpty()) {

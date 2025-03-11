@@ -75,8 +75,10 @@ class ReloadBlockingWebViewClient(
         val isAlreadyLoaded = view.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
         
         if (isAlreadyLoaded) {
-            // If the WebView is already marked as loaded, don't check content again
-            Log.d(TAG, "WebView already marked as loaded, skipping content check")
+            // Reinforce scroll detection even for already loaded pages
+            reinforceScrollDetection(view)
+            
+            // Continue with normal flow
             onLoadingStateChanged(false)
             super.onPageFinished(view, url)
             return
@@ -93,6 +95,8 @@ class ReloadBlockingWebViewClient(
             ThreadManager.runOnMainWithDelay(300) {
                 if (view.isAttachedToWindow) {
                     checkForWikiContent(view, url)
+                    // Add scroll detection after content check
+                    reinforceScrollDetection(view)
                 }
             }
         }
@@ -284,6 +288,91 @@ class ReloadBlockingWebViewClient(
                     console.error('Error applying reload protection:', e);
                     return false;
                 }
+            })();
+        """.trimIndent(), null)
+    }
+
+    /**
+     * Reinforce scroll detection to ensure UI state is properly managed
+     */
+    private fun reinforceScrollDetection(webView: WebView) {
+        webView.evaluateJavascript("""
+            (function() {
+                // Remove any existing scroll handler to avoid duplicates
+                if (window.tidScrollHandler) {
+                    document.removeEventListener('scroll', window.tidScrollHandler);
+                    clearTimeout(window.scrollTimer);
+                }
+                
+                // Initialize scroll tracking variables
+                let lastScrollY = window.scrollY || 0;
+                let lastScrollTime = 0;
+                let scrollTimer = null;
+                let isScrollingDown = false;
+                let barState = true; // true = visible, false = hidden
+                
+                const scrollThreshold = 20; // Minimum pixels to trigger direction change
+                const timeThreshold = 100; // Minimum ms between scroll events to process
+                
+                window.tidScrollHandler = function() {
+                    const now = Date.now();
+                    const scrollY = window.scrollY || 0;
+                    
+                    // Don't process every scroll event - throttle for performance
+                    if (now - lastScrollTime < timeThreshold) return;
+                    
+                    // Clear any pending timer
+                    clearTimeout(scrollTimer);
+                    
+                    // Determine scroll direction when moving significantly
+                    if (Math.abs(scrollY - lastScrollY) > scrollThreshold) {
+                        // Update the direction state
+                        isScrollingDown = scrollY > lastScrollY;
+                        
+                        // Only change state if needed
+                        if (isScrollingDown && barState) {
+                            // Hide bars when scrolling down
+                            barState = false;
+                            window.ScrollInterface.onScroll(false);
+                        } else if (!isScrollingDown && !barState) {
+                            // Show bars when scrolling up
+                            barState = true; 
+                            window.ScrollInterface.onScroll(true);
+                        }
+                        
+                        // Update tracking variables
+                        lastScrollY = scrollY;
+                        lastScrollTime = now;
+                    }
+                    
+                    // Special case: Always show UI when at the top of the page
+                    if (scrollY <= 5 && !barState) {
+                        barState = true;
+                        window.ScrollInterface.onScroll(true);
+                    }
+                };
+                
+                // Add the event listener with the stored handler
+                document.addEventListener('scroll', window.tidScrollHandler, { passive: true });
+                
+                // Store reference to the timer
+                window.scrollTimer = scrollTimer;
+                
+                // Initial state - show UI bars
+                barState = true;
+                window.ScrollInterface.onScroll(true);
+                
+                // Handle touch events to improve responsiveness
+                document.addEventListener('touchstart', function() {
+                    clearTimeout(scrollTimer);
+                }, { passive: true });
+                
+                // Don't automatically show on touch end
+                document.addEventListener('touchend', function() {
+                    // No auto-show behavior, maintain the current state
+                }, { passive: true });
+                
+                return true;
             })();
         """.trimIndent(), null)
     }

@@ -26,43 +26,51 @@ object WikiViewEnhancer {
                     clearTimeout(window.scrollTimer);
                 }
                 
-                // Initialize scroll tracking variables
-                let lastScrollY = window.scrollY || 0;
-                let lastScrollTime = Date.now();
+                // Improved scroll detection for hiding/showing UI
+                let lastScrollY = 0;
+                let lastScrollTime = 0;
                 let scrollTimer = null;
+                const scrollThreshold = 15; // Reduced threshold for better up-scroll detection
+                const timeThreshold = 80; // Slightly reduced for more responsive up-scroll detection
                 let isScrollingDown = false;
                 let barState = true; // true = visible, false = hidden
-                
-                const scrollThreshold = 10; // Minimum pixels to trigger direction change
-                const timeThreshold = 50; // Minimum ms between scroll events
-                const hideDelay = 1000; // Delay before showing bars after scroll stops
+                let consecutiveUpScrolls = 0; // Count consecutive up-scrolls
                 
                 window.tidScrollHandler = function() {
                     const now = Date.now();
-                    const scrollY = window.scrollY || 0;
+                    const scrollY = window.scrollY;
                     
-                    // Don't process every scroll event - throttle for performance
+                    // Don't process every scroll event - but be more responsive for up-scrolls
                     if (now - lastScrollTime < timeThreshold) return;
                     
                     // Clear any pending timer
-                    if (scrollTimer) clearTimeout(scrollTimer);
+                    clearTimeout(scrollTimer);
                     
-                    // Determine scroll direction when moving significantly
+                    // Determine scroll direction when moving
                     if (Math.abs(scrollY - lastScrollY) > scrollThreshold) {
-                        const scrollingDown = scrollY > lastScrollY;
+                        // Determine scrolling direction
+                        const currentIsScrollingDown = scrollY > lastScrollY;
                         
-                        // Only update state if direction changed or bars are visible while scrolling down
-                        if (scrollingDown !== isScrollingDown || (scrollingDown && barState)) {
-                            isScrollingDown = scrollingDown;
-                            
-                            // Hide bars when scrolling down, show when scrolling up
-                            if (scrollingDown && barState) {
-                                barState = false;
-                                window.ScrollInterface.onScroll(false);
-                            } else if (!scrollingDown && !barState) {
-                                barState = true;
-                                window.ScrollInterface.onScroll(true);
-                            }
+                        // If direction changed, reset the counter
+                        if (currentIsScrollingDown !== isScrollingDown) {
+                            consecutiveUpScrolls = currentIsScrollingDown ? 0 : 1;
+                        } else if (!currentIsScrollingDown) {
+                            // Increment counter for consecutive up-scrolls
+                            consecutiveUpScrolls++;
+                        }
+                        
+                        // Update the direction state
+                        isScrollingDown = currentIsScrollingDown;
+                        
+                        // Show bars immediately on the first significant up-scroll
+                        if (!isScrollingDown && !barState && consecutiveUpScrolls >= 1) {
+                            barState = true;
+                            window.ScrollInterface.onScroll(true);
+                        } 
+                        // Hide bars when scrolling down significantly
+                        else if (isScrollingDown && barState) {
+                            barState = false;
+                            window.ScrollInterface.onScroll(false);
                         }
                         
                         lastScrollY = scrollY;
@@ -88,13 +96,17 @@ object WikiViewEnhancer {
                 
                 // Handle touch events to improve responsiveness
                 document.addEventListener('touchstart', function() {
-                    if (scrollTimer) clearTimeout(scrollTimer);
+                    clearTimeout(scrollTimer);
                 }, { passive: true });
                 
-                // Reset scroll direction on touch end but don't automatically show bars
+                // Only show bars on touch end if at top of page
                 document.addEventListener('touchend', function() {
-                    if (scrollTimer) clearTimeout(scrollTimer);
-                    isScrollingDown = false;
+                    const scrollY = window.scrollY;
+                    // Only show bars at top of page on touch end
+                    if (scrollY <= 5 && !barState) {
+                        barState = true;
+                        window.ScrollInterface.onScroll(true);
+                    }
                 }, { passive: true });
                 
                 return true;
@@ -162,7 +174,6 @@ object WikiViewEnhancer {
                     if (window.tidScrollHandler) {
                         document.removeEventListener('scroll', window.tidScrollHandler);
                         clearTimeout(window.scrollTimer);
-                        window.tidScrollHandler = null;
                     }
                     window.ScrollInterface.onScroll(true);
                 """, null)
