@@ -105,7 +105,6 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                 // Use a short delay to ensure we don't compete with new wiki's setup
                 scope.launch {
                     delay(50)
-                    // Check configuration changing state without directly accessing private property
                     if (!WebViewCache.isInConfigChange()) {
                         // Don't cache when the app is actually closing
                     }
@@ -233,6 +232,20 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                         // Set the client on the WebView
                         webView.webViewClient = webViewClient
 
+                        // Add JavaScript interface for scroll detection
+                        try {
+                            webView.addJavascriptInterface(object {
+                                @JavascriptInterface
+                                fun onScroll(showBars: Boolean) {
+                                    ThreadManager.runOnMain {
+                                        viewModel.setFrameVisible(showBars)
+                                    }
+                                }
+                            }, "ScrollInterface")
+                        } catch (e: Exception) {
+                            Log.e("WikiView", "Failed to add JavaScript interface", e)
+                        }
+
                         // Check if this WebView needs to be loaded or if it's a restored one
                         val isAlreadyLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
 
@@ -262,13 +275,12 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                             webView.invalidate()
                         }
 
-                        // Apply screen adaptations for very small screens
+                        // Always inject scroll detection regardless of screen size
+                        WikiViewEnhancer.injectScrollDetectionScript(webView)
+
+                        // Apply small screen optimizations if needed
                         if (ScreenUtils.isVerySmallScreen(ctx)) {
-                            // Apply custom optimizations for flip phones and very small screens
                             WikiViewEnhancer.injectSmallScreenOptimizations(webView, ctx)
-                        } else {
-                            // Use standard scroll detection for normal screens
-                            WikiViewEnhancer.injectScrollDetectionScript(webView)
                         }
 
                         webView
@@ -294,7 +306,10 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                             }
                         }
                         
-                        // Ensure screen-specific optimizations are applied after updates
+                        // Re-inject scroll detection script to ensure it's working
+                        WikiViewEnhancer.injectScrollDetectionScript(webView)
+
+                        // Reapply small screen optimizations if needed
                         if (ScreenUtils.isVerySmallScreen(context)) {
                             WikiViewEnhancer.injectSmallScreenOptimizations(webView, context)
                         }
