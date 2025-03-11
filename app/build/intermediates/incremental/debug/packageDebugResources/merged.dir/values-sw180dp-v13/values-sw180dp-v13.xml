@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <bool name="enable_single_column_layout">true</bool>
+    <bool name="enable_small_screen_optimizations">true</bool>
     <bool name="is_compact_layout">true</bool>
     <bool name="use_minimal_padding">true</bool>
     <bool name="use_simplified_ui">true</bool>
@@ -23,8 +25,16 @@
     <dimen name="text_size_xlarge">14sp</dimen>
     <dimen name="text_size_xxlarge">15sp</dimen>
     <dimen name="toolbar_height">40dp</dimen>
+    <integer name="default_zoom_level">70</integer>
     <integer name="icon_visibility_threshold">2</integer>
     <integer name="max_list_items_visible">3</integer>
+    <integer name="max_title_lines">1</integer>
+    <integer name="max_visible_nav_items">3</integer>
+    <integer name="max_visible_tabs">3</integer>
+    <integer name="minimum_font_size">8</integer>
+    <integer name="toolbar_item_limit">2</integer>
+    <integer name="webview_max_script_timeout">2000</integer>
     <integer name="webview_text_zoom">85</integer>
     <string name="layout_mode">ultra_compact</string>
+    <string name="webview_preferred_render_mode">compact</string>
 </resources>

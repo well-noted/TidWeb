@@ -1,5 +1,7 @@
 R_DEF: Internal format may change without notice
 local
+bool enable_single_column_layout
+bool enable_small_screen_optimizations
 bool is_compact_layout
 bool use_minimal_padding
 bool use_simplified_ui
@@ -33,8 +35,15 @@ drawable ic_play
 drawable ic_previous
 drawable ic_skip_backward_15
 drawable ic_skip_forward_15
+integer default_zoom_level
 integer icon_visibility_threshold
 integer max_list_items_visible
+integer max_title_lines
+integer max_visible_nav_items
+integer max_visible_tabs
+integer minimum_font_size
+integer toolbar_item_limit
+integer webview_max_script_timeout
 integer webview_text_zoom
 mipmap ic_launcher
 mipmap ic_launcher_foreground
@@ -50,6 +59,7 @@ string layout_mode
 string prevent_reload_tag
 string settings
 string theme_settings
+string webview_preferred_render_mode
 string wiki_name
 string wiki_url
 style Theme.TiddlyWikiBrowser

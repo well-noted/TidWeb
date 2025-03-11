@@ -1295,6 +1295,8 @@ attr yearStyle
 attr yearTodayStyle
 bool abc_action_bar_embed_tabs
 bool abc_config_actionMenuItemAllCaps
+bool enable_single_column_layout
+bool enable_small_screen_optimizations
 bool is_compact_layout
 bool mtrl_btn_textappearance_all_caps
 bool use_minimal_padding
@@ -3747,6 +3749,7 @@ integer app_bar_elevation_anim_duration
 integer bottom_sheet_slide_duration
 integer cancel_button_image_alpha
 integer config_tooltipAnimTime
+integer default_zoom_level
 integer design_snackbar_text_max_lines
 integer design_tab_indicator_anim_duration_ms
 integer exo_media_button_opacity_percentage_disabled
@@ -3790,6 +3793,10 @@ integer material_motion_duration_short_1
 integer material_motion_duration_short_2
 integer material_motion_path
 integer max_list_items_visible
+integer max_title_lines
+integer max_visible_nav_items
+integer max_visible_tabs
+integer minimum_font_size
 integer mtrl_badge_max_character_count
 integer mtrl_btn_anim_delay_ms
 integer mtrl_btn_anim_duration_ms
@@ -3813,6 +3820,8 @@ integer mtrl_view_invisible
 integer mtrl_view_visible
 integer show_password_duration
 integer status_bar_notification_info_maxnum
+integer toolbar_item_limit
+integer webview_max_script_timeout
 integer webview_text_zoom
 interpolator btn_checkbox_checked_mtrl_animation_interpolator_0
 interpolator btn_checkbox_checked_mtrl_animation_interpolator_1
@@ -4275,6 +4284,7 @@ string time_picker_period_toggle_description
 string time_picker_pm
 string tooltip_long_press_label
 string tooltip_pane_description
+string webview_preferred_render_mode
 string wiki_name
 string wiki_url
 style AlertDialog_AppCompat

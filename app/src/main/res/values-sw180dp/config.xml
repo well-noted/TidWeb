@@ -7,9 +7,21 @@
     <integer name="max_list_items_visible">3</integer>
     <integer name="icon_visibility_threshold">2</integer>
     <string name="layout_mode">ultra_compact</string>
+    <integer name="max_title_lines">1</integer>
+    <integer name="max_visible_tabs">3</integer>
+    <integer name="max_visible_nav_items">3</integer>
+    <integer name="toolbar_item_limit">2</integer>
+    <integer name="webview_max_script_timeout">2000</integer>
     
     <!-- WebView configuration for very small screens -->
     <integer name="webview_text_zoom">85</integer>
     <bool name="webview_overview_mode">true</bool>
     <bool name="webview_force_zoom">true</bool>
+    
+    <!-- Render mode optimizations for small screens -->
+    <string name="webview_preferred_render_mode">compact</string>
+    <bool name="enable_small_screen_optimizations">true</bool>
+    <bool name="enable_single_column_layout">true</bool>
+    <integer name="default_zoom_level">70</integer>
+    <integer name="minimum_font_size">8</integer>
 </resources>
