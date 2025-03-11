@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <bool name="is_compact_layout">true</bool>
+    <bool name="use_minimal_padding">true</bool>
+    <bool name="use_simplified_ui">true</bool>
+    <bool name="webview_force_zoom">true</bool>
+    <bool name="webview_overview_mode">true</bool>
+    <dimen name="activity_horizontal_margin">6dp</dimen>
+    <dimen name="activity_vertical_margin">6dp</dimen>
+    <dimen name="button_height">36dp</dimen>
+    <dimen name="header_text_size">16sp</dimen>
+    <dimen name="icon_size">16dp</dimen>
+    <dimen name="min_touch_target_size">42dp</dimen>
+    <dimen name="spacing_large">10dp</dimen>
+    <dimen name="spacing_medium">4dp</dimen>
+    <dimen name="spacing_normal">6dp</dimen>
+    <dimen name="spacing_small">2dp</dimen>
+    <dimen name="spacing_tiny">1dp</dimen>
+    <dimen name="spacing_xlarge">14dp</dimen>
+    <dimen name="text_size_large">13sp</dimen>
+    <dimen name="text_size_medium">11sp</dimen>
+    <dimen name="text_size_small">9sp</dimen>
+    <dimen name="text_size_xlarge">14sp</dimen>
+    <dimen name="text_size_xxlarge">15sp</dimen>
+    <dimen name="toolbar_height">40dp</dimen>
+    <integer name="icon_visibility_threshold">2</integer>
+    <integer name="max_list_items_visible">3</integer>
+    <integer name="webview_text_zoom">85</integer>
+    <string name="layout_mode">ultra_compact</string>
+</resources>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Ultra compact margins for very small screens (flip phones) -->
+    <dimen name="activity_horizontal_margin">6dp</dimen>
+    <dimen name="activity_vertical_margin">6dp</dimen>
+    
+    <!-- Reduced text sizes for very narrow screens -->
+    <dimen name="text_size_small">9sp</dimen>
+    <dimen name="text_size_medium">11sp</dimen>
+    <dimen name="text_size_large">13sp</dimen>
+    <dimen name="text_size_xlarge">14sp</dimen>
+    <dimen name="text_size_xxlarge">15sp</dimen>
+    <dimen name="header_text_size">16sp</dimen>
+    
+    <!-- Minimized UI elements for compact layout -->
+    <dimen name="icon_size">16dp</dimen>
+    <dimen name="button_height">36dp</dimen>
+    <dimen name="min_touch_target_size">42dp</dimen>
+    <dimen name="toolbar_height">40dp</dimen>
+    
+    <!-- Extra tight spacing for very small screens -->
+    <dimen name="spacing_tiny">1dp</dimen>
+    <dimen name="spacing_small">2dp</dimen>
+    <dimen name="spacing_medium">4dp</dimen>
+    <dimen name="spacing_normal">6dp</dimen>
+    <dimen name="spacing_large">10dp</dimen>
+    <dimen name="spacing_xlarge">14dp</dimen>
+</resources>

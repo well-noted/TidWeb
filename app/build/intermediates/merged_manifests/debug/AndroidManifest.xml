@@ -20,6 +20,16 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
+    <!-- Updated supports-screens to ensure compatibility with very small screens (flip phones) -->
+    <supports-screens
+        android:anyDensity="true"
+        android:largeScreens="true"
+        android:normalScreens="true"
+        android:requiresSmallestWidthDp="180"
+        android:resizeable="true"
+        android:smallScreens="true"
+        android:xlargeScreens="true" />
+
     <permission
         android:name="com.tiddlywikibrowser.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
         android:protectionLevel="signature" />
@@ -49,7 +59,8 @@
             android:hardwareAccelerated="true"
             android:keepScreenOn="true"
             android:launchMode="singleTask"
-            android:theme="@style/Theme.TiddlyWikiBrowser" >
+            android:theme="@style/Theme.TiddlyWikiBrowser"
+            android:windowSoftInputMode="adjustResize" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -91,7 +102,8 @@
             android:name="com.tiddlywikibrowser.SettingsActivity"
             android:hardwareAccelerated="true"
             android:label="@string/settings"
-            android:theme="@style/Theme.TiddlyWikiBrowser" />
+            android:theme="@style/Theme.TiddlyWikiBrowser"
+            android:windowSoftInputMode="adjustResize" />
 
         <service
             android:name="com.tiddlywikibrowser.MediaPlaybackService"

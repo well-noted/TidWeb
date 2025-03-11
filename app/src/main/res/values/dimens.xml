@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Default screen margins and dimensions for normal screens -->
+    <dimen name="activity_horizontal_margin">16dp</dimen>
+    <dimen name="activity_vertical_margin">16dp</dimen>
+    
+    <!-- Text sizes -->
+    <dimen name="text_size_small">12sp</dimen>
+    <dimen name="text_size_medium">14sp</dimen>
+    <dimen name="text_size_large">16sp</dimen>
+    <dimen name="text_size_xlarge">18sp</dimen>
+    <dimen name="text_size_xxlarge">20sp</dimen>
+    <dimen name="header_text_size">22sp</dimen>
+    
+    <!-- UI element sizes -->
+    <dimen name="icon_size">24dp</dimen>
+    <dimen name="button_height">48dp</dimen>
+    <dimen name="min_touch_target_size">48dp</dimen>
+    <dimen name="toolbar_height">56dp</dimen>
+    
+    <!-- Spacing -->
+    <dimen name="spacing_tiny">2dp</dimen>
+    <dimen name="spacing_small">4dp</dimen>
+    <dimen name="spacing_medium">8dp</dimen>
+    <dimen name="spacing_normal">16dp</dimen>
+    <dimen name="spacing_large">24dp</dimen>
+    <dimen name="spacing_xlarge">32dp</dimen>
+</resources>

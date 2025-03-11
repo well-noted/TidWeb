@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Default configuration values for normal screens -->
+    <bool name="is_compact_layout">false</bool>
+    <bool name="use_simplified_ui">false</bool>
+    <bool name="use_minimal_padding">false</bool>
+    <integer name="max_list_items_visible">8</integer>
+    <integer name="icon_visibility_threshold">5</integer>
+    <string name="layout_mode">normal</string>
+    
+    <!-- WebView configuration for normal screens -->
+    <integer name="webview_text_zoom">100</integer>
+    <bool name="webview_overview_mode">true</bool>
+    <bool name="webview_force_zoom">false</bool>
+</resources>

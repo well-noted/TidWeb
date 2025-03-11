@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Smaller margins for small screens -->
+    <dimen name="activity_horizontal_margin">12dp</dimen>
+    <dimen name="activity_vertical_margin">12dp</dimen>
+    
+    <!-- Slightly reduced text sizes for better fit -->
+    <dimen name="text_size_small">11sp</dimen>
+    <dimen name="text_size_medium">13sp</dimen>
+    <dimen name="text_size_large">15sp</dimen>
+    <dimen name="text_size_xlarge">16sp</dimen>
+    <dimen name="text_size_xxlarge">18sp</dimen>
+    <dimen name="header_text_size">20sp</dimen>
+    
+    <!-- More compact UI elements -->
+    <dimen name="icon_size">20dp</dimen>
+    <dimen name="button_height">44dp</dimen>
+    <dimen name="toolbar_height">48dp</dimen>
+    
+    <!-- Slightly tighter spacing -->
+    <dimen name="spacing_normal">12dp</dimen>
+    <dimen name="spacing_large">20dp</dimen>
+    <dimen name="spacing_xlarge">24dp</dimen>
+</resources>

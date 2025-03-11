@@ -34,6 +34,14 @@ object WebViewCache {
     private var lastOperationTime = 0L
     private const val OPERATION_COOLDOWN = 500L // ms between cache operations
 
+    /**
+     * Public method to check if configuration is currently changing
+     * This allows other components to safely check configuration state
+     */
+    fun isInConfigChange(): Boolean {
+        return isConfigurationChanging
+    }
+
     fun setConfigurationChanging(changing: Boolean) {
         isConfigurationChanging = changing
     }

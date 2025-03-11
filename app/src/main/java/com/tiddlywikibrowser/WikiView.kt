@@ -104,10 +104,10 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
 
                 // Use a short delay to ensure we don't compete with new wiki's setup
                 scope.launch {
-                    delay(100)
-                    // Clean up only if the composable is truly gone, not just during recomposition
-                    if (!isActive) {
-                        Log.d("WikiView", "Cleaning up resources for: ${wiki.url}")
+                    delay(50)
+                    // Check configuration changing state without directly accessing private property
+                    if (!WebViewCache.isInConfigChange()) {
+                        // Don't cache when the app is actually closing
                     }
                 }
             }
@@ -131,7 +131,8 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
             override fun onStop(owner: LifecycleOwner) {
                 // Don't cleanup WebView if we're just rotating or being backgrounded
                 if (activity?.isChangingConfigurations != true) {
-                    viewModel.recycleWebView(wikiKey)
+                    // Log only to avoid excessive operations
+                    Log.d("WikiView", "Activity stopping (not config change), saving WebView state")
                 }
             }
 
@@ -139,24 +140,12 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                 // When resuming, we need to ensure reload protection is in place
                 ThreadManager.runOnMain {
                     webViewClientState.value?.let { client ->
-                        viewModel.getOrCreateWebView(wiki, context)?.let { webView ->
-                            // Make sure we reinforce reload protection when resuming
-                            client.reinforceReloadProtection(webView)
-
-                            // Re-inject the scroll detection script
-                            injectScrollDetectionScript(webView, viewModel)
-
-                            // Explicitly dispatch a resume event to the page
-                            webView.evaluateJavascript("""
-                                (function() {
-                                    try {
-                                        document.dispatchEvent(new Event('resume'));
-                                        return true;
-                                    } catch(e) {
-                                        return false; 
-                                    }
-                                })();
-                            """.trimIndent(), null)
+                        try {
+                            viewModel.getOrCreateWebView(wiki, context).let { webView ->
+                                client.reinforceReloadProtection(webView)
+                            }
+                        } catch (e: Exception) {
+                            Log.e("WikiView", "Failed to reinforce reload protection: ${e.message}")
                         }
                     }
                 }
@@ -165,21 +154,10 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
             override fun onPause(owner: LifecycleOwner) {
                 // When pausing, save the WebView state immediately
                 ThreadManager.runOnMain {
-                    viewModel.getOrCreateWebView(wiki, context)?.let { webView ->
-                        // Dispatch a pause event to the page
-                        webView.evaluateJavascript("""
-                            (function() {
-                                try {
-                                    document.dispatchEvent(new Event('pause'));
-                                    return true;
-                                } catch(e) {
-                                    return false; 
-                                }
-                            })();
-                        """.trimIndent(), null)
-
-                        // Save the state to cache
-                        WebViewCache.cacheWebView(wikiKey, webView)
+                    try {
+                        WebViewCache.cacheWebView(wikiKey, viewModel.getOrCreateWebView(wiki, context))
+                    } catch (e: Exception) {
+                        Log.e("WikiView", "Failed to cache WebView on pause: ${e.message}")
                     }
                 }
             }
@@ -199,80 +177,13 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
             // Show error state if there's an error
             errorState?.let { error ->
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = error,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.padding(16.dp)
-                        )
-                        Button(
-                            onClick = {
-                                // Set loading state first to show progress indicator
-                                isLoading = true
-                                errorState = null
-
-                                // Fetch the URL to load
-                                val urlToLoad = localFileUrl ?: wiki.url
-
-                                // Use our new forceReload method that properly resets WebView state
-                                viewModel.getOrCreateWebView(wiki, context)?.let { webView ->
-                                    // Reset all state flags in both WebView and client
-                                    webView.setTag(R.string.prevent_reload_tag, false)
-                                    
-                                    // Use webViewClientState.value to access the ReloadBlockingWebViewClient
-                                    webViewClientState.value?.let { client ->
-                                        // The client's forceReload method handles proper resetting and reloading
-                                        client.forceReload(webView, urlToLoad)
-                                    } ?: run {
-                                        // Fallback if the client isn't available
-                                        ThreadManager.runOnMain {
-                                            webView.loadUrl(urlToLoad)
-                                        }
-                                    }
-                                    
-                                    // Also reset our compose state
-                                    isFirstLoad = true 
-                                    hasContent = false
-                                    lastLoadTime = System.currentTimeMillis()
-                                }
-                            }
-                        ) {
-                            Text("Retry")
-                        }
-
-                        // Add a secondary option for hard reload
-                        TextButton(
-                            onClick = {
-                                // Completely recreate the WebView for a clean slate
-                                WebViewCache.removeCachedWebView(wikiKey)
-                                isLoading = true
-                                errorState = null
-                                isFirstLoad = true
-                                hasContent = false
-
-                                // Small delay to let removal finish
-                                ThreadManager.runOnMainWithDelay(100) {
-                                    val urlToLoad = localFileUrl ?: wiki.url
-
-                                    // This will create a fresh WebView since we just removed the cached one
-                                    viewModel.getOrCreateWebView(wiki, context)?.let { webView ->
-                                        webView.loadUrl(urlToLoad)
-                                    }
-                                }
-                            }
-                        ) {
-                            Text("Hard Reload")
-                        }
-                    }
+                    Text(
+                        text = "Error loading wiki: $error",
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
                 return@Box
             }
@@ -281,72 +192,36 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
             AndroidView(
                 factory = { ctx ->
                     try {
-                        Log.d("WikiView", "Creating/retrieving WebView for: ${wiki.url}")
+                        val webView = viewModel.getOrCreateWebView(wiki, ctx)
+                        webViewInitialized = true
 
-                        // Check if there's a cached WebView first to avoid creating a new one
-                        val webView = WebViewCache.getAndRestoreCachedWebView(
-                            wikiKey,
-                            newWebViewFactory = {
-                                // Only create a new WebView if necessary
-                                viewModel.getOrCreateWebView(wiki, ctx).apply {
-                                    // The WebView is new, so mark it explicitly as needing initial load
-                                    setTag(R.string.prevent_reload_tag, false)
-                                }
-                            }
-                        )
-
-                        // Apply essential WebView settings
-                        webView.settings.apply {
-                            // Essential settings
-                            javaScriptEnabled = true
-                            domStorageEnabled = true
-
-                            // Always allow initial load
-                            blockNetworkImage = false
-                            loadsImagesAutomatically = true
-
-                            // Enable file download support
-                            allowFileAccess = true
-                            setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW)
-                        }
-
-                        // Set up download listener
-                        downloadManager.setupDownloadListener(webView)
-
-                        // Set WebView to visible
-                        webView.visibility = android.view.View.VISIBLE
-
-                        // Create our custom WebViewClient that prevents reloads
+                        // Create WebViewClient to handle page loads
                         val webViewClient = ReloadBlockingWebViewClient(
                             context = ctx,
                             wikiUrl = wiki.url,
                             onLoadingStateChanged = { loading ->
-                                // Only update state if still active to prevent state updates
-                                // after component disposal
                                 if (isActive) {
                                     isLoading = loading
+                                    if (!loading) {
+                                        hasContent = true
+                                        isFirstLoad = false
+                                    }
                                 }
                             },
-                            onErrorReceived = { error ->
-                                if (isActive) {
-                                    errorState = error
+                            onErrorReceived = { errorMsg ->
+                                if (isActive && !hasContent) {
+                                    errorState = errorMsg
                                 }
                             },
                             onPageLoaded = { success ->
                                 if (isActive) {
-                                    hasContent = success
-                                    isFirstLoad = false
-
-                                    // Critical: Mark as loaded on successful first load
                                     if (success) {
-                                        Log.d("WikiView", "Setting prevent_reload_tag to TRUE for: $wikiKey")
-                                        webView.setTag(R.string.prevent_reload_tag, true)
-
-                                        // Cache state immediately after successful load
-                                        WebViewCache.cacheWebView(wikiKey, webView)
-
-                                        // For first loads, also inject reload protection explicitly
-//                                        webViewClient.reinforceReloadProtection(webView)
+                                        // Successfully loaded
+                                        hasContent = true
+                                        isFirstLoad = false
+                                    } else if (!hasContent) {
+                                        // Failed to load and we don't have content
+                                        errorState = "Could not load content"
                                     }
                                 }
                             }
@@ -387,8 +262,14 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                             webView.invalidate()
                         }
 
-                        // Inject scroll detection script for showing/hiding UI elements
-                        injectScrollDetectionScript(webView, viewModel)
+                        // Apply screen adaptations for very small screens
+                        if (ScreenUtils.isVerySmallScreen(ctx)) {
+                            // Apply custom optimizations for flip phones and very small screens
+                            WikiViewEnhancer.injectSmallScreenOptimizations(webView, ctx)
+                        } else {
+                            // Use standard scroll detection for normal screens
+                            WikiViewEnhancer.injectScrollDetectionScript(webView)
+                        }
 
                         webView
                     } catch (e: Exception) {
@@ -407,21 +288,15 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                         // We can safely ensure our reload protection is in place though
                         webViewClientState.value?.let { client ->
                             try {
-                                // Check if the WebView is already marked as loaded
-                                val isAlreadyLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
-
-                                if (isAlreadyLoaded) {
-                                    // Reinforce protection - this will only do something if the WebView is loaded
-                                    client.reinforceReloadProtection(webView)
-                                } else if (!isLoading && hasContent) {
-                                    // If we have content but WebView isn't marked as loaded, fix that
-                                    Log.d("WikiView", "Fixing loaded state for WebView: $wikiKey")
-                                    webView.setTag(R.string.prevent_reload_tag, true)
-                                    WebViewCache.cacheWebView(wikiKey, webView)
-                                } else {}
+                                client.reinforceReloadProtection(webView)
                             } catch (e: Exception) {
-                                Log.e("WikiView", "Error reinforcing reload protection: ${e.message}")
+                                Log.e("WikiView", "Failed to reinforce reload protection during update: ${e.message}")
                             }
+                        }
+                        
+                        // Ensure screen-specific optimizations are applied after updates
+                        if (ScreenUtils.isVerySmallScreen(context)) {
+                            WikiViewEnhancer.injectSmallScreenOptimizations(webView, context)
                         }
                     }
                 },

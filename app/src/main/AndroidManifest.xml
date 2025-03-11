@@ -10,6 +10,16 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     
+    <!-- Updated supports-screens to ensure compatibility with very small screens (flip phones) -->
+    <supports-screens 
+        android:smallScreens="true"
+        android:normalScreens="true"
+        android:largeScreens="true"
+        android:xlargeScreens="true"
+        android:anyDensity="true"
+        android:resizeable="true"
+        android:requiresSmallestWidthDp="180" />
+    
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -31,6 +41,7 @@
             android:theme="@style/Theme.TiddlyWikiBrowser"
             android:hardwareAccelerated="true"
             android:keepScreenOn="true"
+            android:windowSoftInputMode="adjustResize"
             android:documentLaunchMode="intoExisting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -66,6 +77,7 @@
             android:name=".SettingsActivity"
             android:label="@string/settings"
             android:theme="@style/Theme.TiddlyWikiBrowser"
+            android:windowSoftInputMode="adjustResize"
             android:hardwareAccelerated="true" />
 
         <service android:name=".MediaPlaybackService"

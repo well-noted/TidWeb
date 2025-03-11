@@ -1,0 +1,26 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.tiddlywikibrowser.app-mergeDebugResources-71:/values-sw320dp-v13/values-sw320dp-v13.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\tetuo\\TidWeb-main\\Backup\\Refactor\\TidWeb\\app\\src\\main\\res\\values-sw320dp\\dimens.xml",
+                    "from": {
+                        "startLines": "3,4,16,12,15,21,20,22,9,8,7,10,11,17",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "105,164,664,528,622,849,802,895,381,332,284,429,478,710",
+                        "endColumns": "57,55,44,47,40,44,45,45,46,47,46,47,48,45",
+                        "endOffsets": "158,215,704,571,658,889,843,936,423,375,326,472,522,751"
+                    },
+                    "to": {
+                        "startLines": "2,3,4,5,6,7,8,9,10,11,12,13,14,15",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "55,113,169,214,262,303,348,394,440,487,535,582,630,679",
+                        "endColumns": "57,55,44,47,40,44,45,45,46,47,46,47,48,45",
+                        "endOffsets": "108,164,209,257,298,343,389,435,482,530,577,625,674,720"
+                    }
+                }
+            ]
+        }
+    ]
+}

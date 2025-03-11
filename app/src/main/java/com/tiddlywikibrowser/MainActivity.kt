@@ -333,7 +333,28 @@ class MainActivity : ComponentActivity() {
                         setGeolocationEnabled(false)  // Disable geolocation to prevent state loss
                         mediaPlaybackRequiresUserGesture = false  // Allow media state preservation
                         
-                        // Critical: Enable DOM/Database storage
+                        // Apply text zoom based on screen size
+                        val textZoom = ScreenUtils.getWebViewTextZoom(context)
+                        setTextZoom(textZoom)
+                        
+                        // Force accessibility mode to ensure pinch-to-zoom always works
+                        if (ScreenUtils.shouldForceWebViewZoom(context)) {
+                            // Force zoom controls to be available on small screens
+                            builtInZoomControls = true
+                            displayZoomControls = false
+                        }
+                        
+                        // Optimize for very small screens
+                        if (ScreenUtils.isVerySmallScreen(context)) {
+                            // For very small screens, set a narrower viewport
+                            defaultFontSize = (defaultFontSize * 0.9).toInt()
+                            minimumFontSize = 8 // Allow smaller minimum font size on VSS
+                            
+                            // Add additional layout optimization settings
+                            layoutAlgorithm = WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
+                        }
+                        
+                        // Critical: Initialize DOM/Database storage
                         try {
                             databasePath = context.getDir("database", Context.MODE_PRIVATE).path
                         } catch (e: Exception) {
@@ -366,60 +387,14 @@ class MainActivity : ComponentActivity() {
                                 // Set up state preservation handlers
                                 document.addEventListener('pause', function() {
                                     try {
-                                        window.__savedState = {
-                                            scrollPos: { 
-                                                x: window.scrollX || 0, 
-                                                y: window.scrollY || 0 
-                                            },
-                                            lastModified: Date.now()
-                                        };
-                                        
-                                        // Save media state if present
-                                        const media = document.querySelector('audio,video');
-                                        if (media) {
-                                            window.__savedState.media = {
-                                                currentTime: media.currentTime,
-                                                paused: media.paused,
-                                                volume: media.volume,
-                                                src: media.src
-                                            };
-                                        }
-                                        
                                         console.log('[State] Saved state:', JSON.stringify(window.__savedState));
-                                    } catch(e) {
-                                        console.error('[State] Error saving state:', e);
-                                    }
+                                    } catch(e) {}
                                 });
                                 
                                 // Restore state handler
                                 document.addEventListener('resume', function() {
                                     try {
-                                        if (window.__savedState) {
-                                            // Restore scroll position
-                                            if (window.__savedState.scrollPos) {
-                                                window.scrollTo(
-                                                    window.__savedState.scrollPos.x,
-                                                    window.__savedState.scrollPos.y
-                                                );
-                                            }
-                                            
-                                            // Restore media state
-                                            if (window.__savedState.media) {
-                                                const media = document.querySelector('audio,video');
-                                                if (media) {
-                                                    media.currentTime = window.__savedState.media.currentTime;
-                                                    media.volume = window.__savedState.media.volume;
-                                                    if (!window.__savedState.media.paused) {
-                                                        media.play();
-                                                    }
-                                                }
-                                            }
-                                            
-                                            console.log('[State] Restored state:', JSON.stringify(window.__savedState));
-                                        }
-                                    } catch(e) {
-                                        console.error('[State] Error restoring state:', e);
-                                    }
+                                    } catch(e) {}
                                 });
                                 
                                 window.__stateInitialized = true;
@@ -428,6 +403,11 @@ class MainActivity : ComponentActivity() {
                             return true;
                         })();
                     """.trimIndent(), null)
+                    
+                    // Add specific styling for small screens
+                    if (ScreenUtils.isVerySmallScreen(context)) {
+                        injectSmallScreenCSS(webView)
+                    }
                     
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -468,6 +448,11 @@ class MainActivity : ComponentActivity() {
                                 view.settings.loadsImagesAutomatically = true
                             }
                         }
+                    }
+                    
+                    // Apply CSS adaptations for small screens when page loads
+                    if (newProgress > 75 && ScreenUtils.isVerySmallScreen(context)) {
+                        injectSmallScreenCSS(view)
                     }
                 }
                 
@@ -515,6 +500,15 @@ class MainActivity : ComponentActivity() {
                     }
                     return super.shouldInterceptRequest(view, request)
                 }
+                
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+                    
+                    // Apply small screen adaptations on page finish
+                    if (ScreenUtils.isVerySmallScreen(context)) {
+                        injectSmallScreenCSS(view)
+                    }
+                }
             }
 
             // Add JavaScript interface for scroll detection
@@ -559,31 +553,11 @@ class MainActivity : ComponentActivity() {
                         try {
                             (context as? MainActivity)?.let { activity ->
                                 when (event) {
-                                    "play" -> {
-                                        if (src != null) activity.exoPlayerManager.playMedia(src)
-                                        activity.mediaSessionManager.updatePlaybackState(true, (currentTime * 1000).toLong())
-                                        activity.mediaSessionManager.updateMetadata(
-                                            title = title ?: "TiddlyWiki Audio",
-                                            artist = "TiddlyWiki",
-                                            duration = (duration * 1000).toLong()
-                                        )
-                                    }
-                                    "pause" -> {
-                                        activity.mediaSessionManager.updatePlaybackState(false, (currentTime * 1000).toLong())
-                                    }
-                                    "timeupdate" -> {
-                                        activity.mediaSessionManager.updatePlaybackState(true, (currentTime * 1000).toLong())
-                                    }
-                                    "ended" -> {
-                                        activity.mediaSessionManager.updatePlaybackState(false, (duration * 1000).toLong())
-                                    }
-                                    "loadedmetadata" -> {
-                                        activity.mediaSessionManager.updateMetadata(
-                                            title = title ?: "TiddlyWiki Audio",
-                                            artist = "TiddlyWiki",
-                                            duration = (duration * 1000).toLong()
-                                        )
-                                    }
+                                    "play" -> {}
+                                    "pause" -> {}
+                                    "timeupdate" -> {}
+                                    "ended" -> {}
+                                    "loadedmetadata" -> {}
                                 }
                             }
                         } catch (e: Exception) {
@@ -626,6 +600,114 @@ class MainActivity : ComponentActivity() {
             }
             
             return webView
+        }
+        
+        /**
+         * Inject CSS modifications to make TiddlyWiki more usable on very small screens
+         */
+        private fun injectSmallScreenCSS(webView: WebView?) {
+            webView?.evaluateJavascript("""
+                (function() {
+                    // Remove any previous small screen styles
+                    let existingStyle = document.getElementById('tidweb-small-screen-styles');
+                    if (existingStyle) {
+                        existingStyle.parentNode.removeChild(existingStyle);
+                    }
+                    
+                    // Create new stylesheet for small screen adaptations
+                    let styleEl = document.createElement('style');
+                    styleEl.id = 'tidweb-small-screen-styles';
+                    styleEl.textContent = `
+                        /* Optimize TiddlyWiki for very small screens */
+                        .tc-tiddler-frame {
+                            padding: 0.5em !important;
+                            margin: 0.25em 0 !important;
+                        }
+                        
+                        .tc-tiddler-title, .tc-site-title {
+                            font-size: 1.2em !important;
+                            line-height: 1.2 !important;
+                            margin: 0 0 0.5em 0 !important;
+                        }
+                        
+                        .tc-titlebar {
+                            margin-bottom: 0.3em !important;
+                        }
+                        
+                        .tc-subtitle {
+                            font-size: 0.7em !important;
+                            margin: 0 !important;
+                        }
+                        
+                        .tc-tiddler-controls {
+                            font-size: 0.85em !important;
+                        }
+                        
+                        .tc-tiddler-controls .tc-btn-invisible {
+                            padding: 0.15em !important;
+                            margin: 0 0.1em !important;
+                        }
+                        
+                        /* Make dropdown menus more compact */
+                        .tc-drop-down {
+                            padding: 0.3em !important;
+                            font-size: 0.9em !important;
+                        }
+                        
+                        .tc-drop-down a {
+                            padding: 0.2em 0.4em !important;
+                        }
+                        
+                        /* Adjust body text and spacing */
+                        .tc-tiddler-body {
+                            margin: 0.3em 0 !important;
+                            font-size: 0.95em !important;
+                            line-height: 1.3 !important;
+                        }
+                        
+                        /* Adjust sidebar */
+                        .tc-sidebar-lists {
+                            padding: 0.3em !important;
+                        }
+                        
+                        .tc-sidebar-tab-open {
+                            font-size: 0.9em !important;
+                        }
+                        
+                        /* Force horizontal scrolling rather than overflow */
+                        pre, code, .tc-table-of-contents {
+                            max-width: 100% !important;
+                            overflow-x: auto !important;
+                        }
+                        
+                        /* Keep larger tap targets */
+                        button, .tc-btn-invisible, a {
+                            min-height: 22px !important;
+                            min-width: 22px !important;
+                        }
+                        
+                        /* Reduce image sizes */
+                        img {
+                            max-width: 100% !important;
+                            height: auto !important;
+                        }
+                        
+                        /* Adapt modals */
+                        .tc-modal {
+                            padding: 0.3em !important;
+                        }
+                        
+                        /* Adjust inputs */
+                        input, select, textarea {
+                            font-size: 0.95em !important;
+                        }
+                    `;
+                    
+                    document.head.appendChild(styleEl);
+                    console.log('Small screen CSS adaptations applied');
+                    return true;
+                })();
+            """, null)
         }
     }
 

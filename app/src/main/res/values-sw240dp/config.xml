@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Configuration values for very small screens -->
+    <bool name="is_compact_layout">true</bool>
+    <bool name="use_simplified_ui">true</bool>
+    <integer name="max_list_items_visible">5</integer>
+    <integer name="icon_visibility_threshold">3</integer>
+    <string name="layout_mode">compact</string>
+</resources>

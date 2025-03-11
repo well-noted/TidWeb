@@ -1,6 +1,29 @@
 R_DEF: Internal format may change without notice
 local
+bool is_compact_layout
+bool use_minimal_padding
+bool use_simplified_ui
+bool webview_force_zoom
+bool webview_overview_mode
 color ic_launcher_background
+dimen activity_horizontal_margin
+dimen activity_vertical_margin
+dimen button_height
+dimen header_text_size
+dimen icon_size
+dimen min_touch_target_size
+dimen spacing_large
+dimen spacing_medium
+dimen spacing_normal
+dimen spacing_small
+dimen spacing_tiny
+dimen spacing_xlarge
+dimen text_size_large
+dimen text_size_medium
+dimen text_size_small
+dimen text_size_xlarge
+dimen text_size_xxlarge
+dimen toolbar_height
 drawable ic_launcher_background
 drawable ic_launcher_foreground
 drawable ic_next
@@ -10,6 +33,9 @@ drawable ic_play
 drawable ic_previous
 drawable ic_skip_backward_15
 drawable ic_skip_forward_15
+integer icon_visibility_threshold
+integer max_list_items_visible
+integer webview_text_zoom
 mipmap ic_launcher
 mipmap ic_launcher_foreground
 mipmap ic_launcher_round
@@ -20,6 +46,7 @@ string app_name
 string cancel
 string dark_mode
 string dark_mode_desc
+string layout_mode
 string prevent_reload_tag
 string settings
 string theme_settings

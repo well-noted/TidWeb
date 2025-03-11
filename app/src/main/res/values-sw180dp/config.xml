@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Configuration values specific to very small screens (flip phones) -->
+    <bool name="is_compact_layout">true</bool>
+    <bool name="use_simplified_ui">true</bool>
+    <bool name="use_minimal_padding">true</bool>
+    <integer name="max_list_items_visible">3</integer>
+    <integer name="icon_visibility_threshold">2</integer>
+    <string name="layout_mode">ultra_compact</string>
+    
+    <!-- WebView configuration for very small screens -->
+    <integer name="webview_text_zoom">85</integer>
+    <bool name="webview_overview_mode">true</bool>
+    <bool name="webview_force_zoom">true</bool>
+</resources>

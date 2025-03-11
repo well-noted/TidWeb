@@ -620,7 +620,12 @@
     </attr>
     <bool name="abc_action_bar_embed_tabs">true</bool>
     <bool name="abc_config_actionMenuItemAllCaps">true</bool>
+    <bool name="is_compact_layout">false</bool>
     <bool name="mtrl_btn_textappearance_all_caps">true</bool>
+    <bool name="use_minimal_padding">false</bool>
+    <bool name="use_simplified_ui">false</bool>
+    <bool name="webview_force_zoom">false</bool>
+    <bool name="webview_overview_mode">true</bool>
     <color name="abc_decor_view_status_guard">#ff000000</color>
     <color name="abc_decor_view_status_guard_light">#ffffffff</color>
     <color name="abc_search_url_text_normal">#7fa87f</color>
@@ -1043,7 +1048,10 @@
     <dimen name="abc_text_size_subtitle_material_toolbar">16dp</dimen>
     <dimen name="abc_text_size_title_material">20sp</dimen>
     <dimen name="abc_text_size_title_material_toolbar">20dp</dimen>
+    <dimen name="activity_horizontal_margin">16dp</dimen>
+    <dimen name="activity_vertical_margin">16dp</dimen>
     <dimen name="appcompat_dialog_background_inset">16dp</dimen>
+    <dimen name="button_height">48dp</dimen>
     <dimen name="cardview_compat_inset_shadow">1dp</dimen>
     <dimen name="cardview_default_elevation">2dp</dimen>
     <dimen name="cardview_default_radius">2dp</dimen>
@@ -1144,6 +1152,7 @@
     <dimen name="fastscroll_default_thickness">8dp</dimen>
     <dimen name="fastscroll_margin">0dp</dimen>
     <dimen name="fastscroll_minimum_range">50dp</dimen>
+    <dimen name="header_text_size">22sp</dimen>
     <item format="float" name="highlight_alpha_material_colored" type="dimen">0.26</item>
     <item format="float" name="highlight_alpha_material_dark" type="dimen">0.20</item>
     <item format="float" name="highlight_alpha_material_light" type="dimen">0.12</item>
@@ -1151,6 +1160,7 @@
     <item format="float" name="hint_alpha_material_light" type="dimen">0.38</item>
     <item format="float" name="hint_pressed_alpha_material_dark" type="dimen">0.70</item>
     <item format="float" name="hint_pressed_alpha_material_light" type="dimen">0.54</item>
+    <dimen name="icon_size">24dp</dimen>
     <dimen name="item_touch_helper_max_drag_scroll_per_frame">20dp</dimen>
     <dimen name="item_touch_helper_swipe_escape_max_velocity">800dp</dimen>
     <dimen name="item_touch_helper_swipe_escape_velocity">120dp</dimen>
@@ -1573,6 +1583,7 @@
     <dimen name="material_textinput_min_width">56dp</dimen>
     <dimen name="material_time_picker_minimum_screen_height">560dp</dimen>
     <dimen name="material_time_picker_minimum_screen_width">340dp</dimen>
+    <dimen name="min_touch_target_size">48dp</dimen>
     <dimen name="mtrl_alert_dialog_background_inset_bottom">80dp</dimen>
     <dimen name="mtrl_alert_dialog_background_inset_end">24dp</dimen>
     <dimen name="mtrl_alert_dialog_background_inset_start">24dp</dimen>
@@ -1785,6 +1796,18 @@
     <dimen name="notification_subtext_size">13sp</dimen>
     <dimen name="notification_top_pad">10dp</dimen>
     <dimen name="notification_top_pad_large_text">5dp</dimen>
+    <dimen name="spacing_large">24dp</dimen>
+    <dimen name="spacing_medium">8dp</dimen>
+    <dimen name="spacing_normal">16dp</dimen>
+    <dimen name="spacing_small">4dp</dimen>
+    <dimen name="spacing_tiny">2dp</dimen>
+    <dimen name="spacing_xlarge">32dp</dimen>
+    <dimen name="text_size_large">16sp</dimen>
+    <dimen name="text_size_medium">14sp</dimen>
+    <dimen name="text_size_small">12sp</dimen>
+    <dimen name="text_size_xlarge">18sp</dimen>
+    <dimen name="text_size_xxlarge">20sp</dimen>
+    <dimen name="toolbar_height">56dp</dimen>
     <dimen name="tooltip_corner_radius">2dp</dimen>
     <dimen name="tooltip_horizontal_padding">16dp</dimen>
     <dimen name="tooltip_margin">8dp</dimen>
@@ -2019,6 +2042,7 @@
     <integer name="exo_media_button_opacity_percentage_disabled">33</integer>
     <integer name="exo_media_button_opacity_percentage_enabled">100</integer>
     <integer name="hide_password_duration">320</integer>
+    <integer name="icon_visibility_threshold">5</integer>
     <integer name="m3_badge_max_number">999</integer>
     <integer name="m3_btn_anim_delay_ms">100</integer>
     <integer name="m3_btn_anim_duration_ms">100</integer>
@@ -2055,6 +2079,7 @@
     <integer name="material_motion_duration_short_1">75</integer>
     <integer name="material_motion_duration_short_2">150</integer>
     <integer name="material_motion_path" translatable="false">0</integer>
+    <integer name="max_list_items_visible">8</integer>
     <integer name="mtrl_badge_max_character_count">4</integer>
     <integer name="mtrl_btn_anim_delay_ms">100</integer>
     <integer name="mtrl_btn_anim_duration_ms">100</integer>
@@ -2078,6 +2103,7 @@
     <integer name="mtrl_view_visible">0</integer>
     <integer name="show_password_duration">200</integer>
     <integer name="status_bar_notification_info_maxnum">999</integer>
+    <integer name="webview_text_zoom">100</integer>
     <plurals name="exo_controls_fastforward_by_amount_description">
     <item quantity="one">Fast forward <ns2:g example="1" id="fastforward_amount">%d</ns2:g> second</item>
     <item quantity="other">Fast forward <ns2:g example="30" id="fastforward_amount">%d</ns2:g> seconds</item>
@@ -2257,6 +2283,7 @@
     <string name="in_progress">In progress</string>
     <string name="indeterminate">Partially checked</string>
     <string name="item_view_role_description">Tab</string>
+    <string name="layout_mode">normal</string>
     <string name="m3_exceed_max_badge_text_suffix" translatable="false"><ns2:g example="Some te" id="part of a long text">%1$s</ns2:g><ns2:g example="…" id="suffix">%2$s</ns2:g></string>
     <string name="m3_ref_typeface_brand_medium" translatable="false">sans-serif-medium</string>
     <string name="m3_ref_typeface_brand_regular" translatable="false">sans-serif</string>
