@@ -316,44 +316,31 @@ class MainActivity : ComponentActivity() {
                         cacheMode = WebSettings.LOAD_DEFAULT
                         allowFileAccess = true
                         
-                        // Fix for orientation: support viewport meta tag
+                        // Critical: Initialize proper caching mode for state persistence
+                        cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+                        domStorageEnabled = true
+                        databaseEnabled = true
+                        
+                        // Set save state flags
+                        saveFormData = true
+                        savePassword = true
+                        
+                        // Ensure proper viewport settings
                         useWideViewPort = true
                         loadWithOverviewMode = true
-
-                        // Important setting for responsiveness
-                        layoutAlgorithm = WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
                         
-                        // Safe way to set database path
+                        // Important for state preservation
+                        setGeolocationEnabled(false)  // Disable geolocation to prevent state loss
+                        mediaPlaybackRequiresUserGesture = false  // Allow media state preservation
+                        
+                        // Critical: Enable DOM/Database storage
                         try {
                             databasePath = context.getDir("database", Context.MODE_PRIVATE).path
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }
 
-                        // Optimize GPU rendering and resource loading
-                        mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-                        
-                        // Set the proper dark mode setting on Android Q and above
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            try {
-                                forceDark = WebSettings.FORCE_DARK_AUTO
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
-                        }
-                        
-                        // Performance improvements for memory usage
-                        javaScriptEnabled = true
-                        domStorageEnabled = true // Use modern cache APIs
-                        setGeolocationEnabled(false) // Disable features we don't need
-                        javaScriptCanOpenWindowsAutomatically = false
-                        allowContentAccess = true
-                        
-                        // Optimize loading and parsing to reduce memory pressure
-                        blockNetworkImage = true // Initially block images to improve first render
-                        loadsImagesAutomatically = false // Control this manually for better performance
-                        
-                        // Safely enable file access from file URLs (required for local TiddlyWiki)
+                        // Safely enable file access (required for local TiddlyWiki)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
                             try {
                                 javaClass.getMethod("setAllowFileAccessFromFileURLs", Boolean::class.java)
@@ -366,58 +353,81 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     
-                    // CRITICAL FIX: Override WebView's JS execution to be non-blocking
-                    webView.evaluateJavascript("""
-                        (function() {
-                            // Use throttled and chunked processing for heavy operations
-                            const originalSetTimeout = window.setTimeout;
-                            window.setTimeout = function(callback, delay) {
-                                if (delay < 10) delay = 10; // Minimum delay to avoid busy-waiting
-                                return originalSetTimeout(callback, delay);
-                            };
-                            
-                            // Ensure delayed initialization for TiddlyWiki components
-                            window.addEventListener('DOMContentLoaded', function() {
-                                // Set up rendering optimization
-                                const style = document.createElement('style');
-                                style.textContent = `
-                                    * { transform: translateZ(0); }
-                                    img:not([loading]) { loading: lazy; }
-                                    .tc-tiddler-frame { contain: content; }
-                                `;
-                                document.head.appendChild(style);
-                            });
-                        })();
-                    """, null)
+                    // CRITICAL: Initialize WebView state flags
+                    webView.setTag(R.string.prevent_reload_tag, false)  // Start as not loaded
                     
-                    // CRITICAL FIX: Add viewport setting script for orientation changes
+                    // Initialize state preservation script
                     webView.evaluateJavascript("""
                         (function() {
-                            // Ensure proper mobile viewport settings
-                            let viewport = document.querySelector('meta[name="viewport"]');
-                            if (!viewport) {
-                                viewport = document.createElement('meta');
-                                viewport.name = 'viewport';
-                                document.head.appendChild(viewport);
+                            if (!window.__stateInitialized) {
+                                // Create state container
+                                window.__savedState = {};
+                                
+                                // Set up state preservation handlers
+                                document.addEventListener('pause', function() {
+                                    try {
+                                        window.__savedState = {
+                                            scrollPos: { 
+                                                x: window.scrollX || 0, 
+                                                y: window.scrollY || 0 
+                                            },
+                                            lastModified: Date.now()
+                                        };
+                                        
+                                        // Save media state if present
+                                        const media = document.querySelector('audio,video');
+                                        if (media) {
+                                            window.__savedState.media = {
+                                                currentTime: media.currentTime,
+                                                paused: media.paused,
+                                                volume: media.volume,
+                                                src: media.src
+                                            };
+                                        }
+                                        
+                                        console.log('[State] Saved state:', JSON.stringify(window.__savedState));
+                                    } catch(e) {
+                                        console.error('[State] Error saving state:', e);
+                                    }
+                                });
+                                
+                                // Restore state handler
+                                document.addEventListener('resume', function() {
+                                    try {
+                                        if (window.__savedState) {
+                                            // Restore scroll position
+                                            if (window.__savedState.scrollPos) {
+                                                window.scrollTo(
+                                                    window.__savedState.scrollPos.x,
+                                                    window.__savedState.scrollPos.y
+                                                );
+                                            }
+                                            
+                                            // Restore media state
+                                            if (window.__savedState.media) {
+                                                const media = document.querySelector('audio,video');
+                                                if (media) {
+                                                    media.currentTime = window.__savedState.media.currentTime;
+                                                    media.volume = window.__savedState.media.volume;
+                                                    if (!window.__savedState.media.paused) {
+                                                        media.play();
+                                                    }
+                                                }
+                                            }
+                                            
+                                            console.log('[State] Restored state:', JSON.stringify(window.__savedState));
+                                        }
+                                    } catch(e) {
+                                        console.error('[State] Error restoring state:', e);
+                                    }
+                                });
+                                
+                                window.__stateInitialized = true;
+                                console.log('[State] State preservation initialized');
                             }
-                            viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes';
-                            
-                            // Fix for orientation changes: re-layout on orientation change
-                            window.addEventListener('orientationchange', function() {
-                                setTimeout(function() {
-                                    const evt = new Event('resize');
-                                    window.dispatchEvent(evt);
-                                }, );
-                            });
-                            
-                            // Throttle heavy operations
-                            const originalSetTimeout = window.setTimeout;
-                            window.setTimeout = function(callback, delay) {
-                                if (delay < 10) delay = 10; // Minimum delay to avoid busy-waiting
-                                return originalSetTimeout(callback, delay);
-                            };
+                            return true;
                         })();
-                    """, null)
+                    """.trimIndent(), null)
                     
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -642,6 +652,19 @@ class MainActivity : ComponentActivity() {
                 SideEffect {
                     if (viewModel != this.viewModel) {
                         this.viewModel = viewModel
+                    }
+                }
+                
+                // Handle initial wiki state preservation
+                DisposableEffect(Unit) {
+                    onDispose {
+                        // Save state of current wiki when activity is disposed
+                        viewModel.currentWiki.value?.let { wiki ->
+                            val key = wiki.idFromUrl ?: wiki.url
+                            getCurrentWebView()?.let { webView ->
+                                WebViewCache.cacheWebView(key, webView)
+                            }
+                        }
                     }
                 }
                 
@@ -1044,29 +1067,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        webViewPaused = false
-        exoPlayerManager.onResume()
         
-        viewModel?.let { vm ->
-            vm.currentWiki.value?.let { wiki ->
-                val key = wiki.idFromUrl ?: wiki.url
-                // Resume current WebView with state restoration
-                vm.resumeCurrentWebView(wiki)
-                // Dispatch resume event
-                getCurrentWebView()?.evaluateJavascript("""
-                    (function() {
-                        const event = new Event('resume');
-                        document.dispatchEvent(event);
-                    })();
-                """.trimIndent(), null)
-            }
+        // Ensure any current WebView is resumed properly
+        viewModel?.currentWiki?.value?.let { currentWiki ->
+            viewModel?.resumeCurrentWebView(currentWiki)
         }
         
-        // When resuming, get the current WebView and set it for the MediaSessionManager
-        getCurrentWebView()?.let { webView ->
-            mediaSessionManager.setWebView(webView)
-            // Bind to service to ensure continuity of playback controls
-            mediaSessionManager.bindToService()
+        // Check for initialization status
+        if (viewModel?.isWebViewReady?.value == true) {
+            WebViewCache.clearCache(this)
         }
     }
 
@@ -1119,10 +1128,8 @@ class MainActivity : ComponentActivity() {
     // Implement the onLowMemory callback
     override fun onLowMemory() {
         super.onLowMemory()
-        ThreadManager.runOnBackground {
-            viewModel?.onLowMemory()
-            System.gc()
-        }
+        WebViewCache.onLowMemory()
+        viewModel?.onLowMemory()
     }
 
     // Implement onTrimMemory
@@ -1142,67 +1149,19 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
-        WebViewCache.setConfigurationChanging(true)
         super.onConfigurationChanged(newConfig)
-
-        // Fix for orientation changes: update WebView layout
-        ThreadManager.runOnBackgroundWithDelay(100) {
-            ThreadManager.runOnMain {
-                val currentWikiUrl = viewModel?.currentWiki?.value?.url
-                currentWikiUrl?.let { url ->
-                    viewModel?.getOrCreateWebView(viewModel?.currentWiki?.value ?: return@let, this)?.let { webView ->
-                        // Get current orientation
-                        val isPortrait = newConfig.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
-
-                        // Trigger layout update with orientation awareness
-                        webView.evaluateJavascript("""
-                        (function() {
-                            // Force layout recalculation
-                            document.body.style.width = window.innerWidth + 'px';
-                            const evt = new Event('resize');
-                            window.dispatchEvent(evt);
-                            
-                            // Handle orientation-specific resizing
-                            const isPortrait = ${isPortrait};
-                            
-                            // Safely check if TiddlyWiki is available
-                            if (typeof window !== 'undefined' && 
-                                window.${"$"}tw && 
-                                typeof window.${"$"}tw.utils === 'object') {
-                                
-                                try {
-                                    if (isPortrait) {
-                                        // In portrait mode, use window resize event for better content flow
-                                        window.${"$"}tw.utils.resizeAll();
-                                        // Additional portrait-specific adjustments
-                                        document.body.classList.add('tc-portrait-mode');
-                                        document.body.classList.remove('tc-landscape-mode');
-                                    } else {
-                                        // In landscape mode, use TiddlyWiki's resize utils
-                                        window.${"$"}tw.utils.resizeAll();
-                                        // Additional landscape-specific adjustments
-                                        document.body.classList.add('tc-landscape-mode');
-                                        document.body.classList.remove('tc-portrait-mode');
-                                    }
-                                    return "TiddlyWiki resized for " + (isPortrait ? "portrait" : "landscape");
-                                } catch(e) {
-                                    console.error('TiddlyWiki resize error:', e);
-                                    return "Error: " + e.message;
-                                }
-                            } else {
-                                console.log('TiddlyWiki not fully initialized yet');
-                                return "TiddlyWiki not ready";
-                            }
-                        })();
-                    """) { result ->
-
-                        }
-                    }
-                }
-            }
+        WebViewCache.setConfigurationChanging(true)
+        
+        // Handle any WebViews that need to be retained during configuration changes
+        viewModel?.currentWiki?.value?.let { wiki ->
+            val key = wiki.idFromUrl ?: wiki.url
+            WebViewCache.setCurrentActiveKey(key)
         }
-
-        WebViewCache.setConfigurationChanging(false)
+        
+        // Reset flag after a short delay
+        Handler(Looper.getMainLooper()).postDelayed({
+            WebViewCache.setConfigurationChanging(false)
+        }, 1000)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

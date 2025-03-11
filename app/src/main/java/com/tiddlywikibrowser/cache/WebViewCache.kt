@@ -240,6 +240,9 @@ object WebViewCache {
     fun getAndRestoreCachedWebView(key: String, newWebViewFactory: () -> WebView): WebView {
         if (isActiveOperation()) {
             Log.d(TAG, "Throttling getAndRestoreCachedWebView during active operation")
+            ThreadManager.runOnMainWithDelay(100) {
+                getAndRestoreCachedWebView(key, newWebViewFactory)
+            }
         }
         
         startOperation()
@@ -256,6 +259,7 @@ object WebViewCache {
                 // Only restore state after ensuring proper detachment
                 ThreadManager.runOnMainWithDelay(50) {
                     cacheLock.write {
+                        // Check if we need to restore state
                         val isAlreadyLoaded = existingWebView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
                         if (!isAlreadyLoaded) {
                             webViewStates[key]?.let { state ->
@@ -273,35 +277,33 @@ object WebViewCache {
             } else {
                 Log.d(TAG, "No cached WebView found for key: $key, creating new one")
                 
-                // Create new WebView with proper error handling
+                // Create new WebView with proper initialization
                 return try {
                     val newWebView = newWebViewFactory()
                     
                     cacheLock.write {
-                        // New WebViews start with loaded=false
+                        // Ensure proper initial state for new WebViews
                         newWebView.setTag(R.string.prevent_reload_tag, false)
                         
                         // Cache the new WebView
                         webViewCache[key] = newWebView
+                        webViewLoadedState[key] = false
+                        
+                        // Start WebView in visible state
+                        newWebView.visibility = View.VISIBLE
                     }
                     
                     newWebView
                 } catch (e: Exception) {
                     Log.e(TAG, "Error creating WebView: ${e.message}")
-                    
-                    // Return a blank WebView as fallback
-                    cacheLock.read {
-                        WebView(webViewCache.values.firstOrNull()?.context ?: getContextSafely()).apply {
-                            loadUrl("about:blank")
-                        }
-                    }
+                    throw e
                 }
             }
         } finally {
             endOperation()
         }
     }
-    
+
     // This helper method ensures we have a context to create a fallback WebView
     private fun getContextSafely(): Context {
         // Try to use context from an existing WebView if available
