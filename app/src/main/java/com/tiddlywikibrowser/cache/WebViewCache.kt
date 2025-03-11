@@ -2,16 +2,17 @@ package com.tiddlywikibrowser
 
 import android.content.Context
 import android.os.Bundle
-import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import java.util.concurrent.ConcurrentHashMap
 import java.util.LinkedHashMap
 import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlinx.coroutines.*
+import java.util.PriorityQueue
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
@@ -26,14 +27,29 @@ object WebViewCache {
     private const val MAX_CACHE_SIZE = 5  // Limit total cached WebViews
     private const val TAG = "WebViewCache"
     
-    // Add lock for synchronizing cache operations
+    // Improve locking mechanism with separate locks for different operations
     private val cacheLock = ReentrantReadWriteLock()
+    private val stateLock = ReentrantReadWriteLock() 
+    private val accessTimeLock = ReentrantReadWriteLock()
     
-    // Add flag to track active operations
-    private var activeOperation = false
-    private var lastOperationTime = 0L
-    private const val OPERATION_COOLDOWN = 500L // ms between cache operations
-
+    // Coroutine scope for background and UI operations
+    private val cacheScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    
+    // Operation queue with priority instead of simple flag
+    private data class WebViewOperation(
+        val key: String?,
+        val priority: Int,
+        val operation: suspend () -> Unit
+    )
+    
+    // Operation comparator for priority queue (higher priority first)
+    private val operationComparator = Comparator<WebViewOperation> { op1, op2 ->
+        op2.priority - op1.priority
+    }
+    
+    private val operationQueue = PriorityQueue<WebViewOperation>(11, operationComparator)
+    private val isProcessingQueue = AtomicBoolean(false)
+    
     /**
      * Public method to check if configuration is currently changing
      * This allows other components to safely check configuration state
@@ -47,7 +63,7 @@ object WebViewCache {
     }
     
     fun setCurrentActiveKey(key: String?) {
-        cacheLock.write {
+        cacheLock.read {
             Log.d(TAG, "Setting current active key to: $key")
             currentActiveKey = key
         }
@@ -59,22 +75,24 @@ object WebViewCache {
 
     fun clearCache(context: Context) {
         if (!isConfigurationChanging) {
-            ThreadManager.runOnMain {
-                try {
-                    tempWebView?.destroy()
-                    tempWebView = WebView(context.applicationContext)
-                    tempWebView?.clearCache(true)
-                    tempWebView?.destroy()
-                    tempWebView = null
-                } catch (e: Exception) {
-                    e.printStackTrace()
+            enqueueOperation("clear_cache", 10) {
+                withContext(Dispatchers.Main) {
+                    try {
+                        tempWebView?.destroy()
+                        tempWebView = WebView(context.applicationContext)
+                        tempWebView?.clearCache(true)
+                        tempWebView?.destroy()
+                        tempWebView = null
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }
             }
         }
     }
 
     private fun monitorWebViewStateSize(key: String, bundle: Bundle) {
-        ThreadManager.runOnBackground {
+        enqueueOperation(key, 3) {
             try {
                 val parcel = android.os.Parcel.obtain()
                 bundle.writeToParcel(parcel, 0)
@@ -85,7 +103,7 @@ object WebViewCache {
                     Log.e(TAG, "WebView state for $key is too large: ${sizeBytes/1024}KB!")
                     
                     // Remove problematic state to prevent crashes
-                    cacheLock.write {
+                    stateLock.write {
                         webViewStates.remove(key)
                     }
                 }
@@ -96,9 +114,7 @@ object WebViewCache {
     }
 
     fun checkForLeakedWebViews() {
-        if (isActiveOperation()) return
-        
-        ThreadManager.runOnBackground {
+        enqueueOperation("leak_check", 1) {
             val leakedKeys = mutableListOf<String>()
             
             cacheLock.read {
@@ -113,7 +129,7 @@ object WebViewCache {
             
             // Fix leaks on main thread
             if (leakedKeys.isNotEmpty()) {
-                ThreadManager.runOnMain {
+                withContext(Dispatchers.Main) {
                     leakedKeys.forEach { key ->
                         cacheLock.read {
                             webViewCache[key]?.let { webView ->
@@ -135,27 +151,22 @@ object WebViewCache {
      * Cache a WebView with its state for future restoration
      */
     fun cacheWebView(key: String, webView: WebView) {
-        if (isActiveOperation()) {
-            Log.d(TAG, "Throttling cacheWebView operation - another operation in progress")
-            ThreadManager.runOnMainWithDelay(100) {
-                cacheWebView(key, webView)
-            }
-            return
-        }
-        
-        startOperation()
-        
-        ThreadManager.runOnMain {
-            try {
-                cacheLock.write {
+        enqueueOperation(key, 5) {
+            withContext(Dispatchers.Main) {
+                try {
                     // Save complete WebView state including scroll position
                     val bundle = Bundle()
                     webView.saveState(bundle)
                     
                     // Track loaded state and other metadata
                     val isLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
-                    webViewLoadedState[key] = isLoaded
-                    webViewStates[key] = bundle
+                    
+                    // Break up operations that hold the lock
+                    stateLock.write {
+                        webViewLoadedState[key] = isLoaded
+                        webViewStates[key] = bundle
+                    }
+                    
                     updateAccessTime(key)
                     
                     // Before caching, preserve active media state
@@ -183,14 +194,14 @@ object WebViewCache {
                     }
                     
                     // Store in cache if not already there
-                    if (!webViewCache.containsKey(key)) {
-                        webViewCache[key] = webView
+                    cacheLock.write {
+                        if (!webViewCache.containsKey(key)) {
+                            webViewCache[key] = webView
+                        }
                     }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error caching WebView: ${e.message}")
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error caching WebView: ${e.message}")
-            } finally {
-                endOperation()
             }
         }
     }
@@ -199,7 +210,6 @@ object WebViewCache {
     private fun Bundle.sizeAsParcel(): Int {
         val parcel = android.os.Parcel.obtain()
         try {
-            parcel.setDataPosition(0)
             writeToParcel(parcel, 0)
             return parcel.dataSize()
         } finally {
@@ -208,22 +218,30 @@ object WebViewCache {
     }
 
     private fun updateAccessTime(key: String) {
-        lastAccessTime[key] = System.currentTimeMillis()
+        accessTimeLock.write {
+            lastAccessTime[key] = System.currentTimeMillis()
+        }
     }
 
     private fun trimCache() {
-        if (webViewCache.size > MAX_CACHE_SIZE) {
-            // Find oldest WebView that isn't the current active one
-            val oldestKey = lastAccessTime.entries
-                .sortedBy { it.value }
-                .firstOrNull { it.key != currentActiveKey }
-                ?.key
-
-            oldestKey?.let { key ->
-                ThreadManager.runOnMain { 
-                    removeCachedWebView(key)
+        cacheLock.read {
+            if (webViewCache.size > MAX_CACHE_SIZE) {
+                // Find oldest WebView that isn't the current active one
+                accessTimeLock.read {
+                    val oldestKey = lastAccessTime.entries
+                        .sortedBy { it.value }
+                        .firstOrNull { it.key != currentActiveKey }
+                        ?.key
+    
+                    oldestKey?.let { key ->
+                        enqueueOperation(key, 2) {
+                            withContext(Dispatchers.Main) { 
+                                removeCachedWebView(key)
+                            }
+                            Log.d(TAG, "Trimmed cached WebView: $key")
+                        }
+                    }
                 }
-                Log.d(TAG, "Trimmed cached WebView: $key")
             }
         }
     }
@@ -246,27 +264,19 @@ object WebViewCache {
      * Get a WebView with its state properly restored or create a new one
      */
     fun getAndRestoreCachedWebView(key: String, newWebViewFactory: () -> WebView): WebView {
-        if (isActiveOperation()) {
-            Log.d(TAG, "Throttling getAndRestoreCachedWebView during active operation")
-            ThreadManager.runOnMainWithDelay(100) {
-                getAndRestoreCachedWebView(key, newWebViewFactory)
-            }
-        }
+        val existingWebView = cacheLock.read { webViewCache[key] }
         
-        startOperation()
-        
-        try {
-            val existingWebView = cacheLock.read { webViewCache[key] }
-            
-            if (existingWebView != null) {
+        if (existingWebView != null) {
+            enqueueOperation(key, 8) {
                 // Make sure detachment happens on the main thread
-                ThreadManager.runOnMain {
+                withContext(Dispatchers.Main) {
                     (existingWebView.parent as? ViewGroup)?.removeView(existingWebView)
-                }
                 
-                // Only restore state after ensuring proper detachment
-                ThreadManager.runOnMainWithDelay(50) {
-                    cacheLock.write {
+                    // Break up operations with delays
+                    delay(20) // Small delay to let UI thread breathe
+                    
+                    // Only restore state after ensuring proper detachment
+                    stateLock.read {
                         // Check if we need to restore state
                         val isAlreadyLoaded = existingWebView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
                         if (!isAlreadyLoaded) {
@@ -280,35 +290,40 @@ object WebViewCache {
                         }
                     }
                 }
+            }
+            
+            return existingWebView
+        } else {
+            Log.d(TAG, "No cached WebView found for key: $key, creating new one")
+            
+            // Create new WebView with proper initialization
+            return try {
+                val newWebView = newWebViewFactory()
                 
-                return existingWebView
-            } else {
-                Log.d(TAG, "No cached WebView found for key: $key, creating new one")
-                
-                // Create new WebView with proper initialization
-                return try {
-                    val newWebView = newWebViewFactory()
-                    
-                    cacheLock.write {
+                enqueueOperation(key, 7) {
+                    withContext(Dispatchers.Main) {
                         // Ensure proper initial state for new WebViews
                         newWebView.setTag(R.string.prevent_reload_tag, false)
                         
                         // Cache the new WebView
-                        webViewCache[key] = newWebView
-                        webViewLoadedState[key] = false
+                        cacheLock.write {
+                            webViewCache[key] = newWebView
+                        }
+                        
+                        stateLock.write {
+                            webViewLoadedState[key] = false
+                        }
                         
                         // Start WebView in visible state
                         newWebView.visibility = View.VISIBLE
                     }
-                    
-                    newWebView
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error creating WebView: ${e.message}")
-                    throw e
                 }
+                
+                newWebView
+            } catch (e: Exception) {
+                Log.e(TAG, "Error creating WebView: ${e.message}")
+                throw e
             }
-        } finally {
-            endOperation()
         }
     }
 
@@ -330,40 +345,32 @@ object WebViewCache {
      * Restores the WebView state from a saved bundle
      */
     fun restoreWebViewState(key: String, webView: WebView): Boolean {
-        if (isActiveOperation()) return false
-        
-        startOperation()
-        
-        try {
-            return cacheLock.write {
-                // CRITICAL FIX: Don't restore state if the WebView is already loaded to prevent reloads
-                val isAlreadyLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
-                
-                if (isAlreadyLoaded) {
-                    Log.d(TAG, "WebView already loaded, skipping state restoration: $key")
-                    return@write false
-                }
-                
-                webViewStates[key]?.let { state -> 
-                    try {
-                        webView.restoreState(state)
-                        
-                        // Also restore loaded state if we have it
-                        if (webViewLoadedState[key] == true) {
-                            webView.setTag(R.string.prevent_reload_tag, true)
-                            Log.d(TAG, "Restored loaded flag for WebView: $key")
-                        }
-                        
-                        Log.d(TAG, "State restored for WebView: $key")
-                        true
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to restore state: ${e.message}")
-                        false
-                    }
-                } ?: false
+        return stateLock.write {
+            // CRITICAL FIX: Don't restore state if the WebView is already loaded to prevent reloads
+            val isAlreadyLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
+            
+            if (isAlreadyLoaded) {
+                Log.d(TAG, "WebView already loaded, skipping state restoration: $key")
+                return@write false
             }
-        } finally {
-            endOperation()
+            
+            webViewStates[key]?.let { state -> 
+                try {
+                    webView.restoreState(state)
+                    
+                    // Also restore loaded state if we have it
+                    if (webViewLoadedState[key] == true) {
+                        webView.setTag(R.string.prevent_reload_tag, true)
+                        Log.d(TAG, "Restored loaded flag for WebView: $key")
+                    }
+                    
+                    Log.d(TAG, "State restored for WebView: $key")
+                    true
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to restore state: ${e.message}")
+                    false
+                }
+            } ?: false
         }
     }
 
@@ -371,27 +378,27 @@ object WebViewCache {
      * Pause all WebViews except the active one
      */
     fun pauseAllWebViewsExcept(activeKey: String?) {
-        if (isActiveOperation()) return
-        
-        startOperation()
-        
-        try {
+        enqueueOperation(activeKey, 7) {
             val webViews = cacheLock.read { webViewCache.toMap() }
             
             webViews.forEach { (key, webView) ->
                 if (key != activeKey) {
                     try {
-                        cacheLock.write {
+                        withContext(Dispatchers.Main) {
                             // Always save state before pausing
                             val bundle = Bundle()
                             webView.saveState(bundle)
-                            webViewStates[key] = bundle
                             
-                            // Remember if this WebView has been fully loaded
-                            val isLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
-                            webViewLoadedState[key] = isLoaded
-                            Log.d(TAG, "Saved state before pausing WebView: $key, loaded=$isLoaded")
+                            // Break up lock operations
+                            stateLock.write {
+                                webViewStates[key] = bundle
+                                
+                                // Remember if this WebView has been fully loaded
+                                val isLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
+                                webViewLoadedState[key] = isLoaded
+                            }
                             
+
                             // Pause WebView and detach from parent
                             webView.onPause()
                             (webView.parent as? ViewGroup)?.removeView(webView)
@@ -406,29 +413,23 @@ object WebViewCache {
                     }
                 }
             }
-        } finally {
-            endOperation()
         }
     }
 
     fun onLowMemory() {
-        if (isActiveOperation()) return
-        
-        startOperation()
-        
-        try {
+        enqueueOperation("low_memory", 10) {
             // Keep only the active WebView and discard others
-            val currentKey = cacheLock.read { currentActiveKey }
+            val currentKey = currentActiveKey
             val keysToRemove = cacheLock.read { webViewCache.keys.filter { it != currentKey } }
             
             for (key in keysToRemove) {
-                ThreadManager.runOnBackground {
+                withContext(Dispatchers.Main) {
                     removeCachedWebView(key)
                 }
             }
             
             // Clean up other resources
-            cacheLock.write {
+            stateLock.write {
                 webViewStates.keys.filter { it != currentKey }.forEach {
                     webViewStates.remove(it)
                 }
@@ -439,8 +440,6 @@ object WebViewCache {
             
             // Force garbage collection
             System.gc()
-        } finally {
-            endOperation()
         }
     }
 
@@ -448,30 +447,20 @@ object WebViewCache {
      * Resume a specific WebView
      */
     fun resumeWebView(key: String) {
-        if (isActiveOperation()) {
-            Log.d(TAG, "Postponing WebView resume operation - another operation in progress")
-            ThreadManager.runOnMainWithDelay(100) {
-                resumeWebView(key)
-            }
-            return
-        }
-        
-        startOperation()
-        
-        try {
+        enqueueOperation(key, 8) {
             val webView = cacheLock.read { webViewCache[key] }
             
             webView?.let {
-                ThreadManager.runOnMain {
+                withContext(Dispatchers.Main) {
                     try {
-                        cacheLock.write {
-                            // Make sure the WebView is visible
-                            webView.visibility = View.VISIBLE
-                            
-                            // Check if WebView is already loaded to avoid reloads
-                            val isAlreadyLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
-                            
-                            // Only restore state if the WebView isn't already loaded with content
+                        // Make sure the WebView is visible
+                        webView.visibility = View.VISIBLE
+                        
+                        // Check if WebView is already loaded to avoid reloads
+                        val isAlreadyLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
+                        
+                        // Only restore state if the WebView isn't already loaded with content
+                        stateLock.read {
                             if (!isAlreadyLoaded) {
                                 webViewStates[key]?.let { state ->
                                     try {
@@ -510,25 +499,25 @@ object WebViewCache {
                             } else {
                                 Log.d(TAG, "Skipping state restore on resume (already loaded): $key")
                             }
+                        }
 
-                            // Always restore the loaded state flag from our cache
+                        // Always restore the loaded state flag from our cache
+                        stateLock.read {
                             if (webViewLoadedState[key] == true) {
                                 webView.setTag(R.string.prevent_reload_tag, true)
                             }
-                            
-                            // Resume WebView and make it the active key
-                            webView.onResume()
-                            currentActiveKey = key
-                            
-                            Log.d(TAG, "Resumed WebView: $key")
                         }
+                        
+                        // Resume WebView and make it the active key
+                        webView.onResume()
+                        setCurrentActiveKey(key)
+                        
+                        Log.d(TAG, "Resumed WebView: $key")
                     } catch (e: Exception) {
                         Log.e(TAG, "Failed to resume WebView: ${e.message}")
                     }
                 }
             }
-        } finally {
-            endOperation()
         }
     }
     
@@ -545,26 +534,19 @@ object WebViewCache {
     fun removeCachedWebView(key: String) {
         if (isConfigurationChanging) return
         
-        if (isActiveOperation()) {
-            Log.d(TAG, "Postponing WebView removal - another operation in progress")
-            ThreadManager.runOnBackgroundWithDelay(100) {
-                removeCachedWebView(key)
-            }
-            return
-        }
-        
-        startOperation()
-        
-        try {
+        enqueueOperation(key, 5) {
             val webView = cacheLock.write {
                 val view = webViewCache.remove(key)
-                webViewStates.remove(key)
-                webViewLoadedState.remove(key)
                 view
             }
             
+            stateLock.write {
+                webViewStates.remove(key)
+                webViewLoadedState.remove(key)
+            }
+            
             webView?.let {
-                ThreadManager.runOnMain {
+                withContext(Dispatchers.Main) {
                     try {
                         (webView.parent as? ViewGroup)?.removeView(webView)
                         webView.stopLoading()
@@ -579,8 +561,6 @@ object WebViewCache {
                     }
                 }
             }
-        } finally {
-            endOperation()
         }
     }
 
@@ -590,20 +570,10 @@ object WebViewCache {
     fun clearAll() {
         if (isConfigurationChanging) return
         
-        if (isActiveOperation()) {
-            Log.d(TAG, "Postponing WebView clearAll - another operation in progress")
-            ThreadManager.runOnBackgroundWithDelay(100) {
-                clearAll()
-            }
-            return
-        }
-        
-        startOperation()
-        
-        try {
+        enqueueOperation("clear_all", 10) {
             val webViews = cacheLock.read { webViewCache.values.toList() }
             
-            ThreadManager.runOnMain {
+            withContext(Dispatchers.Main) {
                 webViews.forEach { webView ->
                     try {
                         (webView.parent as? ViewGroup)?.removeView(webView)
@@ -619,42 +589,66 @@ object WebViewCache {
                 
                 cacheLock.write {
                     webViewCache.clear()
+                }
+                
+                stateLock.write {
                     webViewStates.clear()
                     webViewLoadedState.clear()
-                    tempWebView?.destroy()
-                    tempWebView = null
-                    currentActiveKey = null
                 }
+                
+                tempWebView?.destroy()
+                tempWebView = null
+                currentActiveKey = null
                 
                 Log.d(TAG, "Cleared all WebViews")
             }
-        } finally {
-            endOperation()
         }
     }
     
     /**
-     * Check if there's another operation in progress
+     * Enqueue an operation with a priority
+     * Higher priority operations will be processed first
      */
-    private fun isActiveOperation(): Boolean {
-        val now = System.currentTimeMillis()
-        return activeOperation && (now - lastOperationTime < OPERATION_COOLDOWN)
+    private fun enqueueOperation(key: String?, priority: Int, operation: suspend () -> Unit) {
+        synchronized(operationQueue) {
+            operationQueue.add(WebViewOperation(key, priority, operation))
+        }
+        processOperationQueue()
     }
     
     /**
-     * Mark the start of an operation
+     * Process the operation queue
      */
-    private fun startOperation() {
-        activeOperation = true
-        lastOperationTime = System.currentTimeMillis()
-    }
-    
-    /**
-     * Mark the end of an operation
-     */
-    private fun endOperation() {
-        lastOperationTime = System.currentTimeMillis()
-        activeOperation = false
+    private fun processOperationQueue() {
+        if (!isProcessingQueue.compareAndSet(false, true)) {
+            return
+        }
+        
+        cacheScope.launch {
+            try {
+                while (true) {
+                    val operation = synchronized(operationQueue) {
+                        if (operationQueue.isEmpty()) null else operationQueue.poll()
+                    } ?: break
+                    
+                    try {
+                        operation.operation()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error processing WebView operation for ${operation.key}: ${e.message}")
+                    }
+                    
+                    // Yield to allow other coroutines to execute 
+                    yield()
+                }
+            } finally {
+                isProcessingQueue.set(false)
+                
+                // Check if more operations were added during processing
+                if (operationQueue.isNotEmpty()) {
+                    processOperationQueue()
+                }
+            }
+        }
     }
 }
 
