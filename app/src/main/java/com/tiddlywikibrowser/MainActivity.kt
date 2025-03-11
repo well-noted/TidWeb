@@ -1335,11 +1335,17 @@ fun MainScreen(
                 visible = isFrameVisible,
                 enter = slideInVertically(
                     initialOffsetY = { -it },
-                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                    animationSpec = tween(
+                        durationMillis = 150,
+                        easing = LinearOutSlowInEasing
+                    )
                 ),
                 exit = slideOutVertically(
                     targetOffsetY = { -it },
-                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                    animationSpec = tween(
+                        durationMillis = 100,
+                        easing = FastOutLinearInEasing
+                    )
                 )
             ) {
                 Surface(
@@ -1509,11 +1515,17 @@ fun MainScreen(
                 visible = isFrameVisible,
                 enter = slideInVertically(
                     initialOffsetY = { it },
-                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                    animationSpec = tween(
+                        durationMillis = 150,
+                        easing = LinearOutSlowInEasing
+                    )
                 ),
                 exit = slideOutVertically(
                     targetOffsetY = { it },
-                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                    animationSpec = tween(
+                        durationMillis = 100,
+                        easing = FastOutLinearInEasing
+                    )
                 )
             ) {
                 Box {

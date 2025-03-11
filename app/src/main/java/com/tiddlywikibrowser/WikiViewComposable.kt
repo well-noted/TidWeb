@@ -9,7 +9,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 
-
 /**
  * This enhances the WikiViewComposable in WikiView.kt by adding
  * scroll detection to show/hide navigation bars
@@ -27,15 +26,16 @@ object WikiViewEnhancer {
                     clearTimeout(window.scrollTimer);
                 }
                 
-                // Improved scroll detection for hiding/showing UI
+                // Initialize scroll tracking variables
                 let lastScrollY = window.scrollY || 0;
-                let lastScrollTime = 0;
+                let lastScrollTime = Date.now();
                 let scrollTimer = null;
                 let isScrollingDown = false;
                 let barState = true; // true = visible, false = hidden
                 
-                const scrollThreshold = 20; // Minimum pixels to trigger direction change
-                const timeThreshold = 100; // Minimum ms between scroll events to process
+                const scrollThreshold = 10; // Minimum pixels to trigger direction change
+                const timeThreshold = 50; // Minimum ms between scroll events
+                const hideDelay = 1000; // Delay before showing bars after scroll stops
                 
                 window.tidScrollHandler = function() {
                     const now = Date.now();
@@ -45,28 +45,31 @@ object WikiViewEnhancer {
                     if (now - lastScrollTime < timeThreshold) return;
                     
                     // Clear any pending timer
-                    clearTimeout(scrollTimer);
+                    if (scrollTimer) clearTimeout(scrollTimer);
                     
                     // Determine scroll direction when moving significantly
                     if (Math.abs(scrollY - lastScrollY) > scrollThreshold) {
-                        isScrollingDown = scrollY > lastScrollY;
+                        const scrollingDown = scrollY > lastScrollY;
                         
-                        // Only change state if needed
-                        if (isScrollingDown && barState) {
-                            // Hide bars when scrolling down
-                            barState = false;
-                            window.ScrollInterface.onScroll(false);
-                        } else if (!isScrollingDown && !barState) {
-                            // Show bars when scrolling up
-                            barState = true;
-                            window.ScrollInterface.onScroll(true);
+                        // Only update state if direction changed or bars are visible while scrolling down
+                        if (scrollingDown !== isScrollingDown || (scrollingDown && barState)) {
+                            isScrollingDown = scrollingDown;
+                            
+                            // Hide bars when scrolling down, show when scrolling up
+                            if (scrollingDown && barState) {
+                                barState = false;
+                                window.ScrollInterface.onScroll(false);
+                            } else if (!scrollingDown && !barState) {
+                                barState = true;
+                                window.ScrollInterface.onScroll(true);
+                            }
                         }
                         
                         lastScrollY = scrollY;
                         lastScrollTime = now;
                     }
                     
-                    // Always show UI when at the top of the page
+                    // Special case: Always show UI when at the top of the page
                     if (scrollY <= 5 && !barState) {
                         barState = true;
                         window.ScrollInterface.onScroll(true);
@@ -85,12 +88,13 @@ object WikiViewEnhancer {
                 
                 // Handle touch events to improve responsiveness
                 document.addEventListener('touchstart', function() {
-                    clearTimeout(scrollTimer);
+                    if (scrollTimer) clearTimeout(scrollTimer);
                 }, { passive: true });
                 
-                // Don't automatically show on touch end
+                // Reset scroll direction on touch end but don't automatically show bars
                 document.addEventListener('touchend', function() {
-                    // No auto-show behavior, maintain the current state
+                    if (scrollTimer) clearTimeout(scrollTimer);
+                    isScrollingDown = false;
                 }, { passive: true });
                 
                 return true;
@@ -138,20 +142,29 @@ object WikiViewEnhancer {
         val webView = remember(wiki.url) { viewModel.getOrCreateWebView(wiki, context) }
         
         DisposableEffect(wiki.url) {
-            // Inject scroll detection script to handle showing/hiding navigation bars
-            injectScrollDetectionScript(webView)
-            
-            // Apply small screen optimizations if needed
-            injectSmallScreenOptimizations(webView, context)
+            // Wait a short moment for WebView to be ready
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                // Inject scroll detection script to handle showing/hiding navigation bars
+                injectScrollDetectionScript(webView)
+                
+                // Apply small screen optimizations if needed
+                injectSmallScreenOptimizations(webView, context)
+                
+                // Force initial state to visible
+                webView.evaluateJavascript("""
+                    window.ScrollInterface.onScroll(true);
+                """, null)
+            }, 100)
             
             onDispose {
-                // Remove scroll handler when disposing
+                // Show bars when disposing and clean up handlers
                 webView.evaluateJavascript("""
                     if (window.tidScrollHandler) {
                         document.removeEventListener('scroll', window.tidScrollHandler);
                         clearTimeout(window.scrollTimer);
                         window.tidScrollHandler = null;
                     }
+                    window.ScrollInterface.onScroll(true);
                 """, null)
             }
         }
