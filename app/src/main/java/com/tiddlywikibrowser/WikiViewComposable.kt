@@ -23,87 +23,108 @@ object WikiViewEnhancer {
                 // Remove any existing scroll handler to avoid duplicates
                 if (window.tidScrollHandler) {
                     document.removeEventListener('scroll', window.tidScrollHandler);
-                    clearTimeout(window.scrollTimer);
+                    if (window.scrollTimer) {
+                        clearTimeout(window.scrollTimer);
+                    }
                 }
                 
-                // Improved scroll detection for hiding/showing UI
-                let lastScrollY = 0;
-                let lastScrollTime = 0;
-                let scrollTimer = null;
-                const scrollThreshold = 15; // Reduced threshold for better up-scroll detection
-                const timeThreshold = 80; // Slightly reduced for more responsive up-scroll detection
+                // Simple scroll detection with stable behavior
+                let lastScrollY = window.scrollY || 0;
                 let isScrollingDown = false;
                 let barState = true; // true = visible, false = hidden
-                let consecutiveUpScrolls = 0; // Count consecutive up-scrolls
+                let scrollTimer = null;
+                const scrollThreshold = 1; // Min pixels to trigger direction change
+                let lastDirectionChangeTime = 0;
                 
+                // Function to handle scroll events
                 window.tidScrollHandler = function() {
+                    // Clear any pending scroll timer
+                    if (scrollTimer) {
+                        clearTimeout(scrollTimer);
+                    }
+                    
+                    // Get current position
+                    const currentScrollY = window.scrollY || 0;
                     const now = Date.now();
-                    const scrollY = window.scrollY;
                     
-                    // Don't process every scroll event - but be more responsive for up-scrolls
-                    if (now - lastScrollTime < timeThreshold) return;
-                    
-                    // Clear any pending timer
-                    clearTimeout(scrollTimer);
-                    
-                    // Determine scroll direction when moving
-                    if (Math.abs(scrollY - lastScrollY) > scrollThreshold) {
-                        // Determine scrolling direction
-                        const currentIsScrollingDown = scrollY > lastScrollY;
-                        
-                        // If direction changed, reset the counter
-                        if (currentIsScrollingDown !== isScrollingDown) {
-                            consecutiveUpScrolls = currentIsScrollingDown ? 0 : 1;
-                        } else if (!currentIsScrollingDown) {
-                            // Increment counter for consecutive up-scrolls
-                            consecutiveUpScrolls++;
-                        }
-                        
-                        // Update the direction state
-                        isScrollingDown = currentIsScrollingDown;
-                        
-                        // Show bars immediately on the first significant up-scroll
-                        if (!isScrollingDown && !barState && consecutiveUpScrolls >= 1) {
+                    // Special case: always show bars when at the top
+                    if (currentScrollY <= 5) {
+                        if (!barState) {
                             barState = true;
                             window.ScrollInterface.onScroll(true);
-                        } 
-                        // Hide bars when scrolling down significantly
-                        else if (isScrollingDown && barState) {
-                            barState = false;
-                            window.ScrollInterface.onScroll(false);
                         }
-                        
-                        lastScrollY = scrollY;
-                        lastScrollTime = now;
+                        lastScrollY = currentScrollY;
+                        return;
                     }
                     
-                    // Special case: Always show UI when at the top of the page
-                    if (scrollY <= 5 && !barState) {
-                        barState = true;
-                        window.ScrollInterface.onScroll(true);
+                    // Only process significant movements to avoid jitter
+                    if (Math.abs(currentScrollY - lastScrollY) > scrollThreshold) {
+                        // Determine direction
+                        const currentIsScrollingDown = currentScrollY > lastScrollY;
+                        
+                        // If direction has changed and we're scrolling UP, immediately show bars
+                        if (isScrollingDown && !currentIsScrollingDown) {
+                            if (!barState) {
+                                barState = true;
+                                window.ScrollInterface.onScroll(true);
+                                lastDirectionChangeTime = now;
+                            }
+                        } 
+                        // If scrolling DOWN and bars are visible, hide them
+                        else if (!isScrollingDown && currentIsScrollingDown) {
+                            if (barState) {
+                                barState = false;
+                                window.ScrollInterface.onScroll(false);
+                                lastDirectionChangeTime = now;
+                            }
+                        }
+                        
+                        // Update tracking state
+                        isScrollingDown = currentIsScrollingDown;
+                        lastScrollY = currentScrollY;
                     }
+                    
+                    // Set a timer to stabilize state after scrolling stops
+                    scrollTimer = setTimeout(function() {
+                        // If at top when scroll stops, always show bars
+                        const finalScrollY = window.scrollY || 0;
+                        if (finalScrollY <= 5 && !barState) {
+                            barState = true;
+                            window.ScrollInterface.onScroll(true);
+                        }
+                    }, 200);
                 };
                 
-                // Add the event listener with the stored handler
+                // Add the event listener with passive flag for better performance
                 document.addEventListener('scroll', window.tidScrollHandler, { passive: true });
                 
                 // Store reference to the timer
                 window.scrollTimer = scrollTimer;
                 
-                // Initial state - show UI bars
+                // Initial state - always show UI bars
                 barState = true;
                 window.ScrollInterface.onScroll(true);
                 
-                // Handle touch events to improve responsiveness
+                // Handle touch events for smoother transitions
                 document.addEventListener('touchstart', function() {
-                    clearTimeout(scrollTimer);
+                    // Clear any pending timer
+                    if (scrollTimer) {
+                        clearTimeout(scrollTimer);
+                    }
                 }, { passive: true });
                 
-                // Only show bars on touch end if at top of page
+                // When touch ends, stabilize scroll state
                 document.addEventListener('touchend', function() {
-                    const scrollY = window.scrollY;
-                    // Only show bars at top of page on touch end
-                    if (scrollY <= 5 && !barState) {
+                    const currentScrollY = window.scrollY || 0;
+                    
+                    // If at the top when touch ends, show bars
+                    if (currentScrollY <= 5 && !barState) {
+                        barState = true;
+                        window.ScrollInterface.onScroll(true);
+                    }
+                    
+                    // If scrolling up when touch ends, show bars
+                    if (!isScrollingDown && !barState) {
                         barState = true;
                         window.ScrollInterface.onScroll(true);
                     }
@@ -173,7 +194,9 @@ object WikiViewEnhancer {
                 webView.evaluateJavascript("""
                     if (window.tidScrollHandler) {
                         document.removeEventListener('scroll', window.tidScrollHandler);
-                        clearTimeout(window.scrollTimer);
+                        if (window.scrollTimer) {
+                            clearTimeout(window.scrollTimer);
+                        }
                     }
                     window.ScrollInterface.onScroll(true);
                 """, null)
