@@ -683,7 +683,7 @@ class MainActivity : ComponentActivity() {
                         /* Keep larger tap targets */
                         button, .tc-btn-invisible, a {
                             min-height: 22px !important;
-                            min-width: 22px !important;
+                            min-width: 22x !important;
                         }
                         
                         /* Reduce image sizes */
@@ -2019,7 +2019,7 @@ fun TiddlerTemplateSelectionDialog(
     var isLoading by remember { mutableStateOf(true) }
     
     LaunchedEffect(Unit) {
-        viewModel.loadTiddlerTemplates(context)
+        viewModel.loadTiddlerTemplates()
         isLoading = false
     }
 
