@@ -473,11 +473,26 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     }
 
     fun reduceMemoryUsage() {
-        viewModelScope.launch(Dispatchers.IO + viewModelExceptionHandler) {
+        viewModelScope.launch(Dispatchers.Default) {
             try {
-                val currentKey = _currentWiki.value?.let { it.idFromUrl ?: it.url }
+                // Clear WebView caches first
+                withContext(Dispatchers.Main) {
+                    WebViewCache.clearCache(context)
+                }
+                
+                // Trim memory on background thread
+                _currentWiki.value?.let { wiki ->
+                    val key = wiki.idFromUrl ?: wiki.url
+                    // Cache current WebView state before cleanup
+                    WebViewCache.cacheWebView(key, getOrCreateWebView(wiki, context))
+                }
+                
+                delay(100) // Give time for cache operations to complete
+                
+                // Clear non-essential caches
                 WebViewCache.onLowMemory()
-                clearWebViewDiskCache()
+                
+                // Force garbage collection on background thread
                 System.gc()
             } catch (e: Exception) {
                 Log.e("WikiViewModel", "Error reducing memory usage", e)

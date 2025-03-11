@@ -1141,8 +1141,10 @@ class MainActivity : ComponentActivity() {
                 val currentTime = System.currentTimeMillis()
                 if (currentTime - lastNetworkCheckTime > NETWORK_CHECK_THROTTLE) {
                     lastNetworkCheckTime = currentTime
-                    val viewModel = getViewModel(this@MainActivity)
-                    viewModel.setOfflineState(true)
+                    ThreadManager.runOnBackground {
+                        val viewModel = getViewModel(this@MainActivity)
+                        viewModel.setOfflineState(true)
+                    }
                 }
             }
 
@@ -1151,11 +1153,13 @@ class MainActivity : ComponentActivity() {
                 val currentTime = System.currentTimeMillis()
                 if (currentTime - lastNetworkCheckTime > NETWORK_CHECK_THROTTLE) {
                     lastNetworkCheckTime = currentTime
-                    val capabilities = connectivityManager.getNetworkCapabilities(network)
-                    val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-                    if (hasInternet) {
-                        val viewModel = getViewModel(this@MainActivity)
-                        viewModel.setOfflineState(false)
+                    ThreadManager.runOnBackground {
+                        val capabilities = connectivityManager.getNetworkCapabilities(network)
+                        val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+                        if (hasInternet) {
+                            val viewModel = getViewModel(this@MainActivity)
+                            viewModel.setOfflineState(false)
+                        }
                     }
                 }
             }
