@@ -121,6 +121,7 @@ class MainActivity : ComponentActivity() {
     private var showDeleteConfirmDialog by mutableStateOf(false)
     private var showShareMenu by mutableStateOf(false)
     private var showTagManagement by mutableStateOf(false)
+    private var showRenameDialog by mutableStateOf(false)
     
     // Add these properties for error handling
     private var showLoadErrorDialog by mutableStateOf(false)
@@ -157,13 +158,6 @@ class MainActivity : ComponentActivity() {
             val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
             it.moveToFirst()
             it.getString(nameIndex)
-        }
-    }
-
-    // Add method to access current WebView
-    fun getCurrentWebView(): WebView? {
-        return viewModel?.currentWiki?.value?.let { wiki ->
-            viewModel?.getOrCreateWebView(wiki, this)
         }
     }
 
@@ -397,7 +391,7 @@ class MainActivity : ComponentActivity() {
                                     } catch(e) {}
                                 });
                                 
-                                window.__stateInitialized = true;
+                                window __stateInitialized = true;
                                 console.log('[State] State preservation initialized');
                             }
                             return true;
@@ -558,6 +552,7 @@ class MainActivity : ComponentActivity() {
                                     "timeupdate" -> {}
                                     "ended" -> {}
                                     "loadedmetadata" -> {}
+                                    else -> {} // Added missing else branch
                                 }
                             }
                         } catch (e: Exception) {
@@ -778,7 +773,14 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Error initializing app: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
-    
+
+    // Add method to access current WebView
+    fun getCurrentWebView(): WebView? {
+        return viewModel?.currentWiki?.value?.let { wiki ->
+            viewModel?.getOrCreateWebView(wiki, this)
+        }
+    }
+
     @Composable
     private fun MainContent() {
         val localContext = LocalContext.current as ComponentActivity
@@ -818,7 +820,8 @@ class MainActivity : ComponentActivity() {
         // This is the top-level MainScreen that contains all UI elements
         MainScreen(
             viewModel = viewModel,
-            onAddClick = { showAddDialog = true }
+            onAddClick = { showAddDialog = true },
+            onShowRenameDialog = { showRenameDialog = true }
         )
         
         // Handle dialog visibility from the MainActivity state
@@ -894,6 +897,20 @@ class MainActivity : ComponentActivity() {
                 onRemoveTag = { viewModel.removeQuickTag(it) },
                 onReorderTags = { from, to -> viewModel.reorderQuickTags(from, to) },
                 onDismiss = { showTagManagement = false }
+            )
+        }
+        
+        // Add RenameWikiDialog
+        if (showRenameDialog && viewModel.currentWiki.value != null) {
+            RenameWikiDialog(
+                currentName = viewModel.currentWiki.value?.name ?: "",
+                onDismiss = { showRenameDialog = false },
+                onRename = { newName ->
+                    viewModel.currentWiki.value?.let { wiki ->
+                        viewModel.renameWiki(wiki, newName)
+                    }
+                    showRenameDialog = false
+                }
             )
         }
     }
@@ -1091,6 +1108,9 @@ class MainActivity : ComponentActivity() {
                         "error" -> {
                             val message = jsonResult.optString("message", "Unknown error")
                             Toast.makeText(this, "Failed to create tiddler: $message", Toast.LENGTH_LONG).show()
+                        }
+                        else -> {
+                            Toast.makeText(this, "Unknown response from TiddlyWiki", Toast.LENGTH_SHORT).show()
                         }
                     }
                 } catch (e: Exception) {
@@ -1310,7 +1330,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(
     viewModel: WikiViewModel,
-    onAddClick: () -> Unit
+    onAddClick: () -> Unit,
+    onShowRenameDialog: () -> Unit
 ) {
     val context = LocalContext.current
     val currentWiki by viewModel.currentWiki.collectAsState()
@@ -1397,8 +1418,8 @@ fun MainScreen(
                                                     val tiddler = JSONObject(result.trim('"').replace("\\\"", "\""))
                                                     val shareIntent = Intent().apply {
                                                         action = Intent.ACTION_SEND
-                                                        putExtra(Intent.EXTRA_TITLE, tiddler.getString("title"))
-                                                        putExtra(Intent.EXTRA_TEXT, tiddler.getString("content"))
+                                                        putExtra(Intent.EXTRA_TITLE, tiddler.getString("title") as String)
+                                                        putExtra(Intent.EXTRA_TEXT, tiddler.getString("content") as String)
                                                         type = "text/plain"
                                                     }
                                                     context.startActivity(Intent.createChooser(shareIntent, "Share Tiddler"))
@@ -1446,6 +1467,14 @@ fun MainScreen(
                                             currentWiki?.let { wiki ->
                                                 viewModel.getOrCreateWebView(wiki, context).reload()
                                             }
+                                        }
+                                    )
+                                    
+                                    DropdownMenuItem(
+                                        text = { Text("Rename Wiki") },
+                                        onClick = {
+                                            showMenu = false
+                                            onShowRenameDialog()
                                         }
                                     )
                                 }
@@ -1695,6 +1724,64 @@ fun MainScreen(
             )
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RenameWikiDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onRename: (String) -> Unit
+) {
+    var newName by remember { mutableStateOf(currentName) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename Wiki") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            ) {
+                TextField(
+                    value = newName,
+                    onValueChange = { newName = it; error = null },
+                    label = { Text("Wiki Name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = error != null || newName.isBlank(),
+                    supportingText = error?.let { { Text(it) } },
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { 
+                    if (newName.isBlank()) {
+                        error = "Name cannot be empty"
+                        return@TextButton
+                    }
+                    
+                    if (newName == currentName) {
+                        onDismiss()
+                        return@TextButton
+                    }
+                    
+                    onRename(newName)
+                },
+                enabled = newName.isNotBlank()
+            ) {
+                Text("Rename")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -625,6 +625,44 @@ class WikiViewModel(private val context: Context) : ViewModel() {
         }
     }
 
+    fun renameWiki(wiki: WikiInstance, newName: String) {
+        viewModelScope.launch(viewModelExceptionHandler) {
+            try {
+                // Create a new wiki with the updated name but same URL and other properties
+                val updatedWiki = wiki.copy(name = newName)
+                
+                // Update the wiki in the list
+                val newList = _allWikis.value.map { 
+                    if (it.url == wiki.url) updatedWiki else it 
+                }
+                _allWikis.value = newList
+                saveWikis(newList)
+
+                // Update current wiki reference if needed
+                if (_currentWiki.value?.url == wiki.url) {
+                    _currentWiki.value = updatedWiki
+                    
+                    // Save current wiki preference with new name
+                    context.dataStore.edit { preferences ->
+                        preferences[PreferencesKeys.CURRENT_WIKI] = wikiToJson(updatedWiki)
+                    }
+                }
+                
+                // Show success message
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Wiki renamed successfully", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e("WikiViewModel", "Error renaming wiki", e)
+                _error.value = "Failed to rename wiki: ${e.message}"
+                
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Failed to rename wiki: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     fun setOfflineState(offline: Boolean) {
         if (_isOffline.value != offline) {
             _isOffline.value = offline
