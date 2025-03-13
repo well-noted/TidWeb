@@ -2,6 +2,7 @@ package com.tiddlywikibrowser
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.*
 import androidx.lifecycle.ViewModel
@@ -292,11 +293,29 @@ class WikiViewModel(private val context: Context) : ViewModel() {
         
         withContext(Dispatchers.Main) {
             try {
-                val webView = getOrCreateWebView(wiki, context)
+                Log.d("WikiViewModel", "Switching to wiki: ${wiki.name} at URL: ${wiki.url}")
+                
+                // Important: Set as current wiki before accessing WebView to ensure UI updates
+                _currentWiki.value = wiki
+                
+                // Check if we already have a cached WebView for this wiki
+                val webView = WebViewCache.getCachedWebView(key) ?: createNewWebView(wiki, context)
+                
+                // Make sure the WebView is visible and properly connected to the window
+                webView.visibility = View.VISIBLE
+                
+                // Resume the WebView
                 webView.onResume()
                 WebViewCache.resumeWebView(key)
                 
-                _currentWiki.value = wiki
+                // CRITICAL: If this WebView has never been successfully loaded, we need to load it
+                val isAlreadyLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
+                if (!isAlreadyLoaded) {
+                    Log.d("WikiViewModel", "WebView not previously loaded, loading URL: ${wiki.url}")
+                    webView.loadUrl(wiki.url)
+                } else {
+                    Log.d("WikiViewModel", "Using cached WebView for: ${wiki.name}")
+                }
                 
                 // Save current wiki preference
                 context.dataStore.edit { preferences ->
@@ -837,5 +856,4 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     private fun extractDescription(htmlContent: String): String? {
         val descRegex = "<meta\\s+name=[\"']description[\"']\\s+content=[\"'](.*?)[\"']".toRegex()
         return descRegex.find(htmlContent)?.groupValues?.get(1)
-    }
-}
+    }}

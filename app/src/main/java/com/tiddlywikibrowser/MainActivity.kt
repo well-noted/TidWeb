@@ -403,6 +403,10 @@ class MainActivity : ComponentActivity() {
                         injectSmallScreenCSS(webView)
                     }
                     
+                    // Setup download manager for WebView
+                    val downloadManager = WebViewDownloadManager(context.applicationContext)
+                    downloadManager.setupDownloadListener(webView)
+                    
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
