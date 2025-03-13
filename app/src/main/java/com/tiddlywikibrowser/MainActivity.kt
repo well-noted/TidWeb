@@ -113,7 +113,7 @@ class MainActivity : ComponentActivity() {
     private var viewModel: WikiViewModel? = null
     private var serviceConnection: ServiceConnection? = null
     private val serviceIntent by lazy { Intent(this, MediaPlaybackService::class.java) }
-    
+
     // Dialog state variables
     private var pendingSharedText by mutableStateOf<String?>(null)
     private var showWikiSelector by mutableStateOf(false)
@@ -122,11 +122,11 @@ class MainActivity : ComponentActivity() {
     private var showShareMenu by mutableStateOf(false)
     private var showTagManagement by mutableStateOf(false)
     private var showRenameDialog by mutableStateOf(false)
-    
+
     // Add these properties for error handling
     private var showLoadErrorDialog by mutableStateOf(false)
     private var loadErrorWiki: WikiInstance? = null
-    
+
     // Add temporary storage for wiki name during file selection
     private var pendingWikiName by mutableStateOf<String?>(null)
 
@@ -138,18 +138,18 @@ class MainActivity : ComponentActivity() {
             // Try to get a file name from the URI
             val fileName = getFileNameFromUri(contentUri)
             val displayName = pendingWikiName ?: fileName?.substringBeforeLast('.') ?: "Local Wiki"
-            
+
             // Reset the pending name
             pendingWikiName = null
-            
+
             // Import the file using WikiViewModel
             viewModel?.importLocalWikiFile(contentUri, fileName)
-            
+
             // Close the dialog
             showAddDialog = false
         }
     }
-    
+
     // Helper function to get file name from URI
     private fun getFileNameFromUri(uri: Uri): String? {
         val cursor = contentResolver.query(uri, null, null, null, null)
@@ -291,13 +291,13 @@ class MainActivity : ComponentActivity() {
                 try {
                     // Set layer type to hardware for better performance
                     webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
-                    
+
                     // Fix for orientation changes: set fixed layout size
                     webView.layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
-                    
+
                     webView.settings.apply {
                         javaScriptEnabled = true
                         domStorageEnabled = true
@@ -309,45 +309,45 @@ class MainActivity : ComponentActivity() {
                         displayZoomControls = false
                         cacheMode = WebSettings.LOAD_DEFAULT
                         allowFileAccess = true
-                        
+
                         // Critical: Initialize proper caching mode for state persistence
                         cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
                         domStorageEnabled = true
                         databaseEnabled = true
-                        
+
                         // Set save state flags
                         saveFormData = true
                         savePassword = true
-                        
+
                         // Ensure proper viewport settings
                         useWideViewPort = true
                         loadWithOverviewMode = true
-                        
+
                         // Important for state preservation
                         setGeolocationEnabled(false)  // Disable geolocation to prevent state loss
                         mediaPlaybackRequiresUserGesture = false  // Allow media state preservation
-                        
+
                         // Apply text zoom based on screen size
                         val textZoom = ScreenUtils.getWebViewTextZoom(context)
                         setTextZoom(textZoom)
-                        
+
                         // Force accessibility mode to ensure pinch-to-zoom always works
                         if (ScreenUtils.shouldForceWebViewZoom(context)) {
                             // Force zoom controls to be available on small screens
                             builtInZoomControls = true
                             displayZoomControls = false
                         }
-                        
+
                         // Optimize for very small screens
                         if (ScreenUtils.isVerySmallScreen(context)) {
                             // For very small screens, set a narrower viewport
                             defaultFontSize = (defaultFontSize * 0.9).toInt()
                             minimumFontSize = 8 // Allow smaller minimum font size on VSS
-                            
+
                             // Add additional layout optimization settings
                             layoutAlgorithm = WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
                         }
-                        
+
                         // Critical: Initialize DOM/Database storage
                         try {
                             databasePath = context.getDir("database", Context.MODE_PRIVATE).path
@@ -367,10 +367,10 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
-                    
+
                     // CRITICAL: Initialize WebView state flags
                     webView.setTag(R.string.prevent_reload_tag, false)  // Start as not loaded
-                    
+
                     // Initialize state preservation script
                     webView.evaluateJavascript("""
                         (function() {
@@ -397,16 +397,16 @@ class MainActivity : ComponentActivity() {
                             return true;
                         })();
                     """.trimIndent(), null)
-                    
+
                     // Add specific styling for small screens
                     if (ScreenUtils.isVerySmallScreen(context)) {
                         injectSmallScreenCSS(webView)
                     }
-                    
+
                     // Setup download manager for WebView
                     val downloadManager = WebViewDownloadManager(context.applicationContext)
                     downloadManager.setupDownloadListener(webView)
-                    
+
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -416,7 +416,7 @@ class MainActivity : ComponentActivity() {
             webView.webChromeClient = object : WebChromeClient() {
                 private var customView: View? = null
                 private var customViewCallback: CustomViewCallback? = null
-                
+
                 override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                     customView = view
                     customViewCallback = callback
@@ -434,10 +434,10 @@ class MainActivity : ComponentActivity() {
                     customView = null
                     customViewCallback = null
                 }
-                
+
                 override fun onProgressChanged(view: WebView?, newProgress: Int) {
                     super.onProgressChanged(view, newProgress)
-                    
+
                     // Gradually enable features as the page loads to prevent jank
                     if (newProgress > 50 && !view?.settings?.loadsImagesAutomatically!!) {
                         ThreadManager.runOnBackground {
@@ -447,13 +447,13 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
-                    
+
                     // Apply CSS adaptations for small screens when page loads
                     if (newProgress > 75 && ScreenUtils.isVerySmallScreen(context)) {
                         injectSmallScreenCSS(view)
                     }
                 }
-                
+
                 override fun onJsBeforeUnload(
                     view: WebView?,
                     url: String?,
@@ -464,7 +464,7 @@ class MainActivity : ComponentActivity() {
                     result?.cancel()
                     return true
                 }
-                
+
                 override fun onJsAlert(
                     view: WebView?,
                     url: String?,
@@ -498,10 +498,10 @@ class MainActivity : ComponentActivity() {
                     }
                     return super.shouldInterceptRequest(view, request)
                 }
-                
+
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
-                    
+
                     // Apply small screen adaptations on page finish
                     if (ScreenUtils.isVerySmallScreen(context)) {
                         injectSmallScreenCSS(view)
@@ -522,20 +522,20 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                
+
                 // Add a method to prevent window closing
                 @JavascriptInterface
                 public fun preventClose() {
                     // Do nothing, just a hook to keep the app open
                 }
-                
+
                 // Add method to report performance issues to the app
                 @JavascriptInterface
                 public fun reportPerformance(metric: String, value: String) {
                     // Could be used for telemetry or debugging
                 }
             }
-            
+
             // Add JavaScript interface for media handling
             class MediaInterface(private val context: Context) {
                 @JavascriptInterface
@@ -597,10 +597,10 @@ class MainActivity : ComponentActivity() {
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-            
+
             return webView
         }
-        
+
         /**
          * Inject CSS modifications to make TiddlyWiki more usable on very small screens
          */
@@ -713,29 +713,29 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         try {
             super.onCreate(savedInstanceState)
-            
+
             // Initialize managers and view models first before any UI
             mediaSessionManager = MediaSessionManager(this)
             exoPlayerManager = ExoPlayerManager(this)
             viewModel = getViewModel(this)
-            
+
             // Setup network monitoring before UI
             connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             setupNetworkCallback()
-            
+
             // Setup UI with state management protection
             setContent {
                 val currentContext = LocalContext.current as ComponentActivity
                 val viewModel = remember(currentContext) { getViewModel(currentContext) }
                 val isDarkMode by viewModel.isDarkMode.collectAsState(initial = false)
-                
+
                 // Protect against composition errors with SideEffect
                 SideEffect {
                     if (viewModel != this.viewModel) {
                         this.viewModel = viewModel
                     }
                 }
-                
+
                 // Handle initial wiki state preservation
                 DisposableEffect(Unit) {
                     onDispose {
@@ -748,7 +748,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                
+
                 MaterialTheme(
                     colorScheme = if (isDarkMode) darkColorScheme() else lightColorScheme()
                 ) {
@@ -762,16 +762,16 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-            
+
             // Handle intent after UI is set up
             handleIntent(intent)
-            
+
             // Set up media player callbacks
             setupMediaCallbacks()
-            
+
             // Initialize media session binding
             mediaSessionManager.bindToService()
-            
+
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "Error initializing app: ${e.message}", Toast.LENGTH_LONG).show()
@@ -789,11 +789,11 @@ class MainActivity : ComponentActivity() {
     private fun MainContent() {
         val localContext = LocalContext.current as ComponentActivity
         val viewModel = ViewModelProvider(localContext)[WikiViewModel::class.java]
-        
+
         // Add error handling dialog
         if (showLoadErrorDialog && loadErrorWiki != null) {
             AlertDialog(
-                onDismissRequest = { 
+                onDismissRequest = {
                     showLoadErrorDialog = false
                     loadErrorWiki = null
                 },
@@ -811,7 +811,7 @@ class MainActivity : ComponentActivity() {
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { 
+                    TextButton(onClick = {
                         showLoadErrorDialog = false
                         loadErrorWiki = null
                     }) {
@@ -827,7 +827,7 @@ class MainActivity : ComponentActivity() {
             onAddClick = { showAddDialog = true },
             onShowRenameDialog = { showRenameDialog = true }
         )
-        
+
         // Handle dialog visibility from the MainActivity state
         if (showAddDialog) {
             AddWikiDialog(
@@ -844,7 +844,7 @@ class MainActivity : ComponentActivity() {
                 }
             )
         }
-        
+
         if (showWikiSelector && pendingSharedText != null) {
             WikiSelectionDialog(
                 wikis = viewModel.allWikis.collectAsState().value,
@@ -870,7 +870,7 @@ class MainActivity : ComponentActivity() {
                 }
             )
         }
-        
+
         if (showDeleteConfirmDialog && viewModel.currentWiki.value != null) {
             AlertDialog(
                 onDismissRequest = { showDeleteConfirmDialog = false },
@@ -893,7 +893,7 @@ class MainActivity : ComponentActivity() {
                 }
             )
         }
-        
+
         if (showTagManagement) {
             TagManagementDialog(
                 tags = viewModel.quickTags.collectAsState().value,
@@ -903,7 +903,7 @@ class MainActivity : ComponentActivity() {
                 onDismiss = { showTagManagement = false }
             )
         }
-        
+
         // Add RenameWikiDialog
         if (showRenameDialog && viewModel.currentWiki.value != null) {
             RenameWikiDialog(
@@ -931,7 +931,7 @@ class MainActivity : ComponentActivity() {
                             val title = currentItem?.mediaMetadata?.title?.toString() ?: "Unknown Title"
                             val artist = currentItem?.mediaMetadata?.artist?.toString() ?: "TiddlyWiki Audio"
                             val duration = exoPlayerManager.getOrCreatePlayer().duration
-                            
+
                             mediaSessionManager.updateMetadata(title, artist, duration)
                             startMediaService()
                         }
@@ -940,7 +940,7 @@ class MainActivity : ComponentActivity() {
                     else -> {} // No action needed for other states
                 }
             }
-            
+
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 updateMediaSessionState()
                 if (isPlaying) {
@@ -949,7 +949,7 @@ class MainActivity : ComponentActivity() {
                     val title = currentItem?.mediaMetadata?.title?.toString() ?: "Unknown Title"
                     val artist = currentItem?.mediaMetadata?.artist?.toString() ?: "TiddlyWiki Audio"
                     val duration = exoPlayerManager.getOrCreatePlayer().duration
-                    
+
                     mediaSessionManager.updateMetadata(title, artist, duration)
                     startMediaService()
                 }
@@ -1033,7 +1033,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         serviceConnection = null
-        
+
         // Don't stop the service here - let it run in foreground
         // This allows notifications to persist
     }
@@ -1049,7 +1049,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-       private fun handleWikiSelection(selectedWiki: WikiInstance, textToShare: String?, selectedTags: List<String>) {
+    private fun handleWikiSelection(selectedWiki: WikiInstance, textToShare: String?, selectedTags: List<String>) {
         viewModel?.setCurrentWiki(selectedWiki)
         Handler(Looper.getMainLooper()).postDelayed({
             getCurrentWebView()?.evaluateJavascript("""
@@ -1210,7 +1210,7 @@ class MainActivity : ComponentActivity() {
             }
             vm.pauseAllWebViews()
         }
-        
+
         // Dispatch pause event to WebView
         getCurrentWebView()?.evaluateJavascript("""
             (function() {
@@ -1222,12 +1222,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        
+
         // Ensure any current WebView is resumed properly
         viewModel?.currentWiki?.value?.let { currentWiki ->
             viewModel?.resumeCurrentWebView(currentWiki)
         }
-        
+
         // Check for initialization status
         if (viewModel?.isWebViewReady?.value == true) {
             WebViewCache.clearCache(this)
@@ -1306,13 +1306,13 @@ class MainActivity : ComponentActivity() {
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
         WebViewCache.setConfigurationChanging(true)
-        
+
         // Handle any WebViews that need to be retained during configuration changes
         viewModel?.currentWiki?.value?.let { wiki ->
             val key = wiki.idFromUrl ?: wiki.url
             WebViewCache.setCurrentActiveKey(key)
         }
-        
+
         // Reset flag after a short delay
         Handler(Looper.getMainLooper()).postDelayed({
             WebViewCache.setConfigurationChanging(false)
@@ -1473,7 +1473,7 @@ fun MainScreen(
                                             }
                                         }
                                     )
-                                    
+
                                     DropdownMenuItem(
                                         text = { Text("Rename Wiki") },
                                         onClick = {
@@ -1490,7 +1490,7 @@ fun MainScreen(
                                         onAddClick()
                                     }
                                 )
-                                
+
                                 DropdownMenuItem(
                                     text = { Text("Create Single File Tiddler") },
                                     onClick = {
@@ -1611,9 +1611,9 @@ fun MainScreen(
                                 wikis.forEachIndexed { index, wiki ->
                                     val isSelected = wiki == currentWiki
                                     var offsetX by remember { mutableStateOf(0f) }
-                                    
+
                                     NavigationBarItem(
-                                        icon = { 
+                                        icon = {
                                             Icon(
                                                 Icons.Default.Book,
                                                 contentDescription = wiki.name,
@@ -1629,7 +1629,7 @@ fun MainScreen(
                                                                 change.consume()
                                                                 offsetX += dragAmount.x
                                                                 dragOffset = offsetX
-                                                                
+
                                                                 // Show trash can after hold threshold
                                                                 if (System.currentTimeMillis() - dragStartTime.value > holdThreshold) {
                                                                     showTrashCan = true
@@ -1645,7 +1645,7 @@ fun MainScreen(
                                                                     val dragDistance = dragOffset
                                                                     val itemWidth = size.width.toFloat()
                                                                     val newPosition = (dragDistance / itemWidth).roundToInt()
-                                                                    
+
                                                                     if (newPosition != 0) {
                                                                         val targetIndex = (index + newPosition).coerceIn(0, wikis.size - 1)
                                                                         if (targetIndex != index) {
@@ -1653,7 +1653,7 @@ fun MainScreen(
                                                                         }
                                                                     }
                                                                 }
-                                                                
+
                                                                 // Reset states
                                                                 draggedWiki = null
                                                                 isDragging = false
@@ -1692,7 +1692,7 @@ fun MainScreen(
         if (showDeleteConfirmDialog && (wikiToDelete != null || currentWiki != null)) {
             val wiki = wikiToDelete ?: currentWiki
             AlertDialog(
-                onDismissRequest = { 
+                onDismissRequest = {
                     showDeleteConfirmDialog = false
                     wikiToDelete = null
                 },
@@ -1708,8 +1708,8 @@ fun MainScreen(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { 
-                        showDeleteConfirmDialog = false 
+                    TextButton(onClick = {
+                        showDeleteConfirmDialog = false
                         wikiToDelete = null
                     }) {
                         Text("Cancel")
@@ -1762,17 +1762,17 @@ fun RenameWikiDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { 
+                onClick = {
                     if (newName.isBlank()) {
                         error = "Name cannot be empty"
                         return@TextButton
                     }
-                    
+
                     if (newName == currentName) {
                         onDismiss()
                         return@TextButton
                     }
-                    
+
                     onRename(newName)
                 },
                 enabled = newName.isNotBlank()
@@ -1818,7 +1818,7 @@ fun AddWikiDialog(
                     isError = name.isBlank(),
                     singleLine = true
                 )
-                
+
                 TextField(
                     value = url,
                     onValueChange = { url = it; error = null },
@@ -1829,7 +1829,7 @@ fun AddWikiDialog(
                     supportingText = error?.let { { Text(it) } },
                     singleLine = true
                 )
-                
+
                 // Add a button to select a local file
                 OutlinedButton(
                     onClick = onAddLocalFile,
@@ -1851,12 +1851,12 @@ fun AddWikiDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { 
+                onClick = {
                     if (name.isBlank() || url.isBlank()) {
                         error = "Name and URL are required"
                         return@TextButton
                     }
-                    
+
                     // Use URL validation and make sure to call onAdd with the formatted URL
                     WikiInstance.validateUrl(url)
                         .onSuccess { formattedUrl ->
@@ -1864,7 +1864,7 @@ fun AddWikiDialog(
                             onAdd(name, formattedUrl)
                             Toast.makeText(context, "Wiki added successfully", Toast.LENGTH_SHORT).show()
                         }
-                        .onFailure { 
+                        .onFailure {
                             error = it.message ?: "Invalid URL format"
                         }
                 },
@@ -2112,7 +2112,7 @@ fun TiddlerTemplateSelectionDialog(
     val viewModel: WikiViewModel = remember { MainActivity.getViewModel(context) }
     val templates by viewModel.tiddlerTemplates.collectAsState()
     var isLoading by remember { mutableStateOf(true) }
-    
+
     LaunchedEffect(Unit) {
         viewModel.loadTiddlerTemplates()
         isLoading = false

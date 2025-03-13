@@ -134,7 +134,7 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
 
             override fun onResume(owner: LifecycleOwner) {
                 // When resuming, we need to ensure reload protection is in place
-                ThreadManager.runOnMain {
+                ThreadManager.enqueueWebViewOperation(10) { // Higher priority (10) for resuming
                     webViewClientState.value?.let { client ->
                         try {
                             viewModel.getOrCreateWebView(wiki, context).let { webView ->
@@ -149,7 +149,7 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
 
             override fun onPause(owner: LifecycleOwner) {
                 // When pausing, save the WebView state immediately
-                ThreadManager.runOnMain {
+                ThreadManager.enqueueWebViewOperation(5) { // Medium priority (5) for save state
                     try {
                         WebViewCache.cacheWebView(wikiKey, viewModel.getOrCreateWebView(wiki, context))
                     } catch (e: Exception) {
@@ -237,7 +237,7 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                             webView.addJavascriptInterface(object : Any() {
                                 @JavascriptInterface
                                 fun onScroll(showBars: Boolean) {
-                                    ThreadManager.runOnMain {
+                                    ThreadManager.enqueueWebViewOperation(1) { // Low priority (1) for UI updates
                                         viewModel.setFrameVisible(showBars)
                                     }
                                 }
@@ -259,7 +259,7 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                             isLoading = true
 
                             // Only load URL for new WebViews, not restored ones
-                            ThreadManager.runOnMain {
+                            ThreadManager.enqueueWebViewOperation(10) { // Higher priority (10) for initial page load
                                 val urlToLoad = localFileUrl ?: wiki.url
                                 Log.d("WikiView", "Initial load of URL: $urlToLoad")
                                 webView.loadUrl(urlToLoad)
@@ -398,7 +398,7 @@ private fun injectScrollDetectionScript(webView: WebView, viewModel: WikiViewMod
         webView.addJavascriptInterface(object {
             @JavascriptInterface
             fun onScroll(showBars: Boolean) {
-                ThreadManager.runOnMain {
+                ThreadManager.enqueueWebViewOperation(1) { // Low priority (1) for UI updates
                     viewModel.setFrameVisible(showBars)
                 }
             }
