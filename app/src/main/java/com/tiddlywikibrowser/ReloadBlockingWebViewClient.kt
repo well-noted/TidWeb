@@ -311,7 +311,7 @@ class ReloadBlockingWebViewClient(
                 let isScrollingDown = false;
                 let barState = true; // true = visible, false = hidden
                 
-                const scrollThreshold = 20; // Minimum pixels to trigger direction change
+                const scrollThreshold = 1; // Minimum pixels to trigger direction change
                 const timeThreshold = 100; // Minimum ms between scroll events to process
                 
                 window.tidScrollHandler = function() {

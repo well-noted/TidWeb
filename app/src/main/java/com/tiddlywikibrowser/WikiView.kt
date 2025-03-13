@@ -170,11 +170,6 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
     var hasContent by rememberSaveable(wiki.url) { mutableStateOf(false) }
     var lastLoadTime by rememberSaveable { mutableStateOf(0L) }
 
-    // Show loading indicator if still loading
-    if (isLoading) {
-        LoadingIndicator(true)
-    }
-
     // Show error if one occurred
     errorState?.let { error ->
         Box(
@@ -206,103 +201,110 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
         }
     }
 
-    // Create the WebView
-    key(wiki.url) { // Use key() function instead of a parameter
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { ctx ->
-                try {
-                    val webView = viewModel.getOrCreateWebView(wiki, ctx)
-
-                    // Set new client with callbacks
-                    val client = ReloadBlockingWebViewClient(
-                        context = ctx,
-                        wikiUrl = wiki.url,
-                        onLoadingStateChanged = { loading ->
-                            isLoading = loading
-                        },
-                        onErrorReceived = { error ->
-                            errorState = error
-                        },
-                        onPageLoaded = { success ->
-                            if (success) {
-                                hasContent = true
-                                isFirstLoad = false
-                            } else {
-                                hasContent = false
-                            }
-                        }
-                    )
-                    webViewClientState.value = client
-                    webView.webViewClient = client
-
+    // Create the WebView inside a Box to allow overlay of loading indicator
+    Box(modifier = Modifier.fillMaxSize()) {
+        key(wiki.url) { // Use key() function instead of a parameter
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { ctx ->
                     try {
-                        // Add scroll detection interface
-                        webView.addJavascriptInterface(object : Any() {
-                            @JavascriptInterface
-                            fun onScroll(showBars: Boolean) {
-                                ThreadManager.runOnMain {
-                                    viewModel.setFrameVisible(showBars)
+                        val webView = viewModel.getOrCreateWebView(wiki, ctx)
+
+                        // Set new client with callbacks
+                        val client = ReloadBlockingWebViewClient(
+                            context = ctx,
+                            wikiUrl = wiki.url,
+                            onLoadingStateChanged = { loading ->
+                                isLoading = loading
+                            },
+                            onErrorReceived = { error ->
+                                errorState = error
+                            },
+                            onPageLoaded = { success ->
+                                if (success) {
+                                    hasContent = true
+                                    isFirstLoad = false
+                                } else {
+                                    hasContent = false
                                 }
                             }
-                        }, "ScrollInterface")
-                    } catch (e: Exception) {
-                        Log.e("WikiView", "Failed to add JavaScript interface", e)
-                    }
+                        )
+                        webViewClientState.value = client
+                        webView.webViewClient = client
 
-                    // Setup download manager to enable downloads
-                    downloadManager.setupDownloadListener(webView)
-
-                    // Check if this WebView needs to be loaded or if it's a restored one
-                    val isAlreadyLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
-
-                    if (!isAlreadyLoaded && isFirstLoad) {
-                        // Initial load needed - this is a new WebView
-                        Log.d("WikiView", "Initial load needed for: $wikiKey")
-                        lastLoadTime = System.currentTimeMillis()
-                        isLoading = true
-
-                        // Only load URL for new WebViews, not restored ones
-                        ThreadManager.runOnMain {
-                            val urlToLoad = localFileUrl ?: wiki.url
-                            Log.d("WikiView", "Initial load of URL: $urlToLoad")
-                            webView.loadUrl(urlToLoad)
+                        try {
+                            // Add scroll detection interface
+                            webView.addJavascriptInterface(object : Any() {
+                                @JavascriptInterface
+                                fun onScroll(showBars: Boolean) {
+                                    ThreadManager.runOnMain {
+                                        viewModel.setFrameVisible(showBars)
+                                    }
+                                }
+                            }, "ScrollInterface")
+                        } catch (e: Exception) {
+                            Log.e("WikiView", "Failed to add JavaScript interface", e)
                         }
-                    } else {
-                        // This WebView was restored, no need to reload
-                        Log.d("WikiView", "Using restored WebView, no reload needed for: $wikiKey")
-                        isLoading = false
-                        isFirstLoad = false
-                        hasContent = true
 
-                        // Re-cache the state to ensure it's preserved
-                        WebViewCache.cacheWebView(wikiKey, webView)
+                        // Setup download manager to enable downloads
+                        downloadManager.setupDownloadListener(webView)
 
-                        // Make sure the WebView shows its content properly
-                        webView.invalidate()
+                        // Check if this WebView needs to be loaded or if it's a restored one
+                        val isAlreadyLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
+
+                        if (!isAlreadyLoaded && isFirstLoad) {
+                            // Initial load needed - this is a new WebView
+                            Log.d("WikiView", "Initial load needed for: $wikiKey")
+                            lastLoadTime = System.currentTimeMillis()
+                            isLoading = true
+
+                            // Only load URL for new WebViews, not restored ones
+                            ThreadManager.runOnMain {
+                                val urlToLoad = localFileUrl ?: wiki.url
+                                Log.d("WikiView", "Initial load of URL: $urlToLoad")
+                                webView.loadUrl(urlToLoad)
+                            }
+                        } else {
+                            // This WebView was restored, no need to reload
+                            Log.d("WikiView", "Using restored WebView, no reload needed for: $wikiKey")
+                            isLoading = false
+                            isFirstLoad = false
+                            hasContent = true
+
+                            // Re-cache the state to ensure it's preserved
+                            WebViewCache.cacheWebView(wikiKey, webView)
+
+                            // Make sure the WebView shows its content properly
+                            webView.invalidate()
+                        }
+
+                        // Always inject scroll detection regardless of screen size
+                        WikiViewEnhancer.injectScrollDetectionScript(webView)
+
+                        // Apply small screen optimizations if needed
+                        if (ScreenUtils.isVerySmallScreen(ctx)) {
+                            WikiViewEnhancer.injectSmallScreenOptimizations(webView, ctx)
+                        }
+
+                        webView
+                    } catch (e: Exception) {
+                        Log.e("WikiView", "Error creating WebView: ${e.message}", e)
+                        errorState = "Error creating WebView: ${e.message}"
+                        // Return an empty WebView as a fallback
+                        WebView(ctx)
                     }
-
-                    // Always inject scroll detection regardless of screen size
-                    WikiViewEnhancer.injectScrollDetectionScript(webView)
-
-                    // Apply small screen optimizations if needed
-                    if (ScreenUtils.isVerySmallScreen(ctx)) {
-                        WikiViewEnhancer.injectSmallScreenOptimizations(webView, ctx)
-                    }
-
-                    webView
-                } catch (e: Exception) {
-                    Log.e("WikiView", "Error creating WebView: ${e.message}", e)
-                    errorState = "Error creating WebView: ${e.message}"
-                    // Return an empty WebView as a fallback
-                    WebView(ctx)
+                },
+                update = { webView ->
+                    // Don't reload if we're simply updating the view
+                    // This prevents unnecessary reloads during recomposition
                 }
-            },
-            update = { webView ->
-                // Don't reload if we're simply updating the view
-                // This prevents unnecessary reloads during recomposition
-            }
-        )
+            )
+        }
+        
+        // Show loading overlay - restored from previous version
+        if (isActive) {
+            LoadingIndicator(isLoading)
+        }
     }
 }
 
