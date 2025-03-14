@@ -2317,18 +2317,18 @@ fun SettingsDialog(
                         }
                     )
                 }
-            }
-
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-            // Quick Tags Management Button
-            Button(
-                onClick = onManageQuickTags,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-            ) {
-                Text("Manage Quick Tags")
+                
+                Divider(modifier = Modifier.padding(vertical = 8.dp))
+                
+                // Quick Tags Management Button - moved inside the Column with proper spacing
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = onManageQuickTags,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ) {
+                    Text("Manage Quick Tags")
+                }
             }
         },
         confirmButton = {
