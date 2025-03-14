@@ -1294,7 +1294,11 @@ int attr yearStyle 0x7f0404bd
 int attr yearTodayStyle 0x7f0404be
 int bool abc_action_bar_embed_tabs 0x7f050000
 int bool abc_config_actionMenuItemAllCaps 0x7f050001
-int bool mtrl_btn_textappearance_all_caps 0x7f050002
+int bool is_compact_layout 0x7f050002
+int bool mtrl_btn_textappearance_all_caps 0x7f050003
+int bool use_minimal_padding 0x7f050004
+int bool use_simplified_ui 0x7f050005
+int bool webview_force_zoom 0x7f050006
 int color abc_background_cache_hint_selector_material_dark 0x7f060000
 int color abc_background_cache_hint_selector_material_light 0x7f060001
 int color abc_btn_colored_borderless_text_material 0x7f060002
@@ -3787,6 +3791,7 @@ int integer mtrl_view_invisible 0x7f0b0042
 int integer mtrl_view_visible 0x7f0b0043
 int integer show_password_duration 0x7f0b0044
 int integer status_bar_notification_info_maxnum 0x7f0b0045
+int integer webview_text_zoom 0x7f0b0046
 int interpolator btn_checkbox_checked_mtrl_animation_interpolator_0 0x7f0c0000
 int interpolator btn_checkbox_checked_mtrl_animation_interpolator_1 0x7f0c0001
 int interpolator btn_checkbox_unchecked_mtrl_animation_interpolator_0 0x7f0c0002

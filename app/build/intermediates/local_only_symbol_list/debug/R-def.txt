@@ -1,5 +1,9 @@
 R_DEF: Internal format may change without notice
 local
+bool is_compact_layout
+bool use_minimal_padding
+bool use_simplified_ui
+bool webview_force_zoom
 color ic_launcher_background
 drawable ic_launcher_background
 drawable ic_launcher_foreground
@@ -10,6 +14,7 @@ drawable ic_play
 drawable ic_previous
 drawable ic_skip_backward_15
 drawable ic_skip_forward_15
+integer webview_text_zoom
 mipmap ic_launcher
 mipmap ic_launcher_foreground
 mipmap ic_launcher_round

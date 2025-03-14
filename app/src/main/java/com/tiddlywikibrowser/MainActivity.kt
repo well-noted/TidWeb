@@ -113,7 +113,7 @@ class MainActivity : ComponentActivity() {
     private var viewModel: WikiViewModel? = null
     private var serviceConnection: ServiceConnection? = null
     private val serviceIntent by lazy { Intent(this, MediaPlaybackService::class.java) }
-    
+
     // Dialog state variables
     private var pendingSharedText by mutableStateOf<String?>(null)
     private var showWikiSelector by mutableStateOf(false)
@@ -121,11 +121,12 @@ class MainActivity : ComponentActivity() {
     private var showDeleteConfirmDialog by mutableStateOf(false)
     private var showShareMenu by mutableStateOf(false)
     private var showTagManagement by mutableStateOf(false)
-    
+    private var showRenameDialog by mutableStateOf(false)
+
     // Add these properties for error handling
     private var showLoadErrorDialog by mutableStateOf(false)
     private var loadErrorWiki: WikiInstance? = null
-    
+
     // Add temporary storage for wiki name during file selection
     private var pendingWikiName by mutableStateOf<String?>(null)
 
@@ -137,18 +138,18 @@ class MainActivity : ComponentActivity() {
             // Try to get a file name from the URI
             val fileName = getFileNameFromUri(contentUri)
             val displayName = pendingWikiName ?: fileName?.substringBeforeLast('.') ?: "Local Wiki"
-            
+
             // Reset the pending name
             pendingWikiName = null
-            
+
             // Import the file using WikiViewModel
             viewModel?.importLocalWikiFile(contentUri, fileName)
-            
+
             // Close the dialog
             showAddDialog = false
         }
     }
-    
+
     // Helper function to get file name from URI
     private fun getFileNameFromUri(uri: Uri): String? {
         val cursor = contentResolver.query(uri, null, null, null, null)
@@ -157,13 +158,6 @@ class MainActivity : ComponentActivity() {
             val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
             it.moveToFirst()
             it.getString(nameIndex)
-        }
-    }
-
-    // Add method to access current WebView
-    fun getCurrentWebView(): WebView? {
-        return viewModel?.currentWiki?.value?.let { wiki ->
-            viewModel?.getOrCreateWebView(wiki, this)
         }
     }
 
@@ -196,7 +190,99 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        
+        internal val mediaMonitorScript = """
+            (function() {
+                let lastUpdate = Date.now();
+                const UPDATE_INTERVAL = 250;
+                let activeMediaElement = null;
+                let monitoringInterval = null;
+
+                function updateMediaState() {
+                    const now = Date.now();
+                    if (now - lastUpdate < UPDATE_INTERVAL) return;
+                    lastUpdate = now;
+
+                    if (!activeMediaElement) {
+                        // Only search for media if we don't have an active element
+                        const mediaElement = document.querySelector('audio,video');
+                        if (mediaElement) {
+                            activeMediaElement = mediaElement;
+                            setupMediaElement(mediaElement);
+                        }
+                    } else if (activeMediaElement.ended || activeMediaElement.error) {
+                        // Reset if media ended or errored
+                        activeMediaElement = null;
+                        return;
+                    }
+
+                    if (activeMediaElement) {
+                        updateMediaMetadata(activeMediaElement);
+                    }
+                }
+
+                function setupMediaElement(mediaElement) {
+                    const events = ['play', 'pause', 'playing', 'timeupdate', 'seeking', 'seeked', 'durationchange', 'loadedmetadata', 'ended', 'error'];
+                    events.forEach(event => {
+                        mediaElement.addEventListener(event, () => updateMediaMetadata(mediaElement));
+                    });
+                }
+
+                function updateMediaMetadata(mediaElement) {
+                    let title = mediaElement.getAttribute('title') || '';
+                    let artist = mediaElement.getAttribute('artist') || '';
+                    
+                    if (!title) {
+                        const currentTiddler = mediaElement.closest('[data-tiddler-title]');
+                        if (currentTiddler) {
+                            title = currentTiddler.getAttribute('data-tiddler-title');
+                        }
+                    }
+                    
+                    if (!title) {
+                        const metaTitle = document.querySelector('meta[property="og:title"]');
+                        if (metaTitle) title = metaTitle.content;
+                    }
+                    
+                    if (!artist) {
+                        const metaArtist = document.querySelector('meta[property="og:audio:artist"]');
+                        if (metaArtist) artist = metaArtist.content;
+                    }
+
+                    const duration = mediaElement.duration ? Math.floor(mediaElement.duration * 1000) : 0;
+                    const position = mediaElement.currentTime ? Math.floor(mediaElement.currentTime * 1000) : 0;
+                    
+                    window.MediaInterface.onMediaStateChange(
+                        title || document.title,
+                        artist || 'TiddlyWiki Audio',
+                        duration,
+                        position,
+                        !mediaElement.paused
+                    );
+                }
+
+                // Start monitoring for media elements
+                monitoringInterval = setInterval(updateMediaState, UPDATE_INTERVAL);
+
+                // Add custom skip functions
+                window.skipForward = function() {
+                    if (activeMediaElement) {
+                        activeMediaElement.currentTime = Math.min(
+                            activeMediaElement.duration,
+                            activeMediaElement.currentTime + 15
+                        );
+                    }
+                };
+
+                window.skipBackward = function() {
+                    if (activeMediaElement) {
+                        activeMediaElement.currentTime = Math.max(
+                            0,
+                            activeMediaElement.currentTime - 15
+                        );
+                    }
+                };
+            })();
+        """.trimIndent()
 
         @SuppressLint("SetJavaScriptEnabled")
         internal fun createWebView(context: Context): WebView {
@@ -205,13 +291,13 @@ class MainActivity : ComponentActivity() {
                 try {
                     // Set layer type to hardware for better performance
                     webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
-                    
+
                     // Fix for orientation changes: set fixed layout size
                     webView.layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
-                    
+
                     webView.settings.apply {
                         javaScriptEnabled = true
                         domStorageEnabled = true
@@ -223,45 +309,53 @@ class MainActivity : ComponentActivity() {
                         displayZoomControls = false
                         cacheMode = WebSettings.LOAD_DEFAULT
                         allowFileAccess = true
-                        
-                        // Fix for orientation: support viewport meta tag
+
+                        // Critical: Initialize proper caching mode for state persistence
+                        cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+                        domStorageEnabled = true
+                        databaseEnabled = true
+
+                        // Set save state flags
+                        saveFormData = true
+                        savePassword = true
+
+                        // Ensure proper viewport settings
                         useWideViewPort = true
                         loadWithOverviewMode = true
 
-                        // Important setting for responsiveness
-                        layoutAlgorithm = WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
-                        
-                        // Safe way to set database path
+                        // Important for state preservation
+                        setGeolocationEnabled(false)  // Disable geolocation to prevent state loss
+                        mediaPlaybackRequiresUserGesture = false  // Allow media state preservation
+
+                        // Apply text zoom based on screen size
+                        val textZoom = ScreenUtils.getWebViewTextZoom(context)
+                        setTextZoom(textZoom)
+
+                        // Force accessibility mode to ensure pinch-to-zoom always works
+                        if (ScreenUtils.shouldForceWebViewZoom(context)) {
+                            // Force zoom controls to be available on small screens
+                            builtInZoomControls = true
+                            displayZoomControls = false
+                        }
+
+                        // Optimize for very small screens
+                        if (ScreenUtils.isVerySmallScreen(context)) {
+                            // For very small screens, set a narrower viewport
+                            defaultFontSize = (defaultFontSize * 0.9).toInt()
+                            minimumFontSize = 8 // Allow smaller minimum font size on VSS
+
+                            // Add additional layout optimization settings
+                            layoutAlgorithm = WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
+                        }
+
+                        // Critical: Initialize DOM/Database storage
                         try {
                             databasePath = context.getDir("database", Context.MODE_PRIVATE).path
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }
 
-                        // Optimize GPU rendering and resource loading
-                        mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-                        
-                        // Set the proper dark mode setting on Android Q and above
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            try {
-                                forceDark = WebSettings.FORCE_DARK_AUTO
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
-                        }
-                        
-                        // Performance improvements for memory usage
-                        javaScriptEnabled = true
-                        domStorageEnabled = true // Use modern cache APIs
-                        setGeolocationEnabled(false) // Disable features we don't need
-                        javaScriptCanOpenWindowsAutomatically = false
-                        allowContentAccess = true
-                        
-                        // Optimize loading and parsing to reduce memory pressure
-                        blockNetworkImage = true // Initially block images to improve first render
-                        loadsImagesAutomatically = false // Control this manually for better performance
-                        
-                        // Safely enable file access from file URLs (required for local TiddlyWiki)
+                        // Safely enable file access (required for local TiddlyWiki)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
                             try {
                                 javaClass.getMethod("setAllowFileAccessFromFileURLs", Boolean::class.java)
@@ -273,60 +367,46 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
-                    
-                    // CRITICAL FIX: Override WebView's JS execution to be non-blocking
+
+                    // CRITICAL: Initialize WebView state flags
+                    webView.setTag(R.string.prevent_reload_tag, false)  // Start as not loaded
+
+                    // Initialize state preservation script
                     webView.evaluateJavascript("""
                         (function() {
-                            // Use throttled and chunked processing for heavy operations
-                            const originalSetTimeout = window.setTimeout;
-                            window.setTimeout = function(callback, delay) {
-                                if (delay < 10) delay = 10; // Minimum delay to avoid busy-waiting
-                                return originalSetTimeout(callback, delay);
-                            };
-                            
-                            // Ensure delayed initialization for TiddlyWiki components
-                            window.addEventListener('DOMContentLoaded', function() {
-                                // Set up rendering optimization
-                                const style = document.createElement('style');
-                                style.textContent = `
-                                    * { transform: translateZ(0); }
-                                    img:not([loading]) { loading: lazy; }
-                                    .tc-tiddler-frame { contain: content; }
-                                `;
-                                document.head.appendChild(style);
-                            });
-                        })();
-                    """, null)
-                    
-                    // CRITICAL FIX: Add viewport setting script for orientation changes
-                    webView.evaluateJavascript("""
-                        (function() {
-                            // Ensure proper mobile viewport settings
-                            let viewport = document.querySelector('meta[name="viewport"]');
-                            if (!viewport) {
-                                viewport = document.createElement('meta');
-                                viewport.name = 'viewport';
-                                document.head.appendChild(viewport);
+                            if (!window.__stateInitialized) {
+                                // Create state container
+                                window.__savedState = {};
+                                
+                                // Set up state preservation handlers
+                                document.addEventListener('pause', function() {
+                                    try {
+                                        console.log('[State] Saved state:', JSON.stringify(window.__savedState));
+                                    } catch(e) {}
+                                });
+                                
+                                // Restore state handler
+                                document.addEventListener('resume', function() {
+                                    try {
+                                    } catch(e) {}
+                                });
+                                
+                                window __stateInitialized = true;
+                                console.log('[State] State preservation initialized');
                             }
-                            viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes';
-                            
-                            // Fix for orientation changes: re-layout on orientation change
-                            window.addEventListener('orientationchange', function() {
-                                setTimeout(function() {
-                                    const evt = new Event('resize');
-                                    window.dispatchEvent(evt);
-                                }, );
-                            });
-                            
-                            // Throttle heavy operations
-                            const originalSetTimeout = window.setTimeout;
-                            window.setTimeout = function(callback, delay) {
-                                if (delay < 10) delay = 10; // Minimum delay to avoid busy-waiting
-                                return originalSetTimeout(callback, delay);
-                            };
+                            return true;
                         })();
-                    """, null)
-                    
+                    """.trimIndent(), null)
+
+                    // Add specific styling for small screens
+                    if (ScreenUtils.isVerySmallScreen(context)) {
+                        injectSmallScreenCSS(webView)
+                    }
+
+                    // Setup download manager for WebView
+                    val downloadManager = WebViewDownloadManager(context.applicationContext)
+                    downloadManager.setupDownloadListener(webView)
+
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -334,9 +414,30 @@ class MainActivity : ComponentActivity() {
 
             // Create a WebChromeClient to manage rendering lifecycle
             webView.webChromeClient = object : WebChromeClient() {
+                private var customView: View? = null
+                private var customViewCallback: CustomViewCallback? = null
+
+                override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                    customView = view
+                    customViewCallback = callback
+                    (context as? MainActivity)?.let { activity ->
+                        if (view is PlayerView) {
+                            activity.exoPlayerManager.getOrCreatePlayer().also { player ->
+                                view.player = player
+                            }
+                        }
+                    }
+                }
+
+                override fun onHideCustomView() {
+                    customViewCallback?.onCustomViewHidden()
+                    customView = null
+                    customViewCallback = null
+                }
+
                 override fun onProgressChanged(view: WebView?, newProgress: Int) {
                     super.onProgressChanged(view, newProgress)
-                    
+
                     // Gradually enable features as the page loads to prevent jank
                     if (newProgress > 50 && !view?.settings?.loadsImagesAutomatically!!) {
                         ThreadManager.runOnBackground {
@@ -346,8 +447,13 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
+
+                    // Apply CSS adaptations for small screens when page loads
+                    if (newProgress > 75 && ScreenUtils.isVerySmallScreen(context)) {
+                        injectSmallScreenCSS(view)
+                    }
                 }
-                
+
                 override fun onJsBeforeUnload(
                     view: WebView?,
                     url: String?,
@@ -358,7 +464,7 @@ class MainActivity : ComponentActivity() {
                     result?.cancel()
                     return true
                 }
-                
+
                 override fun onJsAlert(
                     view: WebView?,
                     url: String?,
@@ -374,204 +480,32 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            webView.webViewClient = object : WebViewClient() {
-                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                    super.onPageStarted(view, url, favicon)
-                    
-                    // CRITICAL FIX: Immediately inject safety scripts to prevent auto-closing and navigation
-                    view?.evaluateJavascript("""
-                        (function() {
-                            // Override window.close
-                            window.close = function() { 
-                                console.log('Window close prevented');
-                                return false; 
-                            };
-                            
-                            // Override history methods to prevent app minimizing
-                            if (window.history) {
-                                window.history.original_back = window.history.back;
-                                window.history.back = function() {
-                                    // Only allow back navigation within TiddlyWiki context
-                                    if (document.body.classList.contains('tc-body')) {
-                                        var story = document.querySelector('.tc-story-river');
-                                        if (story && story.children.length > 1) {
-                                            // Internal TiddlyWiki navigation - allow it
-                                            return window.history.original_back.apply(window.history);
-                                        }
-                                    }
-                                    console.log('History back prevented');
-                                    return false;
-                                };
-                            }
-                            
-                            // Improve scroll performance
-                            document.addEventListener('scroll', function() {}, { passive: true });
-                            
-                            // Throttle heavy DOM operations
-                            const observer = new MutationObserver((mutations) => {
-                                if (mutations.length > 100) {
-                                    console.log('Throttling large DOM mutation batch');
-                                    requestAnimationFrame(() => {
-                                        requestAnimationFrame(() => {
-                                            // Process after two animation frames
-                                        });
-                                    });
-                                }
-                            });
-                            
-                            // Start observing once document is loaded
-                            document.addEventListener('DOMContentLoaded', () => {
-                                observer.observe(document.body, { 
-                                    childList: true, 
-                                    subtree: true,
-                                    attributes: true 
-                                });
-                            });
-                        })();
-                    """, null)
-                    
-                    // Optimize document rendering with progressive loading
-                    view?.evaluateJavascript("""
-                        (function() {
-                            // Reduce style calculation overhead
-                            document.documentElement.style.visibility = 'hidden';
-                            
-                            window.addEventListener('DOMContentLoaded', function() {
-                                // Defer non-critical parsing and rendering
-                                requestAnimationFrame(function() {
-                                    document.documentElement.style.visibility = 'visible';
-                                });
-                            });
-                        })();
-                    """, null)
-                }
-                
-                override fun onPageFinished(view: WebView?, url: String?) {
-                    super.onPageFinished(view, url)
-                    
-                    // Progressive enhancement using low-priority thread to avoid ANR
-                    ThreadManager.runOnLowPriority {
-                        // Enable images in phases to avoid jank
-                        ThreadManager.runOnBackgroundWithDelay(100) {
-                            ThreadManager.runOnMain {
-                                view?.settings?.blockNetworkImage = false
-                            }
-                        }
-                        
-                        // Load image content in a staggered way
-                        view?.evaluateJavascript("""
-                            (function() {
-                                // Enable lazy loading for images
-                                const images = Array.from(document.querySelectorAll('img:not([loading])'));
-                                
-                                // Process in small batches to avoid jank
-                                function processNextBatch(startIndex) {
-                                    const batch = images.slice(startIndex, startIndex + 5);
-                                    if (batch.length === 0) return;
-                                    
-                                    setTimeout(function() {
-                                        batch.forEach(img => {
-                                            if (!img.loading) img.loading = 'lazy';
-                                            if (!img.decoding) img.decoding = 'async';
-                                        });
-                                        processNextBatch(startIndex + 5);
-                                    }, 50);
-                                }
-                                
-                                if (images.length > 0) {
-                                    processNextBatch(0);
-                                }
-                                
-                                return true;
-                            })();
-                        """, null)
-                    }
-                }
+            // Use an AssetLoader to handle file access
+            val assetLoader = WebViewAssetLoader.Builder()
+                .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
+                .addPathHandler("/res/", WebViewAssetLoader.ResourcesPathHandler(context))
+                .build()
 
-                // The rest of the existing WebViewClient implementation...
+            webView.webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(
                     view: WebView?,
                     request: WebResourceRequest?
                 ): WebResourceResponse? {
-                    val url = request?.url?.toString() ?: return null
-                    
-                    // Block analytics and tracking to improve performance
-                    if (url.contains("analytics") || url.contains("tracking") || 
-                        url.contains("google-analytics") || url.contains("facebook.com") ||
-                        url.contains("tracker") || url.contains("pixel.gif")) {
-                        return WebResourceResponse("text/plain", "UTF-8", "".byteInputStream())
-                    }
-                    
-                    return null
-                }
-                
-                // Add error handling to prevent WebView crashes
-                override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                    super.onReceivedError(view, request, error)
-                    if (request?.isForMainFrame == true) {
-                        ThreadManager.runOnMain {
-                            view?.loadUrl("about:blank")
-                            view?.loadDataWithBaseURL(
-                                null,
-                                "<html><body><h3>Unable to load page</h3><p>Please check your connection and try again.</p></body></html>",
-                                "text/html",
-                                "utf-8",
-                                null
-                            )
+                    request?.url?.let { url ->
+                        if (url.scheme == "file") {
+                            return assetLoader.shouldInterceptRequest(url)
                         }
                     }
+                    return super.shouldInterceptRequest(view, request)
                 }
 
-                override fun onReceivedHttpError(
-                    view: WebView?,
-                    request: WebResourceRequest?,
-                    errorResponse: WebResourceResponse?
-                ) {
-                    super.onReceivedHttpError(view, request, errorResponse)
-                    if (request?.isForMainFrame == true) {
-                        ThreadManager.runOnMain {
-                            // Show error dialog through MainActivity
-                            (context as? MainActivity)?.let { activity ->
-                                activity.viewModel?.currentWiki?.value?.let { wiki ->
-                                    activity.loadErrorWiki = wiki
-                                    activity.showLoadErrorDialog = true
-                                }
-                            }
-                        }
-                    }
-                }
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
 
-                override fun onReceivedSslError(
-                    view: WebView?,
-                    handler: SslErrorHandler?,
-                    error: SslError?
-                ) {
-                    ThreadManager.runOnMain {
-                        // Show error dialog through MainActivity
-                        (context as? MainActivity)?.let { activity ->
-                            activity.viewModel?.currentWiki?.value?.let { wiki ->
-                                activity.loadErrorWiki = wiki
-                                activity.showLoadErrorDialog = true
-                            }
-                        }
+                    // Apply small screen adaptations on page finish
+                    if (ScreenUtils.isVerySmallScreen(context)) {
+                        injectSmallScreenCSS(view)
                     }
-                    handler?.cancel()
-                }
-
-                // Add this to prevent navigation that might close the app
-                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                    val url = request?.url?.toString() ?: return false
-                    
-                    // If the URL is a special scheme that might close the app, block it
-                    if (url.startsWith("intent:") || 
-                        url.startsWith("market:") || 
-                        url.startsWith("tel:") ||
-                        url.startsWith("geo:")) {
-                        return true
-                    }
-                    
-                    // For normal URLs, let the WebView handle them
-                    return false
                 }
             }
 
@@ -588,20 +522,20 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                
+
                 // Add a method to prevent window closing
                 @JavascriptInterface
                 public fun preventClose() {
                     // Do nothing, just a hook to keep the app open
                 }
-                
+
                 // Add method to report performance issues to the app
                 @JavascriptInterface
                 public fun reportPerformance(metric: String, value: String) {
                     // Could be used for telemetry or debugging
                 }
             }
-            
+
             // Add JavaScript interface for media handling
             class MediaInterface(private val context: Context) {
                 @JavascriptInterface
@@ -615,9 +549,30 @@ class MainActivity : ComponentActivity() {
                 ) {
                     ThreadManager.runOnMain {
                         try {
-                            (context as? MainActivity)?.mediaSessionManager?.onMediaEvent(
-                                event, elementId, currentTime, duration, src, title
-                            )
+                            (context as? MainActivity)?.let { activity ->
+                                when (event) {
+                                    "play" -> {}
+                                    "pause" -> {}
+                                    "timeupdate" -> {}
+                                    "ended" -> {}
+                                    "loadedmetadata" -> {}
+                                    else -> {} // Added missing else branch
+                                }
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                }
+
+                @JavascriptInterface
+                fun onMediaStateChange(title: String?, artist: String?, duration: Long, position: Long, isPlaying: Boolean) {
+                    ThreadManager.runOnMain {
+                        try {
+                            (context as? MainActivity)?.let { activity ->
+                                activity.mediaSessionManager.updateMetadata(title, artist, duration)
+                                activity.mediaSessionManager.updatePlaybackState(isPlaying, position)
+                            }
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }
@@ -628,40 +583,172 @@ class MainActivity : ComponentActivity() {
             try {
                 webView.addJavascriptInterface(ScrollInterface(context.applicationContext), "ScrollInterface")
                 webView.addJavascriptInterface(MediaInterface(context.applicationContext), "Android")
+                webView.addJavascriptInterface(MediaInterface(context.applicationContext), "MediaInterface")
+                webView.addJavascriptInterface(object : Any() {
+                    @JavascriptInterface
+                    fun playMedia(url: String) {
+                        (context as? MainActivity)?.let { activity ->
+                            activity.runOnUiThread {
+                                activity.exoPlayerManager.playMedia(url)
+                            }
+                        }
+                    }
+                }, "ExoPlayerInterface")
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-            
+
             return webView
+        }
+
+        /**
+         * Inject CSS modifications to make TiddlyWiki more usable on very small screens
+         */
+        private fun injectSmallScreenCSS(webView: WebView?) {
+            webView?.evaluateJavascript("""
+                (function() {
+                    // Remove any previous small screen styles
+                    let existingStyle = document.getElementById('tidweb-small-screen-styles');
+                    if (existingStyle) {
+                        existingStyle.parentNode.removeChild(existingStyle);
+                    }
+                    
+                    // Create new stylesheet for small screen adaptations
+                    let styleEl = document.createElement('style');
+                    styleEl.id = 'tidweb-small-screen-styles';
+                    styleEl.textContent = `
+                        /* Optimize TiddlyWiki for very small screens */
+                        .tc-tiddler-frame {
+                            padding: 0.5em !important;
+                            margin: 0.25em 0 !important;
+                        }
+                        
+                        .tc-tiddler-title, .tc-site-title {
+                            font-size: 1.2em !important;
+                            line-height: 1.2 !important;
+                            margin: 0 0 0.5em 0 !important;
+                        }
+                        
+                        .tc-titlebar {
+                            margin-bottom: 0.3em !important;
+                        }
+                        
+                        .tc-subtitle {
+                            font-size: 0.7em !important;
+                            margin: 0 !important;
+                        }
+                        
+                        .tc-tiddler-controls {
+                            font-size: 0.85em !important;
+                        }
+                        
+                        .tc-tiddler-controls .tc-btn-invisible {
+                            padding: 0.15em !important;
+                            margin: 0 0.1em !important;
+                        }
+                        
+                        /* Make dropdown menus more compact */
+                        .tc-drop-down {
+                            padding: 0.3em !important;
+                            font-size: 0.9em !important;
+                        }
+                        
+                        .tc-drop-down a {
+                            padding: 0.2em 0.4em !important;
+                        }
+                        
+                        /* Adjust body text and spacing */
+                        .tc-tiddler-body {
+                            margin: 0.3em 0 !important;
+                            font-size: 0.95em !important;
+                            line-height: 1.3 !important;
+                        }
+                        
+                        /* Adjust sidebar */
+                        .tc-sidebar-lists {
+                            padding: 0.3em !important;
+                        }
+                        
+                        .tc-sidebar-tab-open {
+                            font-size: 0.9em !important;
+                        }
+                        
+                        /* Force horizontal scrolling rather than overflow */
+                        pre, code, .tc-table-of-contents {
+                            max-width: 100% !important;
+                            overflow-x: auto !important;
+                        }
+                        
+                        /* Keep larger tap targets */
+                        button, .tc-btn-invisible, a {
+                            min-height: 22px !important;
+                            min-width: 22x !important;
+                        }
+                        
+                        /* Reduce image sizes */
+                        img {
+                            max-width: 100% !important;
+                            height: auto !important;
+                        }
+                        
+                        /* Adapt modals */
+                        .tc-modal {
+                            padding: 0.3em !important;
+                        }
+                        
+                        /* Adjust inputs */
+                        input, select, textarea {
+                            font-size: 0.95em !important;
+                        }
+                    `;
+                    
+                    document.head.appendChild(styleEl);
+                    console.log('Small screen CSS adaptations applied');
+                    return true;
+                })();
+            """, null)
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         try {
             super.onCreate(savedInstanceState)
-            
+
             // Initialize managers and view models first before any UI
             mediaSessionManager = MediaSessionManager(this)
             exoPlayerManager = ExoPlayerManager(this)
             viewModel = getViewModel(this)
-            
+
             // Setup network monitoring before UI
             connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             setupNetworkCallback()
-            
+
             // Setup UI with state management protection
             setContent {
                 val currentContext = LocalContext.current as ComponentActivity
                 val viewModel = remember(currentContext) { getViewModel(currentContext) }
                 val isDarkMode by viewModel.isDarkMode.collectAsState(initial = false)
-                
+
                 // Protect against composition errors with SideEffect
                 SideEffect {
                     if (viewModel != this.viewModel) {
                         this.viewModel = viewModel
                     }
                 }
-                
+
+                // Handle initial wiki state preservation
+                DisposableEffect(Unit) {
+                    onDispose {
+                        // Save state of current wiki when activity is disposed
+                        viewModel.currentWiki.value?.let { wiki ->
+                            val key = wiki.idFromUrl ?: wiki.url
+                            getCurrentWebView()?.let { webView ->
+                                WebViewCache.cacheWebView(key, webView)
+                            }
+                        }
+                    }
+                }
+
                 MaterialTheme(
                     colorScheme = if (isDarkMode) darkColorScheme() else lightColorScheme()
                 ) {
@@ -675,31 +762,38 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-            
+
             // Handle intent after UI is set up
             handleIntent(intent)
-            
+
             // Set up media player callbacks
             setupMediaCallbacks()
-            
+
             // Initialize media session binding
             mediaSessionManager.bindToService()
-            
+
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "Error initializing app: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
-    
+
+    // Add method to access current WebView
+    fun getCurrentWebView(): WebView? {
+        return viewModel?.currentWiki?.value?.let { wiki ->
+            viewModel?.getOrCreateWebView(wiki, this)
+        }
+    }
+
     @Composable
     private fun MainContent() {
         val localContext = LocalContext.current as ComponentActivity
         val viewModel = ViewModelProvider(localContext)[WikiViewModel::class.java]
-        
+
         // Add error handling dialog
         if (showLoadErrorDialog && loadErrorWiki != null) {
             AlertDialog(
-                onDismissRequest = { 
+                onDismissRequest = {
                     showLoadErrorDialog = false
                     loadErrorWiki = null
                 },
@@ -717,7 +811,7 @@ class MainActivity : ComponentActivity() {
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { 
+                    TextButton(onClick = {
                         showLoadErrorDialog = false
                         loadErrorWiki = null
                     }) {
@@ -730,9 +824,10 @@ class MainActivity : ComponentActivity() {
         // This is the top-level MainScreen that contains all UI elements
         MainScreen(
             viewModel = viewModel,
-            onAddClick = { showAddDialog = true }
+            onAddClick = { showAddDialog = true },
+            onShowRenameDialog = { showRenameDialog = true }
         )
-        
+
         // Handle dialog visibility from the MainActivity state
         if (showAddDialog) {
             AddWikiDialog(
@@ -749,7 +844,7 @@ class MainActivity : ComponentActivity() {
                 }
             )
         }
-        
+
         if (showWikiSelector && pendingSharedText != null) {
             WikiSelectionDialog(
                 wikis = viewModel.allWikis.collectAsState().value,
@@ -775,7 +870,7 @@ class MainActivity : ComponentActivity() {
                 }
             )
         }
-        
+
         if (showDeleteConfirmDialog && viewModel.currentWiki.value != null) {
             AlertDialog(
                 onDismissRequest = { showDeleteConfirmDialog = false },
@@ -798,7 +893,7 @@ class MainActivity : ComponentActivity() {
                 }
             )
         }
-        
+
         if (showTagManagement) {
             TagManagementDialog(
                 tags = viewModel.quickTags.collectAsState().value,
@@ -806,6 +901,20 @@ class MainActivity : ComponentActivity() {
                 onRemoveTag = { viewModel.removeQuickTag(it) },
                 onReorderTags = { from, to -> viewModel.reorderQuickTags(from, to) },
                 onDismiss = { showTagManagement = false }
+            )
+        }
+
+        // Add RenameWikiDialog
+        if (showRenameDialog && viewModel.currentWiki.value != null) {
+            RenameWikiDialog(
+                currentName = viewModel.currentWiki.value?.name ?: "",
+                onDismiss = { showRenameDialog = false },
+                onRename = { newName ->
+                    viewModel.currentWiki.value?.let { wiki ->
+                        viewModel.renameWiki(wiki, newName)
+                    }
+                    showRenameDialog = false
+                }
             )
         }
     }
@@ -822,7 +931,7 @@ class MainActivity : ComponentActivity() {
                             val title = currentItem?.mediaMetadata?.title?.toString() ?: "Unknown Title"
                             val artist = currentItem?.mediaMetadata?.artist?.toString() ?: "TiddlyWiki Audio"
                             val duration = exoPlayerManager.getOrCreatePlayer().duration
-                            
+
                             mediaSessionManager.updateMetadata(title, artist, duration)
                             startMediaService()
                         }
@@ -831,7 +940,7 @@ class MainActivity : ComponentActivity() {
                     else -> {} // No action needed for other states
                 }
             }
-            
+
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 updateMediaSessionState()
                 if (isPlaying) {
@@ -840,7 +949,7 @@ class MainActivity : ComponentActivity() {
                     val title = currentItem?.mediaMetadata?.title?.toString() ?: "Unknown Title"
                     val artist = currentItem?.mediaMetadata?.artist?.toString() ?: "TiddlyWiki Audio"
                     val duration = exoPlayerManager.getOrCreatePlayer().duration
-                    
+
                     mediaSessionManager.updateMetadata(title, artist, duration)
                     startMediaService()
                 }
@@ -924,7 +1033,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         serviceConnection = null
-        
+
         // Don't stop the service here - let it run in foreground
         // This allows notifications to persist
     }
@@ -941,31 +1050,79 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleWikiSelection(selectedWiki: WikiInstance, textToShare: String?, selectedTags: List<String>) {
-        lifecycleScope.launch {
-            try {
-                // First, show loading state in UI
-                withContext(Dispatchers.Main) {
-                    // Show loading indicator (implementation not shown)
-                }
-
-                // Preload in background
-                withContext(Dispatchers.IO) {
-                    viewModel?.preloadWebView(selectedWiki, this@MainActivity)
-                }
-
-                // Then update UI
-                withContext(Dispatchers.Main) {
-                    viewModel?.setCurrentWiki(selectedWiki)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                withContext(Dispatchers.Main) {
-                    // Show error dialog
-                    loadErrorWiki = selectedWiki
-                    showLoadErrorDialog = true
+        viewModel?.setCurrentWiki(selectedWiki)
+        Handler(Looper.getMainLooper()).postDelayed({
+            getCurrentWebView()?.evaluateJavascript("""
+                (function() {
+                    try {
+                        console.log('Checking TiddlyWiki state...');
+                        var tiddlywiki = window['${'$'}tw'];
+                        if (!tiddlywiki || !tiddlywiki.wiki) {
+                            console.log('TiddlyWiki object not found');
+                            return { status: 'not_ready' };
+                        }
+                        
+                        var title = 'Shared Content ' + new Date().toISOString();
+                        var processedText = ${JSONObject.quote(textToShare ?: "")}.replace(/\\\\n/g, "\n").replace(/\\\\t/g, "\t").replace(/\\n/g, "\n").replace(/\\t/g, "\t");
+                        processedText = processedText.replace(/(\n\s*){5,}/g, "\n".repeat(5));
+                        var tags = ${JSONArray(selectedTags).toString()};
+                        
+                        tiddlywiki.wiki.addTiddler({
+                            title: title,
+                            text: processedText,
+                            tags: tags
+                        });
+                        
+                        // Verify tiddler was created
+                        var tiddler = tiddlywiki.wiki.getTiddler(title);
+                        if (!tiddler) {
+                            return { status: 'error', message: 'Failed to create tiddler' };
+                        }
+                        
+                        // Try to navigate to the new tiddler
+                        if (tiddlywiki.story && typeof tiddlywiki.story.navigateTiddler === 'function') {
+                            tiddlywiki.story.navigateTiddler(title);
+                            console.log('Navigated to tiddler:', title);
+                        }
+                        
+                        // Attempt to trigger a save if possible
+                        if (typeof tiddlywiki.wiki.saveWiki === 'function') {
+                            tiddlywiki.wiki.saveWiki();
+                        }
+                        
+                        return { status: 'success', title: title };
+                    } catch (e) {
+                        console.error('Error creating tiddler:', e);
+                        return { status: 'error', message: e.toString() };
+                    }
+                })();
+            """.trimIndent()) { result ->
+                try {
+                    val jsonResult = JSONObject(result)
+                    when (jsonResult.getString("status")) {
+                        "not_ready" -> {
+                            // Try again after a longer delay
+                            Handler(Looper.getMainLooper()).postDelayed({
+                                handleWikiSelection(selectedWiki, textToShare, selectedTags)
+                            }, 2000)
+                        }
+                        "success" -> {
+                            Toast.makeText(this, "Content shared to ${selectedWiki.name}", Toast.LENGTH_SHORT).show()
+                        }
+                        "error" -> {
+                            val message = jsonResult.optString("message", "Unknown error")
+                            Toast.makeText(this, "Failed to create tiddler: $message", Toast.LENGTH_LONG).show()
+                        }
+                        else -> {
+                            Toast.makeText(this, "Unknown response from TiddlyWiki", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Error processing tiddler creation", Toast.LENGTH_LONG).show()
+                    e.printStackTrace()
                 }
             }
-        }
+        }, 1000)
     }
 
     // Monitor memory conditions to prevent ANR
@@ -1008,8 +1165,10 @@ class MainActivity : ComponentActivity() {
                 val currentTime = System.currentTimeMillis()
                 if (currentTime - lastNetworkCheckTime > NETWORK_CHECK_THROTTLE) {
                     lastNetworkCheckTime = currentTime
-                    val viewModel = getViewModel(this@MainActivity)
-                    viewModel.setOfflineState(true)
+                    ThreadManager.runOnBackground {
+                        val viewModel = getViewModel(this@MainActivity)
+                        viewModel.setOfflineState(true)
+                    }
                 }
             }
 
@@ -1018,11 +1177,13 @@ class MainActivity : ComponentActivity() {
                 val currentTime = System.currentTimeMillis()
                 if (currentTime - lastNetworkCheckTime > NETWORK_CHECK_THROTTLE) {
                     lastNetworkCheckTime = currentTime
-                    val capabilities = connectivityManager.getNetworkCapabilities(network)
-                    val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-                    if (hasInternet) {
-                        val viewModel = getViewModel(this@MainActivity)
-                        viewModel.setOfflineState(false)
+                    ThreadManager.runOnBackground {
+                        val capabilities = connectivityManager.getNetworkCapabilities(network)
+                        val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+                        if (hasInternet) {
+                            val viewModel = getViewModel(this@MainActivity)
+                            viewModel.setOfflineState(false)
+                        }
                     }
                 }
             }
@@ -1041,20 +1202,51 @@ class MainActivity : ComponentActivity() {
         super.onPause()
         webViewPaused = true
         exoPlayerManager.onPause()
-        viewModel?.pauseAllWebViews()
+        viewModel?.let { vm ->
+            // Save state for current WebView
+            vm.currentWiki.value?.let { wiki ->
+                val key = wiki.idFromUrl ?: wiki.url
+                WebViewCache.cacheWebView(key, vm.getOrCreateWebView(wiki, this))
+            }
+            vm.pauseAllWebViews()
+        }
+
+        // Dispatch pause event to WebView
+        getCurrentWebView()?.evaluateJavascript("""
+            (function() {
+                const event = new Event('pause');
+                document.dispatchEvent(event);
+            })();
+        """.trimIndent(), null)
     }
 
     override fun onResume() {
         super.onResume()
-        webViewPaused = false
-        exoPlayerManager.onResume()
-        viewModel?.resumeCurrentWebView(viewModel?.currentWiki?.value)
-        
-        // When resuming, get the current WebView and set it for the MediaSessionManager
-        getCurrentWebView()?.let { webView ->
-            mediaSessionManager.setWebView(webView)
-            // Bind to service to ensure continuity of playback controls
-            mediaSessionManager.bindToService()
+
+        // Ensure any current WebView is resumed properly
+        viewModel?.currentWiki?.value?.let { currentWiki ->
+            viewModel?.resumeCurrentWebView(currentWiki)
+        }
+
+        // Check for initialization status
+        if (viewModel?.isWebViewReady?.value == true) {
+            WebViewCache.clearCache(this)
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Don't cleanup if we're just changing configurations
+        if (!isChangingConfigurations) {
+            viewModel?.let { vm ->
+                vm.currentWiki.value?.let { wiki ->
+                    val key = wiki.idFromUrl ?: wiki.url
+                    // Save full state before stopping
+                    vm.getOrCreateWebView(wiki, this)?.let { webView ->
+                        WebViewCache.cacheWebView(key, webView)
+                    }
+                }
+            }
         }
     }
 
@@ -1081,7 +1273,8 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        if (!webViewPaused) {
+        // Only clear WebViews if we're actually being destroyed, not during configuration changes
+        if (!isChangingConfigurations && !webViewPaused) {
             viewModel?.clearWebViews()
             viewModel = null
         }
@@ -1090,10 +1283,8 @@ class MainActivity : ComponentActivity() {
     // Implement the onLowMemory callback
     override fun onLowMemory() {
         super.onLowMemory()
-        ThreadManager.runOnBackground {
-            viewModel?.onLowMemory()
-            System.gc()
-        }
+        WebViewCache.onLowMemory()
+        viewModel?.onLowMemory()
     }
 
     // Implement onTrimMemory
@@ -1113,67 +1304,19 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
-        WebViewCache.setConfigurationChanging(true)
         super.onConfigurationChanged(newConfig)
+        WebViewCache.setConfigurationChanging(true)
 
-        // Fix for orientation changes: update WebView layout
-        ThreadManager.runOnBackgroundWithDelay(100) {
-            ThreadManager.runOnMain {
-                val currentWikiUrl = viewModel?.currentWiki?.value?.url
-                currentWikiUrl?.let { url ->
-                    viewModel?.getOrCreateWebView(viewModel?.currentWiki?.value ?: return@let, this)?.let { webView ->
-                        // Get current orientation
-                        val isPortrait = newConfig.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
-
-                        // Trigger layout update with orientation awareness
-                        webView.evaluateJavascript("""
-                        (function() {
-                            // Force layout recalculation
-                            document.body.style.width = window.innerWidth + 'px';
-                            const evt = new Event('resize');
-                            window.dispatchEvent(evt);
-                            
-                            // Handle orientation-specific resizing
-                            const isPortrait = ${isPortrait};
-                            
-                            // Safely check if TiddlyWiki is available
-                            if (typeof window !== 'undefined' && 
-                                window.${"$"}tw && 
-                                typeof window.${"$"}tw.utils === 'object') {
-                                
-                                try {
-                                    if (isPortrait) {
-                                        // In portrait mode, use window resize event for better content flow
-                                        window.${"$"}tw.utils.resizeAll();
-                                        // Additional portrait-specific adjustments
-                                        document.body.classList.add('tc-portrait-mode');
-                                        document.body.classList.remove('tc-landscape-mode');
-                                    } else {
-                                        // In landscape mode, use TiddlyWiki's resize utils
-                                        window.${"$"}tw.utils.resizeAll();
-                                        // Additional landscape-specific adjustments
-                                        document.body.classList.add('tc-landscape-mode');
-                                        document.body.classList.remove('tc-portrait-mode');
-                                    }
-                                    return "TiddlyWiki resized for " + (isPortrait ? "portrait" : "landscape");
-                                } catch(e) {
-                                    console.error('TiddlyWiki resize error:', e);
-                                    return "Error: " + e.message;
-                                }
-                            } else {
-                                console.log('TiddlyWiki not fully initialized yet');
-                                return "TiddlyWiki not ready";
-                            }
-                        })();
-                    """) { result ->
-
-                        }
-                    }
-                }
-            }
+        // Handle any WebViews that need to be retained during configuration changes
+        viewModel?.currentWiki?.value?.let { wiki ->
+            val key = wiki.idFromUrl ?: wiki.url
+            WebViewCache.setCurrentActiveKey(key)
         }
 
-        WebViewCache.setConfigurationChanging(false)
+        // Reset flag after a short delay
+        Handler(Looper.getMainLooper()).postDelayed({
+            WebViewCache.setConfigurationChanging(false)
+        }, 1000)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -1191,7 +1334,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(
     viewModel: WikiViewModel,
-    onAddClick: () -> Unit
+    onAddClick: () -> Unit,
+    onShowRenameDialog: () -> Unit
 ) {
     val context = LocalContext.current
     val currentWiki by viewModel.currentWiki.collectAsState()
@@ -1220,17 +1364,24 @@ fun MainScreen(
                 visible = isFrameVisible,
                 enter = slideInVertically(
                     initialOffsetY = { -it },
-                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                    animationSpec = tween(
+                        durationMillis = 200,  // Match scroll detection speed
+                        easing = FastOutSlowInEasing
+                    )
                 ),
                 exit = slideOutVertically(
                     targetOffsetY = { -it },
-                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                    animationSpec = tween(
+                        durationMillis = 200,  // Keep consistent with enter
+                        easing = FastOutLinearInEasing
+                    )
                 )
             ) {
                 Surface(
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 3.dp,
-                    shadowElevation = 3.dp
+                    shadowElevation = 3.dp,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     TopAppBar(
                         title = { Text(currentWiki?.name ?: "TiddlyWiki Browser") },
@@ -1271,8 +1422,8 @@ fun MainScreen(
                                                     val tiddler = JSONObject(result.trim('"').replace("\\\"", "\""))
                                                     val shareIntent = Intent().apply {
                                                         action = Intent.ACTION_SEND
-                                                        putExtra(Intent.EXTRA_TITLE, tiddler.getString("title"))
-                                                        putExtra(Intent.EXTRA_TEXT, tiddler.getString("content"))
+                                                        putExtra(Intent.EXTRA_TITLE, tiddler.getString("title") as String)
+                                                        putExtra(Intent.EXTRA_TEXT, tiddler.getString("content") as String)
                                                         type = "text/plain"
                                                     }
                                                     context.startActivity(Intent.createChooser(shareIntent, "Share Tiddler"))
@@ -1322,6 +1473,14 @@ fun MainScreen(
                                             }
                                         }
                                     )
+
+                                    DropdownMenuItem(
+                                        text = { Text("Rename Wiki") },
+                                        onClick = {
+                                            showMenu = false
+                                            onShowRenameDialog()
+                                        }
+                                    )
                                 }
 
                                 DropdownMenuItem(
@@ -1331,7 +1490,7 @@ fun MainScreen(
                                         onAddClick()
                                     }
                                 )
-                                
+
                                 DropdownMenuItem(
                                     text = { Text("Create Single File Tiddler") },
                                     onClick = {
@@ -1394,11 +1553,17 @@ fun MainScreen(
                 visible = isFrameVisible,
                 enter = slideInVertically(
                     initialOffsetY = { it },
-                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                    animationSpec = tween(
+                        durationMillis = 200,  // Match scroll detection speed
+                        easing = FastOutSlowInEasing
+                    )
                 ),
                 exit = slideOutVertically(
                     targetOffsetY = { it },
-                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                    animationSpec = tween(
+                        durationMillis = 200,  // Keep consistent with enter
+                        easing = FastOutLinearInEasing
+                    )
                 )
             ) {
                 Box {
@@ -1431,7 +1596,8 @@ fun MainScreen(
                     Surface(
                         color = MaterialTheme.colorScheme.surface,
                         tonalElevation = 3.dp,
-                        shadowElevation = 3.dp
+                        shadowElevation = 3.dp,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         NavigationBar {
                             if (wikis.isEmpty()) {
@@ -1445,9 +1611,9 @@ fun MainScreen(
                                 wikis.forEachIndexed { index, wiki ->
                                     val isSelected = wiki == currentWiki
                                     var offsetX by remember { mutableStateOf(0f) }
-                                    
+
                                     NavigationBarItem(
-                                        icon = { 
+                                        icon = {
                                             Icon(
                                                 Icons.Default.Book,
                                                 contentDescription = wiki.name,
@@ -1463,7 +1629,7 @@ fun MainScreen(
                                                                 change.consume()
                                                                 offsetX += dragAmount.x
                                                                 dragOffset = offsetX
-                                                                
+
                                                                 // Show trash can after hold threshold
                                                                 if (System.currentTimeMillis() - dragStartTime.value > holdThreshold) {
                                                                     showTrashCan = true
@@ -1479,7 +1645,7 @@ fun MainScreen(
                                                                     val dragDistance = dragOffset
                                                                     val itemWidth = size.width.toFloat()
                                                                     val newPosition = (dragDistance / itemWidth).roundToInt()
-                                                                    
+
                                                                     if (newPosition != 0) {
                                                                         val targetIndex = (index + newPosition).coerceIn(0, wikis.size - 1)
                                                                         if (targetIndex != index) {
@@ -1487,7 +1653,7 @@ fun MainScreen(
                                                                         }
                                                                     }
                                                                 }
-                                                                
+
                                                                 // Reset states
                                                                 draggedWiki = null
                                                                 isDragging = false
@@ -1526,7 +1692,7 @@ fun MainScreen(
         if (showDeleteConfirmDialog && (wikiToDelete != null || currentWiki != null)) {
             val wiki = wikiToDelete ?: currentWiki
             AlertDialog(
-                onDismissRequest = { 
+                onDismissRequest = {
                     showDeleteConfirmDialog = false
                     wikiToDelete = null
                 },
@@ -1542,8 +1708,8 @@ fun MainScreen(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { 
-                        showDeleteConfirmDialog = false 
+                    TextButton(onClick = {
+                        showDeleteConfirmDialog = false
                         wikiToDelete = null
                     }) {
                         Text("Cancel")
@@ -1551,7 +1717,75 @@ fun MainScreen(
                 }
             )
         }
+
+        if (showTagManagement) {
+            TagManagementDialog(
+                tags = viewModel.quickTags.collectAsState().value,
+                onAddTag = { viewModel.addQuickTag(it) },
+                onRemoveTag = { viewModel.removeQuickTag(it) },
+                onReorderTags = { from, to -> viewModel.reorderQuickTags(from, to) },
+                onDismiss = { showTagManagement = false }
+            )
+        }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RenameWikiDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onRename: (String) -> Unit
+) {
+    var newName by remember { mutableStateOf(currentName) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename Wiki") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            ) {
+                TextField(
+                    value = newName,
+                    onValueChange = { newName = it; error = null },
+                    label = { Text("Wiki Name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = error != null || newName.isBlank(),
+                    supportingText = error?.let { { Text(it) } },
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (newName.isBlank()) {
+                        error = "Name cannot be empty"
+                        return@TextButton
+                    }
+
+                    if (newName == currentName) {
+                        onDismiss()
+                        return@TextButton
+                    }
+
+                    onRename(newName)
+                },
+                enabled = newName.isNotBlank()
+            ) {
+                Text("Rename")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1584,7 +1818,7 @@ fun AddWikiDialog(
                     isError = name.isBlank(),
                     singleLine = true
                 )
-                
+
                 TextField(
                     value = url,
                     onValueChange = { url = it; error = null },
@@ -1595,7 +1829,7 @@ fun AddWikiDialog(
                     supportingText = error?.let { { Text(it) } },
                     singleLine = true
                 )
-                
+
                 // Add a button to select a local file
                 OutlinedButton(
                     onClick = onAddLocalFile,
@@ -1617,12 +1851,12 @@ fun AddWikiDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { 
+                onClick = {
                     if (name.isBlank() || url.isBlank()) {
                         error = "Name and URL are required"
                         return@TextButton
                     }
-                    
+
                     // Use URL validation and make sure to call onAdd with the formatted URL
                     WikiInstance.validateUrl(url)
                         .onSuccess { formattedUrl ->
@@ -1630,7 +1864,7 @@ fun AddWikiDialog(
                             onAdd(name, formattedUrl)
                             Toast.makeText(context, "Wiki added successfully", Toast.LENGTH_SHORT).show()
                         }
-                        .onFailure { 
+                        .onFailure {
                             error = it.message ?: "Invalid URL format"
                         }
                 },
@@ -1878,9 +2112,9 @@ fun TiddlerTemplateSelectionDialog(
     val viewModel: WikiViewModel = remember { MainActivity.getViewModel(context) }
     val templates by viewModel.tiddlerTemplates.collectAsState()
     var isLoading by remember { mutableStateOf(true) }
-    
+
     LaunchedEffect(Unit) {
-        viewModel.loadTiddlerTemplates(context)
+        viewModel.loadTiddlerTemplates()
         isLoading = false
     }
 

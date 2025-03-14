@@ -1295,7 +1295,11 @@ attr yearStyle
 attr yearTodayStyle
 bool abc_action_bar_embed_tabs
 bool abc_config_actionMenuItemAllCaps
+bool is_compact_layout
 bool mtrl_btn_textappearance_all_caps
+bool use_minimal_padding
+bool use_simplified_ui
+bool webview_force_zoom
 color abc_background_cache_hint_selector_material_dark
 color abc_background_cache_hint_selector_material_light
 color abc_btn_colored_borderless_text_material
@@ -3788,6 +3792,7 @@ integer mtrl_view_invisible
 integer mtrl_view_visible
 integer show_password_duration
 integer status_bar_notification_info_maxnum
+integer webview_text_zoom
 interpolator btn_checkbox_checked_mtrl_animation_interpolator_0
 interpolator btn_checkbox_checked_mtrl_animation_interpolator_1
 interpolator btn_checkbox_unchecked_mtrl_animation_interpolator_0
