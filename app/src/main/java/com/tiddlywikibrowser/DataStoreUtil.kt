@@ -21,4 +21,5 @@ object PreferencesKeys {
     val FAVICONS = stringPreferencesKey("favicons")
     val QUICK_TAGS = stringPreferencesKey("quick_tags")
     val USE_SMALL_SCREEN_CSS = booleanPreferencesKey("use_small_screen_css")
+    val BACKGROUND_MODE_ENABLED = booleanPreferencesKey("background_mode_enabled")
 }

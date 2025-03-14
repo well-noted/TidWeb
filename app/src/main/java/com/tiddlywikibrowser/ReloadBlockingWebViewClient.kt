@@ -31,6 +31,10 @@ class ReloadBlockingWebViewClient(
     private var hasCheckedForContent = false
     private var hasReportedSuccess = false
     private var currentPageUrl: String? = null
+    private var reloadProtectionInstalled = false
+    private var contentDetectionAttempts = 0
+    private val CONTENT_DETECTION_ATTEMPTS = 3 // Number of attempts to check for content
+    private val CONTENT_DETECTION_DELAY = 800L // ms between content detection attempts
 
     // Keep track of the last successful load time to prevent unnecessary reloads
     private var lastSuccessfulLoadTime = 0L
@@ -54,11 +58,78 @@ class ReloadBlockingWebViewClient(
     }
 
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+        if (view == null || request == null) return false
+        
+        try {
+            val url = request.url.toString()
+            
+            // Handle media URLs specially
+            if (url.startsWith("blob:") || isMediaUrl(url)) {
+                Log.d(TAG, "Allowing media URL: $url")
+                return false
+            }
+            
+            // Allow download URLs to pass through
+            if (isDownloadableFileType(url)) {
+                // Safely access headers with null check
+                val headers = request.requestHeaders
+                val contentDisposition = headers?.get("Content-Disposition")
+                if (contentDisposition?.contains("attachment") == true) {
+                    Log.d(TAG, "Allowing download URL with attachment: $url")
+                    return false
+                }
+                
+                Log.d(TAG, "Allowing download URL: $url")
+                return false
+            }
+            
+            // Block same-page refreshes
+            if (url == view.url) {
+                Log.d(TAG, "Blocking same-page refresh: $url")
+                return true
+            }
+            
+            // Prevent navigation to special URLs that would cause reloads
+            if (url.contains("about:blank") || 
+                url.contains("javascript:location.reload()") || 
+                url.contains("javascript:window.location.reload()")) {
+                Log.d(TAG, "Blocking reload URL: $url")
+                return true
+            }
+            
+            // Allow wiki-internal navigation (fragments and TiddlyWiki navigation)
+            if (url.contains("#") || isTiddlyWikiNavigation(url, view.url)) {
+                Log.d(TAG, "Allowing wiki-internal navigation: $url")
+                return false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in shouldOverrideUrlLoading: ${e.message}", e)
+        }
+        
         // Let the WebView handle the URL if it's a navigation request
         return false
     }
 
     override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+        val url = request?.url?.toString() ?: return null
+        
+        // Don't block download resources
+        if (isDownloadableFileType(url)) {
+            return null
+        }
+        
+        // Don't block media resources
+        if (isMediaUrl(url)) {
+            return null
+        }
+        
+        // Block reload-triggering resources
+        if (url.contains("refresh.js") || url.contains("reload.js") || 
+            url.contains("location.reload") || url.contains("document.reload")) {
+            // Return empty response to block the resource
+            return WebResourceResponse("text/plain", "UTF-8", "".byteInputStream())
+        }
+        
         // Don't intercept requests - let them proceed normally
         return super.shouldInterceptRequest(view, request)
     }
@@ -69,6 +140,28 @@ class ReloadBlockingWebViewClient(
         if (view == null || url == null || url == "about:blank") {
             super.onPageFinished(view, url)
             return
+        }
+
+        // Enable media features when page is loaded
+        view.settings?.blockNetworkImage = false
+        view.settings?.loadsImagesAutomatically = true
+        view.settings?.mediaPlaybackRequiresUserGesture = false // Allow autoplay for media
+        
+        // Inject media monitor script if available
+        (context as? MainActivity)?.let { activity ->
+            try {
+                val field = activity::class.java.getDeclaredField("mediaMonitorScript")
+                field.isAccessible = true
+                val mediaMonitorScript = field.get(activity) as? String
+                if (mediaMonitorScript != null) {
+                    view.evaluateJavascript(mediaMonitorScript, null)
+                }
+                else {
+
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "Media monitor script not available: ${e.message}")
+            }
         }
 
         // Get the current state of the WebView - is it already marked as loaded?
@@ -91,10 +184,13 @@ class ReloadBlockingWebViewClient(
             // Mark that we've started checking for content
             hasCheckedForContent = true
 
+            // Reset content detection attempts counter
+            contentDetectionAttempts = 0
+
             // Check if this is an actual TiddlyWiki with content after a short delay
             ThreadManager.runOnMainWithDelay(300) {
                 if (view.isAttachedToWindow) {
-                    checkForWikiContent(view, url)
+                    checkForWikiContent(view)
                     // Add scroll detection after content check
                     reinforceScrollDetection(view)
                 }
@@ -107,76 +203,156 @@ class ReloadBlockingWebViewClient(
     /**
      * Check if the loaded content is a valid TiddlyWiki
      */
-    private fun checkForWikiContent(webView: WebView, url: String?) {
-        Log.d(TAG, "Checking for wiki content in: $url")
+    private fun checkForWikiContent(webView: WebView) {
+        Log.d(TAG, "Checking for wiki content, attempt ${contentDetectionAttempts + 1}")
 
-        // Execute JavaScript to check if this is a TiddlyWiki
-        webView.evaluateJavascript("""
-            (function() {
-                // Look for TiddlyWiki indicators
-                const hasTiddlyWikiElements = 
-                    document.querySelector('#storeArea') !== null || 
-                    document.querySelector('.tc-tiddler-frame') !== null ||
-                    document.querySelector('.tc-story-river') !== null ||
-                    (typeof window.${'$'}tw !== 'undefined');
-                
-                // Check for minimal HTML structure
-                const hasMinimalHtml = 
-                    document.querySelector('html') !== null && 
-                    document.querySelector('head') !== null && 
-                    document.querySelector('body') !== null;
-                
-                // Check if body has content
-                const bodyContent = document.body ? document.body.textContent || '' : '';
-                const hasBodyContent = bodyContent.length > 100;
-                
-                // Check if we have any meaningful content at all
-                const hasContent = hasTiddlyWikiElements || (hasMinimalHtml && hasBodyContent);
-                
-                // Return result as JSON
-                return JSON.stringify({
-                    hasTiddlyWikiElements: hasTiddlyWikiElements,
-                    hasMinimalHtml: hasMinimalHtml,
-                    hasBodyContent: hasBodyContent,
-                    hasContent: hasContent,
-                    bodyLength: bodyContent.length
-                });
-            })();
-        """.trimIndent()) { result ->
+        // Delay evaluation slightly to give time for DOM to fully render
+        ThreadManager.runOnMainWithDelay((100 + contentDetectionAttempts * 200).toLong()) {
             try {
-                // Process the result
-                val cleanResult = result.replace("\"", "")
-                    .replace("\\", "")
-                    .removePrefix("{")
-                    .removeSuffix("}")
-
-                Log.d(TAG, "Content check result: $cleanResult")
-
-                // Parse to see if we have TiddlyWiki content
-                val hasContent = cleanResult.contains("hasContent:true")
-
-                if (hasContent) {
-                    // SUCCESS: We have a valid wiki with content
-                    handleSuccessfulLoad(webView)
-                } else {
-                    // ERROR: No valid content found
-                    val bodyLength = cleanResult.substringAfter("bodyLength:").substringBefore(",")
-                    Log.d(TAG, "No valid wiki content found. Body length: $bodyLength")
-
-                    if (!hasReportedSuccess) {
-                        onLoadingStateChanged(false)
-                        onErrorReceived("No valid wiki content found")
-                        onPageLoaded(false)
+                // Execute JavaScript to check if this is a TiddlyWiki
+                webView.evaluateJavascript("""
+                    (function() {
+                        try {
+                            // Check for TiddlyWiki specifically
+                            if (window.${'$'}tw && window.${'$'}tw.wiki) {
+                                return "tiddlywiki";
+                            }
+                            
+                            // Look for TiddlyWiki indicators
+                            const hasTiddlyWikiElements = 
+                                document.querySelector('#storeArea') !== null || 
+                                document.querySelector('.tc-tiddler-frame') !== null ||
+                                document.querySelector('.tc-story-river') !== null ||
+                                (typeof window.${'$'}tw !== 'undefined');
+                            
+                            // Check for minimal HTML structure
+                            const hasMinimalHtml = 
+                                document.querySelector('html') !== null && 
+                                document.querySelector('head') !== null && 
+                                document.querySelector('body') !== null;
+                            
+                            // Check if body has content
+                            const bodyContent = document.body ? document.body.textContent || '' : '';
+                            const hasBodyContent = bodyContent.length > 100;
+                            
+                            // Check if we have any meaningful content at all
+                            const hasContent = hasTiddlyWikiElements || (hasMinimalHtml && hasBodyContent);
+                            
+                            // Be more permissive on later attempts
+                            if (bodyContent.length > 20 && ${contentDetectionAttempts} >= 1) {
+                                return "minimal-content:" + bodyContent.length;
+                            }
+                            
+                            // If document is still loading but has some content, give benefit of doubt
+                            if (bodyContent.length > 0 && document.readyState !== 'complete') {
+                                return "loading-content:" + document.readyState;
+                            }
+                            
+                            // Check if we're getting raw HTML that just needs time to render
+                            if (bodyContent.indexOf("<html") > -1 || bodyContent.indexOf("<!DOCTYPE") > -1) {
+                                return "html-content";
+                            }
+                            
+                            // Return result as JSON
+                            return JSON.stringify({
+                                hasTiddlyWikiElements: hasTiddlyWikiElements,
+                                hasMinimalHtml: hasMinimalHtml,
+                                hasBodyContent: hasBodyContent,
+                                hasContent: hasContent,
+                                bodyLength: bodyContent.length
+                            });
+                        } catch (e) {
+                            console.log("[Error checking content]", e);
+                            // If there's an error but we have content, still consider it loaded
+                            try {
+                                return document.body && document.body.innerHTML.length > 0 
+                                    ? "error-with-content:" + document.body.innerHTML.length 
+                                    : "error:" + e.message;
+                            } catch(e2) {
+                                return "critical-error";
+                            }
+                        }
+                    })();
+                """.trimIndent()) { result ->
+                    try {
+                        val resultState = result.trim('"')
+                        Log.d(TAG, "Content evaluation attempt ${contentDetectionAttempts + 1}: $resultState")
+                        
+                        // Consider the page loaded if it has any kind of meaningful content
+                        if (resultState.startsWith("tiddlywiki") || 
+                            resultState.startsWith("content:") || 
+                            resultState.startsWith("minimal-content:") ||
+                            resultState.startsWith("loading-content") ||
+                            resultState.startsWith("html-content") ||
+                            resultState.startsWith("error-with-content") ||
+                            resultState.contains("hasContent:true")) {
+                            
+                            handleSuccessfulLoad(webView)
+                        } else if (contentDetectionAttempts < CONTENT_DETECTION_ATTEMPTS - 1) {
+                            // Try again after a delay if we haven't reached max attempts
+                            contentDetectionAttempts++
+                            checkForWikiContent(webView)
+                        } else {
+                            // One final check after the maximum attempts
+                            webView.evaluateJavascript("""
+                                (function() {
+                                    try {
+                                        // Final check - be very permissive
+                                        var hasAnyContent = document.body && document.body.innerHTML.length > 0;
+                                        var hasTiddlyWikiKeywords = document.documentElement.innerHTML.indexOf("TiddlyWiki") > -1;
+                                        var hasStoreArea = document.getElementById("storeArea") !== null;
+                                        var hasTiddlers = document.querySelector("[data-tiddler-title]") !== null;
+                                        
+                                        // If we have any TiddlyWiki indicators, accept the content
+                                        if (hasTiddlyWikiKeywords || hasStoreArea || hasTiddlers) {
+                                            return "final-tw-check:pass";
+                                        }
+                                        
+                                        // If we have any content at all on final check, accept it
+                                        return hasAnyContent ? "final-content-check:pass" : "final-check:fail";
+                                    } catch(e) {
+                                        // Even on error, if we can detect HTML, consider it a pass
+                                        return document.documentElement ? "final-doc-check:pass" : "final-check:error";
+                                    }
+                                })();
+                            """.trimIndent()) { finalResult ->
+                                val finalState = finalResult.trim('"')
+                                Log.d(TAG, "Final content check: $finalState")
+                                
+                                if (finalState.endsWith(":pass")) {
+                                    // Accept the content on final check
+                                    handleSuccessfulLoad(webView)
+                                } else {
+                                    // We've tried everything - report failure
+                                    if (!hasReportedSuccess) {
+                                        onLoadingStateChanged(false)
+                                        onErrorReceived("No valid wiki content found")
+                                        onPageLoaded(false)
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // Error processing the result
+                        Log.e(TAG, "Error checking wiki content: ${e.message}")
+                        if (!hasReportedSuccess) {
+                            onLoadingStateChanged(false)
+                            onErrorReceived("Error checking content: ${e.message}")
+                            onPageLoaded(false)
+                        }
                     }
                 }
-
             } catch (e: Exception) {
-                // Error processing the result
-                Log.e(TAG, "Error checking wiki content: ${e.message}")
-                if (!hasReportedSuccess) {
-                    onLoadingStateChanged(false)
-                    onErrorReceived("Error checking content: ${e.message}")
-                    onPageLoaded(false)
+                Log.e(TAG, "Exception during content evaluation: ${e.message}", e)
+                
+                // If we got an error evaluating JavaScript but the webview seems OK,
+                // still try to be permissive rather than showing an error
+                if (contentDetectionAttempts < CONTENT_DETECTION_ATTEMPTS - 1) {
+                    contentDetectionAttempts++
+                    checkForWikiContent(webView)
+                } else {
+                    // On final attempt with error, just assume content is ok to prevent frustrating the user
+                    handleSuccessfulLoad(webView)
                 }
             }
         }
@@ -226,6 +402,7 @@ class ReloadBlockingWebViewClient(
         isInitialLoadFinished = false
         hasCheckedForContent = false
         hasReportedSuccess = false
+        contentDetectionAttempts = 0
 
         // Remove the prevention tag to allow the reload
         webView.setTag(R.string.prevent_reload_tag, false)
@@ -280,6 +457,36 @@ class ReloadBlockingWebViewClient(
                             }
                         };
                     }
+                    
+                    // Improve media handling
+                    document.querySelectorAll('audio, video').forEach(function(media) {
+                        media.addEventListener('error', function(e) {
+                            console.error('Media error:', e.target.error);
+                            if (window.MediaInterface) {
+                                window.MediaInterface.onMediaEvent(
+                                    'error',
+                                    e.target.id || 'unknown',
+                                    e.target.currentTime || 0,
+                                    e.target.duration || 0,
+                                    e.target.src || '',
+                                    e.target.getAttribute('title') || 'Error'
+                                );
+                            }
+                        });
+                    });
+                    
+                    // Improve link handling
+                    document.addEventListener('click', function(e) {
+                        // Check if clicked element is a link
+                        let link = e.target.closest('a');
+                        if (link && link.href) {
+                            // Special handling for in-wiki navigation
+                            if (link.classList.contains('tc-tiddlylink')) {
+                                // Let internal wiki links work normally
+                                return true;
+                            }
+                        }
+                    }, true);
                     
                     // Mark protection as applied
                     window.__reloadProtectionApplied = true;
@@ -375,5 +582,98 @@ class ReloadBlockingWebViewClient(
                 return true;
             })();
         """.trimIndent(), null)
+    }
+    
+    /**
+     * Check if the URL points to a downloadable file based on extension
+     */
+    private fun isDownloadableFileType(url: String): Boolean {
+        val downloadExtensions = arrayOf(
+            ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+            ".zip", ".rar", ".7z", ".tar", ".gz", ".apk",
+            ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp",
+            ".mp3", ".mp4", ".wav", ".avi", ".mov", ".mkv",
+            ".txt", ".csv", ".json", ".xml", ".html", ".htm",
+            ".exe", ".msi", ".dmg", ".iso"
+        )
+        
+        val lowercaseUrl = url.lowercase()
+        return downloadExtensions.any { lowercaseUrl.endsWith(it) }
+    }
+    
+    /**
+     * Check if a URL is for media content
+     */
+    private fun isMediaUrl(url: String): Boolean {
+        val mediaExtensions = arrayOf(
+            ".mp3", ".mp4", ".m4a", ".wav", ".ogg", ".webm", ".flac", 
+            ".aac", ".mov", ".mkv", ".avi"
+        )
+        
+        val lowercaseUrl = url.lowercase()
+        return mediaExtensions.any { lowercaseUrl.endsWith(it) } ||
+               lowercaseUrl.contains("audio") ||
+               lowercaseUrl.contains("video") ||
+               lowercaseUrl.contains("media")
+    }
+    
+    /**
+     * Check if navigation is within the same TiddlyWiki
+     */
+    private fun isTiddlyWikiNavigation(newUrl: String, currentUrl: String?): Boolean {
+        if (currentUrl == null) return false
+        
+        // If the base URL is the same (ignoring fragments), it's internal navigation
+        val newUrlBase = newUrl.substringBefore('#')
+        val currentUrlBase = currentUrl.substringBefore('#')
+        
+        return newUrlBase == currentUrlBase
+    }
+    
+    /**
+     * Save the WebView state for proper restoration
+     */
+    fun saveWebViewState(webView: WebView): Bundle {
+        val bundle = Bundle()
+        try {
+            webView.saveState(bundle)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving WebView state: ${e.message}")
+        }
+        return bundle
+    }
+    
+    /**
+     * Restore the WebView state
+     */
+    fun restoreWebViewState(webView: WebView, bundle: Bundle) {
+        try {
+            webView.restoreState(bundle)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error restoring WebView state: ${e.message}")
+        }
+    }
+    
+    /**
+     * Cancels any ongoing loads and resets the loading state
+     * Call this when cleaning up to ensure we don't have dangling state
+     */
+    fun cancelLoading() {
+        if (isInitialPageStarted) {
+            isInitialPageStarted = false
+            onLoadingStateChanged(false)
+        }
+        
+        // Use the current WebView if available
+        val currentWebView = (context as? MainActivity)?.getCurrentWebView()
+        currentWebView?.let { webView ->
+            if (webView.isAttachedToWindow) {
+                try {
+                    webView.stopLoading()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error stopping WebView loading: ${e.message}")
+                }
+            }
+        }
     }
 }

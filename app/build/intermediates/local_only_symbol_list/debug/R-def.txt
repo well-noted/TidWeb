@@ -22,6 +22,8 @@ string add
 string add_first_wiki
 string add_wiki
 string app_name
+string background_mode
+string background_mode_desc
 string cancel
 string dark_mode
 string dark_mode_desc

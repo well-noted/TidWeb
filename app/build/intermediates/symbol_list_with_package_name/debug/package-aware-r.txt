@@ -3977,6 +3977,8 @@ string androidx_startup
 string app_name
 string appbar_scrolling_view_behavior
 string authentication_required
+string background_mode
+string background_mode_desc
 string bottom_sheet_behavior
 string bottom_sheet_collapse_description
 string bottom_sheet_dismiss_description

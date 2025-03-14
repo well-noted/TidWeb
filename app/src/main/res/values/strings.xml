@@ -11,5 +11,7 @@
     <string name="theme_settings">Theme Settings</string>
     <string name="dark_mode">Dark Mode</string>
     <string name="dark_mode_desc">Switch between light and dark themes</string>
+    <string name="background_mode">Background Mode</string>
+    <string name="background_mode_desc">Keep TiddlyWiki running when app is minimized</string>
     <string name="prevent_reload_tag">wiki_loaded_state</string>
 </resources>

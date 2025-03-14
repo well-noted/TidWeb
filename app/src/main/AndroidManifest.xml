@@ -9,6 +9,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     
     <!-- Updated supports-screens to ensure compatibility with very small screens (flip phones) -->
     <supports-screens 
@@ -85,6 +86,19 @@
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>
                 <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        
+        <!-- Background WebView service to keep WebViews running when app is in background -->
+        <service
+            android:name=".BackgroundWebViewService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync">
+            <intent-filter>
+                <action android:name="com.tiddlywikibrowser.ACTION_REGISTER_WEBVIEW" />
+                <action android:name="com.tiddlywikibrowser.ACTION_UNREGISTER_WEBVIEW" />
+                <action android:name="com.tiddlywikibrowser.ACTION_STOP_SERVICE" />
             </intent-filter>
         </service>
         

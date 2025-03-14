@@ -10,6 +10,8 @@
     <string name="add_first_wiki">Add your first TiddlyWiki using the + button</string>
     <string name="add_wiki">Add Wiki</string>
     <string name="app_name">TiddlyWiki Browser</string>
+    <string name="background_mode">Background Mode</string>
+    <string name="background_mode_desc">Keep TiddlyWiki running when app is minimized</string>
     <string name="cancel">Cancel</string>
     <string name="dark_mode">Dark Mode</string>
     <string name="dark_mode_desc">Switch between light and dark themes</string>

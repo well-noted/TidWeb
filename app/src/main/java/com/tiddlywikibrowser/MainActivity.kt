@@ -22,6 +22,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.provider.OpenableColumns
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.*
@@ -58,6 +59,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -90,6 +92,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.SslErrorHandler
 import com.tiddlywikibrowser.model.TiddlerTemplate
 import androidx.compose.ui.draw.alpha
+import androidx.datastore.preferences.core.edit
 import kotlin.math.absoluteValue
 import androidx.compose.animation.AnimatedVisibilityScope
 
@@ -110,7 +113,8 @@ class MainActivity : ComponentActivity() {
     private val NETWORK_CHECK_THROTTLE = 5000L
     internal lateinit var mediaSessionManager: MediaSessionManager
     internal lateinit var exoPlayerManager: ExoPlayerManager
-    private var viewModel: WikiViewModel? = null
+    lateinit var backgroundWebViewManager: BackgroundWebViewManager
+    var viewModel: WikiViewModel? = null
     private var serviceConnection: ServiceConnection? = null
     private val serviceIntent by lazy { Intent(this, MediaPlaybackService::class.java) }
 
@@ -551,11 +555,31 @@ class MainActivity : ComponentActivity() {
                         try {
                             (context as? MainActivity)?.let { activity ->
                                 when (event) {
-                                    "play" -> {}
-                                    "pause" -> {}
-                                    "timeupdate" -> {}
-                                    "ended" -> {}
-                                    "loadedmetadata" -> {}
+                                    "play" -> {
+                                        if (src != null) activity.exoPlayerManager.playMedia(src)
+                                        activity.mediaSessionManager.updatePlaybackState(true, (currentTime * 1000).toLong())
+                                        activity.mediaSessionManager.updateMetadata(
+                                            title = title ?: "TiddlyWiki Audio",
+                                            artist = "TiddlyWiki",
+                                            duration = (duration * 1000).toLong()
+                                        )
+                                    }
+                                    "pause" -> {
+                                        activity.mediaSessionManager.updatePlaybackState(false, (currentTime * 1000).toLong())
+                                    }
+                                    "timeupdate" -> {
+                                        activity.mediaSessionManager.updatePlaybackState(true, (currentTime * 1000).toLong())
+                                    }
+                                    "ended" -> {
+                                        activity.mediaSessionManager.updatePlaybackState(false, (duration * 1000).toLong())
+                                    }
+                                    "loadedmetadata" -> {
+                                        activity.mediaSessionManager.updateMetadata(
+                                            title = title ?: "TiddlyWiki Audio",
+                                            artist = "TiddlyWiki",
+                                            duration = (duration * 1000).toLong()
+                                        )
+                                    }
                                     else -> {} // Added missing else branch
                                 }
                             }
@@ -728,334 +752,503 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Keep track of background mode preference
+    private val _isBackgroundEnabled = MutableStateFlow(false)
+    val isBackgroundEnabled: StateFlow<Boolean> = _isBackgroundEnabled
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        try {
-            super.onCreate(savedInstanceState)
-
-            // Initialize managers and view models first before any UI
-            mediaSessionManager = MediaSessionManager(this)
-            exoPlayerManager = ExoPlayerManager(this)
-            viewModel = getViewModel(this)
-
-            // Setup network monitoring before UI
-            connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            setupNetworkCallback()
-
-            // Setup UI with state management protection
-            setContent {
-                val currentContext = LocalContext.current as ComponentActivity
-                val viewModel = remember(currentContext) { getViewModel(currentContext) }
-                val isDarkMode by viewModel.isDarkMode.collectAsState(initial = false)
-
-                // Protect against composition errors with SideEffect
-                SideEffect {
-                    if (viewModel != this.viewModel) {
-                        this.viewModel = viewModel
-                    }
-                }
-
-                // Handle initial wiki state preservation
-                DisposableEffect(Unit) {
-                    onDispose {
-                        // Save state of current wiki when activity is disposed
-                        viewModel.currentWiki.value?.let { wiki ->
-                            val key = wiki.idFromUrl ?: wiki.url
-                            getCurrentWebView()?.let { webView ->
-                                WebViewCache.cacheWebView(key, webView)
-                            }
-                        }
-                    }
-                }
-
-                MaterialTheme(
-                    colorScheme = if (isDarkMode) darkColorScheme() else lightColorScheme()
-                ) {
-                    Surface(
-                        modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.background
-                    ) {
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            MainContent()
-                        }
-                    }
-                }
-            }
-
-            // Handle intent after UI is set up
-            handleIntent(intent)
-
-            // Set up media player callbacks
-            setupMediaCallbacks()
-
-            // Initialize media session binding
-            mediaSessionManager.bindToService()
-
-        } catch (e: Exception) {
-            e.printStackTrace()
-            Toast.makeText(this, "Error initializing app: ${e.message}", Toast.LENGTH_LONG).show()
-        }
+        super.onCreate(savedInstanceState)
+        
+        // Initialize WebView configuration
+        applyWebViewConfiguration()
+        
+        // Initialize the media session manager first
+        mediaSessionManager = MediaSessionManager(this)
+        
+        // Initialize the ExoPlayer manager after mediaSessionManager
+        exoPlayerManager = ExoPlayerManager(this)
+        
+        // Initialize the background WebView manager
+        backgroundWebViewManager = BackgroundWebViewManager(this)
+        
+        // Process intent
+        handleIntent(intent)
+        
+        // Load preferences including background mode setting
+        loadPreferences()
+        
+        // Set up the UI
+        setupUI()
+        
+        // Set up network monitoring
+        setupNetworkMonitoring()
     }
-
-    // Add method to access current WebView
-    fun getCurrentWebView(): WebView? {
-        return viewModel?.currentWiki?.value?.let { wiki ->
-            viewModel?.getOrCreateWebView(wiki, this)
-        }
-    }
-
-    @Composable
-    private fun MainContent() {
-        val localContext = LocalContext.current as ComponentActivity
-        val viewModel = ViewModelProvider(localContext)[WikiViewModel::class.java]
-
-        // Add error handling dialog
-        if (showLoadErrorDialog && loadErrorWiki != null) {
-            AlertDialog(
-                onDismissRequest = {
-                    showLoadErrorDialog = false
-                    loadErrorWiki = null
-                },
-                title = { Text("Failed to Load Wiki") },
-                text = { Text("Unable to load ${loadErrorWiki?.name}. Would you like to try again?") },
-                confirmButton = {
-                    TextButton(onClick = {
-                        loadErrorWiki?.let { wiki ->
-                            viewModel.setCurrentWiki(wiki)
-                        }
-                        showLoadErrorDialog = false
-                        loadErrorWiki = null
-                    }) {
-                        Text("Try Again")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = {
-                        showLoadErrorDialog = false
-                        loadErrorWiki = null
-                    }) {
-                        Text("Cancel")
-                    }
+    
+    private fun loadPreferences() {
+        // Load other preferences here
+        
+        // Check if background mode is enabled from preferences
+        val dataStore = applicationContext.dataStore
+        lifecycleScope.launch {
+            dataStore.data.first().let { preferences ->
+                val isEnabled = preferences[PreferencesKeys.BACKGROUND_MODE_ENABLED] ?: false
+                _isBackgroundEnabled.value = isEnabled
+                
+                // Start the background service if enabled
+                if (isEnabled) {
+                    backgroundWebViewManager.startBackgroundService()
                 }
-            )
-        }
-
-        // This is the top-level MainScreen that contains all UI elements
-        MainScreen(
-            viewModel = viewModel,
-            onAddClick = { showAddDialog = true },
-            onShowRenameDialog = { showRenameDialog = true }
-        )
-
-        // Handle dialog visibility from the MainActivity state
-        if (showAddDialog) {
-            AddWikiDialog(
-                onDismiss = { showAddDialog = false },
-                onAdd = { name, url ->
-                    viewModel.addWiki(name, url)
-                    showAddDialog = false
-                },
-                onAddLocalFile = {
-                    // Handle local file selection
-                    pendingWikiName = null
-                    // Accept html, htm, and any other file type since TiddlyWiki can use various extensions
-                    filePickerLauncher.launch("*/*")
-                }
-            )
-        }
-
-        if (showWikiSelector && pendingSharedText != null) {
-            WikiSelectionDialog(
-                wikis = viewModel.allWikis.collectAsState().value,
-                quickTags = viewModel.quickTags.collectAsState().value,
-                onDismiss = {
-                    showWikiSelector = false
-                    pendingSharedText = null
-                    if (!isTaskRoot) {
-                        finish()
-                    }
-                },
-                onWikiSelected = { wiki, tags ->
-                    handleWikiSelection(wiki, pendingSharedText, tags)
-                    showWikiSelector = false
-                    pendingSharedText = null
-                    if (!isTaskRoot) {
-                        finish()
-                    }
-                },
-                onAddNew = {
-                    showWikiSelector = false
-                    showAddDialog = true
-                }
-            )
-        }
-
-        if (showDeleteConfirmDialog && viewModel.currentWiki.value != null) {
-            AlertDialog(
-                onDismissRequest = { showDeleteConfirmDialog = false },
-                title = { Text("Delete Wiki") },
-                text = { Text("Are you sure you want to delete '${viewModel.currentWiki.value?.name}'?") },
-                confirmButton = {
-                    TextButton(onClick = {
-                        viewModel.currentWiki.value?.let { wiki ->
-                            viewModel.deleteWiki(wiki)
-                        }
-                        showDeleteConfirmDialog = false
-                    }) {
-                        Text("Delete", color = MaterialTheme.colorScheme.error)
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                        Text("Cancel")
-                    }
-                }
-            )
-        }
-
-        if (showTagManagement) {
-            TagManagementDialog(
-                tags = viewModel.quickTags.collectAsState().value,
-                onAddTag = { viewModel.addQuickTag(it) },
-                onRemoveTag = { viewModel.removeQuickTag(it) },
-                onReorderTags = { from, to -> viewModel.reorderQuickTags(from, to) },
-                onDismiss = { showTagManagement = false }
-            )
-        }
-
-        // Add RenameWikiDialog
-        if (showRenameDialog && viewModel.currentWiki.value != null) {
-            RenameWikiDialog(
-                currentName = viewModel.currentWiki.value?.name ?: "",
-                onDismiss = { showRenameDialog = false },
-                onRename = { newName ->
-                    viewModel.currentWiki.value?.let { wiki ->
-                        viewModel.renameWiki(wiki, newName)
-                    }
-                    showRenameDialog = false
-                }
-            )
-        }
-    }
-
-    private fun setupMediaCallbacks() {
-        exoPlayerManager.getOrCreatePlayer().addListener(object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                updateMediaSessionState()
-                when (playbackState) {
-                    Player.STATE_READY -> {
-                        if (exoPlayerManager.getOrCreatePlayer().isPlaying) {
-                            // Extract metadata and update media session
-                            val currentItem = exoPlayerManager.getOrCreatePlayer().currentMediaItem
-                            val title = currentItem?.mediaMetadata?.title?.toString() ?: "Unknown Title"
-                            val artist = currentItem?.mediaMetadata?.artist?.toString() ?: "TiddlyWiki Audio"
-                            val duration = exoPlayerManager.getOrCreatePlayer().duration
-
-                            mediaSessionManager.updateMetadata(title, artist, duration)
-                            startMediaService()
-                        }
-                    }
-                    Player.STATE_ENDED -> stopMediaService()
-                    else -> {} // No action needed for other states
-                }
-            }
-
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                updateMediaSessionState()
-                if (isPlaying) {
-                    // Extract metadata and update
-                    val currentItem = exoPlayerManager.getOrCreatePlayer().currentMediaItem
-                    val title = currentItem?.mediaMetadata?.title?.toString() ?: "Unknown Title"
-                    val artist = currentItem?.mediaMetadata?.artist?.toString() ?: "TiddlyWiki Audio"
-                    val duration = exoPlayerManager.getOrCreatePlayer().duration
-
-                    mediaSessionManager.updateMetadata(title, artist, duration)
-                    startMediaService()
-                }
-            }
-        })
-
-        // Setup service connection
-        serviceConnection = object : ServiceConnection {
-            override fun onServiceConnected(componentName: ComponentName?, binder: IBinder?) {
-                val mediaService = (binder as? MediaPlaybackService.LocalBinder)?.service
-                mediaService?.setCallback(object : MediaPlaybackService.MediaPlayerCallback {
-                    override fun onPlay() {
-                        ThreadManager.runOnMain {
-                            exoPlayerManager.getOrCreatePlayer().play()
-                        }
-                    }
-
-                    override fun onPause() {
-                        ThreadManager.runOnMain {
-                            exoPlayerManager.getOrCreatePlayer().pause()
-                        }
-                    }
-
-                    override fun onSeekTo(pos: Long) {
-                        ThreadManager.runOnMain {
-                            exoPlayerManager.getOrCreatePlayer().seekTo(pos)
-                        }
-                    }
-
-                    override fun onSkipForward() {
-                        ThreadManager.runOnMain {
-                            val currentPosition = exoPlayerManager.getOrCreatePlayer().currentPosition
-                            exoPlayerManager.getOrCreatePlayer().seekTo(currentPosition + 15000)
-                        }
-                    }
-
-                    override fun onSkipBackward() {
-                        ThreadManager.runOnMain {
-                            val currentPosition = exoPlayerManager.getOrCreatePlayer().currentPosition
-                            exoPlayerManager.getOrCreatePlayer().seekTo(maxOf(0, currentPosition - 15000))
-                        }
-                    }
-                })
-            }
-
-            override fun onServiceDisconnected(componentName: ComponentName?) {
-                // Service has been killed, clean up
-                serviceConnection = null
             }
         }
     }
-
-    fun startMediaService() {
-        // Start the service first to ensure it's running in foreground
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent)
+    
+    /**
+     * Save the background mode preference
+     */
+    private fun saveBackgroundModePreference(isEnabled: Boolean) {
+        lifecycleScope.launch {
+            applicationContext.dataStore.edit { preferences ->
+                preferences[PreferencesKeys.BACKGROUND_MODE_ENABLED] = isEnabled
+            }
+        }
+    }
+    
+    /**
+     * Toggle background mode on/off
+     */
+    fun toggleBackgroundMode() {
+        val newState = !_isBackgroundEnabled.value
+        _isBackgroundEnabled.value = newState
+        
+        // Save the preference
+        saveBackgroundModePreference(newState)
+        
+        // Start or stop the background service
+        if (newState) {
+            backgroundWebViewManager.startBackgroundService()
+            
+            // Register the current WebView
+            viewModel?.currentWiki?.value?.let { wiki ->
+                val key = wiki.idFromUrl ?: wiki.url
+                val webView = viewModel?.getOrCreateWebView(wiki, this)
+                webView?.let {
+                    backgroundWebViewManager.registerWebView(key, it)
+                    
+                    // Inform the user
+                    Toast.makeText(this, 
+                        "Background mode enabled. TiddlyWiki will continue running when minimized.", 
+                        Toast.LENGTH_LONG).show()
+                }
+            }
         } else {
-            startService(serviceIntent)
+            backgroundWebViewManager.stopBackgroundService()
+            
+            // Inform the user
+            Toast.makeText(this, 
+                "Background mode disabled.", 
+                Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        webViewPaused = true
+        exoPlayerManager.onPause()
+        
+        // Handle current WebView differently if background mode is enabled
+        if (!_isBackgroundEnabled.value) {
+            viewModel?.let { vm ->
+                // Save state for current WebView
+                vm.currentWiki.value?.let { wiki ->
+                    val key = wiki.idFromUrl ?: wiki.url
+                    WebViewCache.cacheWebView(key, vm.getOrCreateWebView(wiki, this))
+                }
+                vm.pauseAllWebViews()
+            }
+        } else {
+            // If background mode is enabled, register the current WebView with the service
+            viewModel?.currentWiki?.value?.let { wiki ->
+                val key = wiki.idFromUrl ?: wiki.url
+                val webView = viewModel?.getOrCreateWebView(wiki, this)
+                webView?.let {
+                    backgroundWebViewManager.registerWebView(key, it)
+                }
+            }
         }
 
-        // Bind to the service to receive callbacks
-        serviceConnection?.let { connection ->
-            bindService(serviceIntent, connection, Context.BIND_AUTO_CREATE)
-        } ?: run {
-            // Create new connection if none exists
-            setupMediaCallbacks()
-            serviceConnection?.let { connection ->
-                bindService(serviceIntent, connection, Context.BIND_AUTO_CREATE)
+        // Dispatch pause event to WebView
+        getCurrentWebView()?.evaluateJavascript("""
+            (function() {
+                const event = new Event('pause');
+                document.dispatchEvent(event);
+            })();
+        """.trimIndent(), null)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        webViewPaused = false
+        exoPlayerManager.onResume()
+        
+        // Check if the current WebView is in the background service
+        val isInBackgroundService = viewModel?.currentWiki?.value?.let { wiki ->
+            val key = wiki.idFromUrl ?: wiki.url
+            backgroundWebViewManager.hasWebView(key)
+        } ?: false
+        
+        // Only resume normally if not in background service
+        if (!isInBackgroundService) {
+            viewModel?.resumeCurrentWebView(viewModel?.currentWiki?.value)
+        } else {
+            // If it's in the background service, refresh it
+            backgroundWebViewManager.refreshCurrentWebView()
+        }
+        
+        // When resuming, get the current WebView and set it for the MediaSessionManager
+        getCurrentWebView()?.let { webView ->
+            mediaSessionManager.setWebView(webView)
+            // Bind to service to ensure continuity of playback controls
+            mediaSessionManager.bindToService()
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Don't cleanup if we're just changing configurations or if background mode is enabled
+        if (!isChangingConfigurations && !_isBackgroundEnabled.value) {
+            viewModel?.let { vm ->
+                vm.currentWiki.value?.let { wiki ->
+                    val key = wiki.idFromUrl ?: wiki.url
+                    // Save full state before stopping
+                    vm.getOrCreateWebView(wiki, this)?.let { webView ->
+                        WebViewCache.cacheWebView(key, webView)
+                    }
+                }
             }
         }
     }
 
-    private fun stopMediaService() {
-        // Don't stop the service immediately when playback pauses
-        // Just unbind if needed, but let the service handle its own lifecycle
+    override fun onDestroy() {
+        super.onDestroy()
+        mediaSessionManager.release()
+        exoPlayerManager.release()
+        backgroundWebViewManager.release()
+
+        // Unbind the service connection
         serviceConnection?.let { connection ->
             try {
                 unbindService(connection)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+            serviceConnection = null
         }
-        serviceConnection = null
 
-        // Don't stop the service here - let it run in foreground
-        // This allows notifications to persist
+        networkCallback?.let {
+            try {
+                connectivityManager.unregisterNetworkCallback(it)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
+    // Implement the onLowMemory callback
+    override fun onLowMemory() {
+        super.onLowMemory()
+        WebViewCache.onLowMemory()
+        viewModel?.onLowMemory()
+    }
+
+    // Implement onTrimMemory
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_MODERATE) {
+            ThreadManager.runOnBackground {
+                viewModel?.onLowMemory()
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        WebViewCache.setConfigurationChanging(true)
+        super.onConfigurationChanged(newConfig)
+
+        // Fix for orientation changes: update WebView layout
+        ThreadManager.runOnBackgroundWithDelay(100) {
+            ThreadManager.runOnMain {
+                val currentWikiUrl = viewModel?.currentWiki?.value?.url
+                currentWikiUrl?.let { url ->
+                    viewModel?.getOrCreateWebView(viewModel?.currentWiki?.value ?: return@let, this)?.let { webView ->
+                        // Get current orientation
+                        val isPortrait = newConfig.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
+
+                        // Trigger layout update with orientation awareness
+                        webView.evaluateJavascript("""
+                        (function() {
+                            // Force layout recalculation
+                            document.body.style.width = window.innerWidth + 'px';
+                            const evt = new Event('resize');
+                            window.dispatchEvent(evt);
+                            
+                            // Handle orientation-specific resizing
+                            const isPortrait = ${isPortrait};
+                            
+                            // Safely check if TiddlyWiki is available
+                            if (typeof window !== 'undefined' && 
+                                window.${"$"}tw && 
+                                typeof window.${"$"}tw.utils === 'object') {
+                                
+                                try {
+                                    if (isPortrait) {
+                                        // In portrait mode, use window resize event for better content flow
+                                        window.${"$"}tw.utils.resizeAll();
+                                        // Additional portrait-specific adjustments
+                                        document.body.classList.add('tc-portrait-mode');
+                                        document.body.classList.remove('tc-landscape-mode');
+                                    } else {
+                                        // In landscape mode, use TiddlyWiki's resize utils
+                                        window.${"$"}tw.utils.resizeAll();
+                                        // Additional landscape-specific adjustments
+                                        document.body.classList.add('tc-landscape-mode');
+                                        document.body.classList.remove('tc-portrait-mode');
+                                    }
+                                    return "TiddlyWiki resized for " + (isPortrait ? "portrait" : "landscape");
+                                } catch(e) {
+                                    console.error('TiddlyWiki resize error:', e);
+                                    return "Error: " + e.message;
+                                }
+                            } else {
+                                console.log('TiddlyWiki not fully initialized yet');
+                                return "TiddlyWiki not ready";
+                            }
+                        })();
+                    """) { result ->
+
+                        }
+                    }
+                }
+            }
+        }
+
+        // Handle any WebViews that need to be retained during configuration changes
+        viewModel?.currentWiki?.value?.let { wiki ->
+            val key = wiki.idFromUrl ?: wiki.url
+            WebViewCache.setCurrentActiveKey(key)
+        }
+
+        // Reset flag after a short delay
+        Handler(Looper.getMainLooper()).postDelayed({
+            WebViewCache.setConfigurationChanging(false)
+        }, 1000)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        WebViewCache.setConfigurationChanging(true)
+        super.onSaveInstanceState(outState)
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
+        super.onRestoreInstanceState(savedInstanceState)
+        WebViewCache.setConfigurationChanging(false)
+    }
+
+    /**
+     * Apply WebView configuration settings
+     */
+    private fun applyWebViewConfiguration() {
+        // Initialize WebView with appropriate settings
+        WebView.setWebContentsDebuggingEnabled(true)
+        
+        // Set default cache mode
+        val webViewDatabase = WebViewDatabase.getInstance(this)
+        CookieManager.getInstance().setAcceptCookie(true)
+        
+        // Clear any stale cookies
+        ThreadManager.runOnBackground {
+            CookieManager.getInstance().removeAllCookies(null)
+        }
+    }
+    
+    /**
+     * Set up the main UI
+     */
+    private fun setupUI() {
+        setContent {
+            val currentContext = LocalContext.current as ComponentActivity
+            val viewModel = remember(currentContext) { getViewModel(currentContext) }
+            val isDarkMode by viewModel.isDarkMode.collectAsState(initial = false)
+
+            // Protect against composition errors with SideEffect
+            SideEffect {
+                if (viewModel != this.viewModel) {
+                    this.viewModel = viewModel
+                }
+            }
+
+            // Handle initial wiki state preservation
+            DisposableEffect(Unit) {
+                onDispose {
+                    // Save state of current wiki when activity is disposed
+                    viewModel.currentWiki.value?.let { wiki ->
+                        val key = wiki.idFromUrl ?: wiki.url
+                        getCurrentWebView()?.let { webView ->
+                            WebViewCache.cacheWebView(key, webView)
+                        }
+                    }
+                }
+            }
+
+            MaterialTheme(
+                colorScheme = if (isDarkMode) darkColorScheme() else lightColorScheme()
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        MainScreen(
+                            viewModel = viewModel,
+                            onAddClick = { showAddDialog = true },
+                            onShowRenameDialog = { showRenameDialog = true }
+                        )
+                        
+                        // Handle dialog visibility
+                        if (showAddDialog) {
+                            AddWikiDialog(
+                                onDismiss = { showAddDialog = false },
+                                onAdd = { name, url ->
+                                    viewModel.addWiki(name, url)
+                                    showAddDialog = false
+                                },
+                                onAddLocalFile = {
+                                    pendingWikiName = null
+                                    filePickerLauncher.launch("*/*")
+                                }
+                            )
+                        }
+                        
+                        if (showWikiSelector && pendingSharedText != null) {
+                            WikiSelectionDialog(
+                                wikis = viewModel.allWikis.collectAsState().value,
+                                quickTags = viewModel.quickTags.collectAsState().value,
+                                onDismiss = {
+                                    showWikiSelector = false
+                                    pendingSharedText = null
+                                    if (!isTaskRoot) {
+                                        finish()
+                                    }
+                                },
+                                onWikiSelected = { wiki, tags ->
+                                    handleWikiSelection(wiki, pendingSharedText, tags)
+                                    showWikiSelector = false
+                                    pendingSharedText = null
+                                    if (!isTaskRoot) {
+                                        finish()
+                                    }
+                                },
+                                onAddNew = {
+                                    showWikiSelector = false
+                                    showAddDialog = true
+                                }
+                            )
+                        }
+                        
+                        if (showDeleteConfirmDialog && viewModel.currentWiki.value != null) {
+                            AlertDialog(
+                                onDismissRequest = { showDeleteConfirmDialog = false },
+                                title = { Text("Delete Wiki") },
+                                text = { Text("Are you sure you want to delete '${viewModel.currentWiki.value?.name}'?") },
+                                confirmButton = {
+                                    TextButton(onClick = {
+                                        viewModel.currentWiki.value?.let { wiki ->
+                                            viewModel.deleteWiki(wiki)
+                                        }
+                                        showDeleteConfirmDialog = false
+                                    }) {
+                                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                                        Text("Cancel")
+                                    }
+                                }
+                            )
+                        }
+                        
+                        if (showRenameDialog && viewModel.currentWiki.value != null) {
+                            RenameWikiDialog(
+                                currentName = viewModel.currentWiki.value?.name ?: "",
+                                onDismiss = { showRenameDialog = false },
+                                onRename = { newName ->
+                                    viewModel.currentWiki.value?.let { wiki ->
+                                        viewModel.renameWiki(wiki, newName)
+                                    }
+                                    showRenameDialog = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Set up network monitoring
+     */
+    private fun setupNetworkMonitoring() {
+        connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        
+        networkCallback = object : ConnectivityManager.NetworkCallback() {
+            override fun onLost(network: Network) {
+                super.onLost(network)
+                val currentTime = System.currentTimeMillis()
+                if (currentTime - lastNetworkCheckTime > NETWORK_CHECK_THROTTLE) {
+                    lastNetworkCheckTime = currentTime
+                    ThreadManager.runOnBackground {
+                        val viewModel = getViewModel(this@MainActivity)
+                        viewModel.setOfflineState(true)
+                    }
+                }
+            }
+
+            override fun onAvailable(network: Network) {
+                super.onAvailable(network)
+                val currentTime = System.currentTimeMillis()
+                if (currentTime - lastNetworkCheckTime > NETWORK_CHECK_THROTTLE) {
+                    lastNetworkCheckTime = currentTime
+                    ThreadManager.runOnBackground {
+                        val capabilities = connectivityManager.getNetworkCapabilities(network)
+                        val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+                        if (hasInternet) {
+                            val viewModel = getViewModel(this@MainActivity)
+                            viewModel.setOfflineState(false)
+                        }
+                    }
+                }
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            try {
+                connectivityManager.registerDefaultNetworkCallback(networkCallback!!)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+    
+    /**
+     * Handle the intent received by the activity
+     */
     private fun handleIntent(intent: Intent?) {
         when (intent?.action) {
             Intent.ACTION_SEND -> {
@@ -1066,7 +1259,19 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
+    
+    /**
+     * Get the current WebView
+     */
+    fun getCurrentWebView(): WebView? {
+        return viewModel?.currentWiki?.value?.let { wiki ->
+            viewModel?.getOrCreateWebView(wiki, this)
+        }
+    }
+    
+    /**
+     * Handle wiki selection for sharing content
+     */
     private fun handleWikiSelection(selectedWiki: WikiInstance, textToShare: String?, selectedTags: List<String>) {
         viewModel?.setCurrentWiki(selectedWiki)
         Handler(Looper.getMainLooper()).postDelayed({
@@ -1081,7 +1286,8 @@ class MainActivity : ComponentActivity() {
                         }
                         
                         var title = 'Shared Content ' + new Date().toISOString();
-                        var processedText = ${JSONObject.quote(textToShare ?: "")}.replace(/\\\\n/g, "\n").replace(/\\\\t/g, "\t").replace(/\\n/g, "\n").replace(/\\t/g, "\t");
+                        var processedText = ${if (textToShare != null) "\"${textToShare.replace("\"", "\\\"").replace("\n", "\\n")}\"" else "\"\""}
+                          .replace(/\\\\n/g, "\n").replace(/\\\\t/g, "\t").replace(/\\n/g, "\n").replace(/\\t/g, "\t");
                         processedText = processedText.replace(/(\n\s*){5,}/g, "\n".repeat(5));
                         var tags = ${JSONArray(selectedTags).toString()};
                         
@@ -1143,208 +1349,21 @@ class MainActivity : ComponentActivity() {
         }, 1000)
     }
 
-    // Monitor memory conditions to prevent ANR
-    private val activityManager by lazy {
-        getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-    }
-
-    private fun adaptToMemoryConditions() {
-        lifecycleScope.launch(Dispatchers.Default) {
-            while (isActive) {
-                val memoryInfo = ActivityManager.MemoryInfo()
-                activityManager.getMemoryInfo(memoryInfo)
-
-                val availableMem = memoryInfo.availMem
-                val lowMemory = memoryInfo.lowMemory
-
-                if (lowMemory || availableMem < MEMORY_THRESHOLD) {
-                    withContext(Dispatchers.Main) {
-                        viewModel?.reduceMemoryUsage()
-                    }
-                }
-
-                // Check every 30 seconds
-                delay(30000)
+    /**
+     * Start the media service
+     */
+    fun startMediaService() {
+        Log.d("MainActivity", "Starting media service")
+        try {
+            val intent = Intent(this, MediaPlaybackService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
             }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error starting media service", e)
         }
-    }
-
-    private fun updateMediaSessionState() {
-        val player = exoPlayerManager.getOrCreatePlayer()
-        val isPlaying = player.isPlaying
-        val currentPosition = player.currentPosition
-        mediaSessionManager.updatePlaybackState(isPlaying, currentPosition)
-    }
-
-    private fun setupNetworkCallback() {
-        networkCallback = object : ConnectivityManager.NetworkCallback() {
-            override fun onLost(network: Network) {
-                super.onLost(network)
-                val currentTime = System.currentTimeMillis()
-                if (currentTime - lastNetworkCheckTime > NETWORK_CHECK_THROTTLE) {
-                    lastNetworkCheckTime = currentTime
-                    ThreadManager.runOnBackground {
-                        val viewModel = getViewModel(this@MainActivity)
-                        viewModel.setOfflineState(true)
-                    }
-                }
-            }
-
-            override fun onAvailable(network: Network) {
-                super.onAvailable(network)
-                val currentTime = System.currentTimeMillis()
-                if (currentTime - lastNetworkCheckTime > NETWORK_CHECK_THROTTLE) {
-                    lastNetworkCheckTime = currentTime
-                    ThreadManager.runOnBackground {
-                        val capabilities = connectivityManager.getNetworkCapabilities(network)
-                        val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-                        if (hasInternet) {
-                            val viewModel = getViewModel(this@MainActivity)
-                            viewModel.setOfflineState(false)
-                        }
-                    }
-                }
-            }
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            try {
-                connectivityManager.registerDefaultNetworkCallback(networkCallback!!)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    override fun onPause() {
-        super.onPause()
-        webViewPaused = true
-        exoPlayerManager.onPause()
-        viewModel?.let { vm ->
-            // Save state for current WebView
-            vm.currentWiki.value?.let { wiki ->
-                val key = wiki.idFromUrl ?: wiki.url
-                WebViewCache.cacheWebView(key, vm.getOrCreateWebView(wiki, this))
-            }
-            vm.pauseAllWebViews()
-        }
-
-        // Dispatch pause event to WebView
-        getCurrentWebView()?.evaluateJavascript("""
-            (function() {
-                const event = new Event('pause');
-                document.dispatchEvent(event);
-            })();
-        """.trimIndent(), null)
-    }
-
-    override fun onResume() {
-        super.onResume()
-
-        // Ensure any current WebView is resumed properly
-        viewModel?.currentWiki?.value?.let { currentWiki ->
-            viewModel?.resumeCurrentWebView(currentWiki)
-        }
-
-        // Check for initialization status
-        if (viewModel?.isWebViewReady?.value == true) {
-            WebViewCache.clearCache(this)
-        }
-    }
-
-    override fun onStop() {
-        super.onStop()
-        // Don't cleanup if we're just changing configurations
-        if (!isChangingConfigurations) {
-            viewModel?.let { vm ->
-                vm.currentWiki.value?.let { wiki ->
-                    val key = wiki.idFromUrl ?: wiki.url
-                    // Save full state before stopping
-                    vm.getOrCreateWebView(wiki, this)?.let { webView ->
-                        WebViewCache.cacheWebView(key, webView)
-                    }
-                }
-            }
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        mediaSessionManager.release()
-        exoPlayerManager.release()
-
-        // Unbind the service connection
-        serviceConnection?.let { connection ->
-            try {
-                unbindService(connection)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-            serviceConnection = null
-        }
-
-        networkCallback?.let {
-            try {
-                connectivityManager.unregisterNetworkCallback(it)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-
-        // Only clear WebViews if we're actually being destroyed, not during configuration changes
-        if (!isChangingConfigurations && !webViewPaused) {
-            viewModel?.clearWebViews()
-            viewModel = null
-        }
-    }
-
-    // Implement the onLowMemory callback
-    override fun onLowMemory() {
-        super.onLowMemory()
-        WebViewCache.onLowMemory()
-        viewModel?.onLowMemory()
-    }
-
-    // Implement onTrimMemory
-    override fun onTrimMemory(level: Int) {
-        super.onTrimMemory(level)
-        if (level >= ComponentCallbacks2.TRIM_MEMORY_MODERATE) {
-            ThreadManager.runOnBackground {
-                viewModel?.onLowMemory()
-            }
-        }
-    }
-
-    override fun onNewIntent(intent: Intent?) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        handleIntent(intent)
-    }
-
-    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
-        super.onConfigurationChanged(newConfig)
-        WebViewCache.setConfigurationChanging(true)
-
-        // Handle any WebViews that need to be retained during configuration changes
-        viewModel?.currentWiki?.value?.let { wiki ->
-            val key = wiki.idFromUrl ?: wiki.url
-            WebViewCache.setCurrentActiveKey(key)
-        }
-
-        // Reset flag after a short delay
-        Handler(Looper.getMainLooper()).postDelayed({
-            WebViewCache.setConfigurationChanging(false)
-        }, 1000)
-    }
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        WebViewCache.setConfigurationChanging(true)
-        super.onSaveInstanceState(outState)
-    }
-
-    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
-        super.onRestoreInstanceState(savedInstanceState)
-        WebViewCache.setConfigurationChanging(false)
     }
 }
 
@@ -1972,31 +1991,31 @@ fun WikiSelectionDialog(
                         }
                     }
                 }
+            }
 
-                Divider(modifier = Modifier.padding(vertical = 16.dp))
+            Divider(modifier = Modifier.padding(vertical = 16.dp))
 
-                Text(
-                    text = "Select Wiki",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+            Text(
+                text = "Select Wiki",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
 
-                // Wiki selection
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    wikis.forEach { wiki ->
-                        TextButton(
-                            onClick = { onWikiSelected(wiki, selectedTags.toList()) },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(wiki.name)
-                        }
-                    }
+            // Wiki selection
+            Column(modifier = Modifier.fillMaxWidth()) {
+                wikis.forEach { wiki ->
                     TextButton(
-                        onClick = onAddNew,
+                        onClick = { onWikiSelected(wiki, selectedTags.toList()) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("+ Add New Wiki")
+                        Text(wiki.name)
                     }
+                }
+                TextButton(
+                    onClick = onAddNew,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("+ Add New Wiki")
                 }
             }
         },
@@ -2081,11 +2100,11 @@ fun TagManagementDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextField(
-                        value = newTag,
-                        onValueChange = { newTag = it },
-                        label = { Text(text = "New Tag") },
-                        modifier = Modifier.weight(1f)
-                    )
+                    value = newTag,
+                    onValueChange = { newTag = it },
+                    label = { Text(text = "New Tag") },
+                    modifier = Modifier.weight(1f)
+                )
                     IconButton(
                         onClick = {
                             if (newTag.isNotBlank()) {
@@ -2100,31 +2119,31 @@ fun TagManagementDialog(
                         )
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-                // Replace scrolling Column with LazyColumn
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(tags) { tag ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = tag,
-                                modifier = Modifier.weight(1f)
+            // Replace scrolling Column with LazyColumn
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(tags) { tag ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = tag,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { onRemoveTag(tag) }) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Remove Tag"
                             )
-                            IconButton(onClick = { onRemoveTag(tag) }) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Remove Tag"
-                                )
-                            }
                         }
                     }
                 }
@@ -2222,12 +2241,14 @@ fun SettingsDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val mainActivity = context as? MainActivity
     val viewModel: WikiViewModel = remember { MainActivity.getViewModel(context) }
     val useSmallScreenCSS by viewModel.useSmallScreenCSS.collectAsState()
+    val isBackgroundEnabled by mainActivity?.isBackgroundEnabled?.collectAsState() ?: remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Settings") },
+        title = { Text(stringResource(R.string.settings)) },
         text = {
             Column(
                 modifier = Modifier
@@ -2242,7 +2263,7 @@ fun SettingsDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Dark Mode")
+                    Text(stringResource(R.string.dark_mode))
                     Switch(
                         checked = isDarkMode,
                         onCheckedChange = onDarkModeChange
@@ -2272,18 +2293,42 @@ fun SettingsDialog(
                         }
                     )
                 }
-
-                Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-                // Quick Tags Management Button
-                Button(
-                    onClick = onManageQuickTags,
+                
+                // Background Mode Toggle
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp)
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Manage Quick Tags")
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.background_mode))
+                        Text(
+                            stringResource(R.string.background_mode_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = isBackgroundEnabled,
+                        onCheckedChange = { enabled ->
+                            mainActivity?.toggleBackgroundMode()
+                        }
+                    )
                 }
+            }
+
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // Quick Tags Management Button
+            Button(
+                onClick = onManageQuickTags,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            ) {
+                Text("Manage Quick Tags")
             }
         },
         confirmButton = {
