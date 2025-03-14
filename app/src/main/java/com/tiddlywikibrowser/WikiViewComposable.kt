@@ -340,6 +340,391 @@ object WikiViewEnhancer {
     }
     
     /**
+     * Inject media functionality support scripts
+     * This connects TiddlyWiki's audio parser with Android's media session API
+     */
+    fun injectMediaFunctionalityScript(webView: WebView) {
+        webView.evaluateJavascript("""
+            (function() {
+                // Create global MediaInterface object if it doesn't exist
+                if (!window.MediaInterface) {
+                    window.MediaInterface = {};
+                }
+                
+                // Media state tracking
+                const mediaState = {
+                    playing: false,
+                    title: "TiddlyWiki Audio",
+                    artist: "TiddlyWiki",
+                    duration: 0,
+                    position: 0,
+                    activeMediaElement: null
+                };
+                
+                // Helper function to update Android with media metadata
+                function updateAndroidMetadata(audio) {
+                    try {
+                        if (!audio) return;
+                        
+                        // Get title from the closest tiddler
+                        const tiddlerElement = audio.closest('[data-tiddler-title]');
+                        const title = tiddlerElement ? 
+                            tiddlerElement.getAttribute('data-tiddler-title') : 
+                            "TiddlyWiki Audio";
+                        
+                        const duration = audio.duration || 0;
+                        const position = audio.currentTime || 0;
+                        const isPlaying = !audio.paused;
+                        
+                        mediaState.playing = isPlaying;
+                        mediaState.title = title;
+                        mediaState.duration = duration;
+                        mediaState.position = position;
+                        mediaState.activeMediaElement = audio;
+                        
+                        // Update Android's MediaSession
+                        if (window.Android && typeof window.Android.updateMediaMetadata === 'function') {
+                            window.Android.updateMediaMetadata(
+                                title,
+                                "TiddlyWiki",
+                                Math.round(duration * 1000)
+                            );
+                        }
+                        
+                        if (window.Android && typeof window.Android.onMediaStateChange === 'function') {
+                            window.Android.onMediaStateChange(
+                                title,
+                                "TiddlyWiki",
+                                Math.round(duration * 1000),
+                                Math.round(position * 1000),
+                                isPlaying
+                            );
+                        }
+                    } catch (e) {
+                        console.error("Error updating Android metadata:", e);
+                    }
+                }
+                
+                // Add methods to the MediaInterface object
+                MediaInterface.play = function() {
+                    try {
+                        const audio = mediaState.activeMediaElement;
+                        if (audio && audio.paused) {
+                            audio.play();
+                        }
+                    } catch (e) {
+                        console.error("Error in MediaInterface.play", e);
+                    }
+                };
+                
+                MediaInterface.pause = function() {
+                    try {
+                        const audio = mediaState.activeMediaElement;
+                        if (audio && !audio.paused) {
+                            audio.pause();
+                        }
+                    } catch (e) {
+                        console.error("Error in MediaInterface.pause", e);
+                    }
+                };
+                
+                MediaInterface.seekTo = function(positionMs) {
+                    try {
+                        const audio = mediaState.activeMediaElement;
+                        if (audio) {
+                            // Convert ms to seconds for HTML5 audio
+                            audio.currentTime = positionMs / 1000;
+                        }
+                    } catch (e) {
+                        console.error("Error in MediaInterface.seekTo", e);
+                    }
+                };
+                
+                MediaInterface.skipForward = function() {
+                    try {
+                        const audio = mediaState.activeMediaElement;
+                        if (audio) {
+                            audio.currentTime = Math.min(audio.duration, audio.currentTime + 15);
+                        }
+                    } catch (e) {
+                        console.error("Error in MediaInterface.skipForward", e);
+                    }
+                };
+                
+                MediaInterface.skipBackward = function() {
+                    try {
+                        const audio = mediaState.activeMediaElement;
+                        if (audio) {
+                            audio.currentTime = Math.max(0, audio.currentTime - 15);
+                        }
+                    } catch (e) {
+                        console.error("Error in MediaInterface.skipBackward", e);
+                    }
+                };
+                
+                // Setup mutation observer to watch for audio elements
+                const setupAudioObserver = function() {
+                    // Function to process audio elements
+                    const processAudioElements = function() {
+                        const audioElements = document.querySelectorAll('.tw-audio-element');
+                        
+                        audioElements.forEach(function(audio) {
+                            if (audio.getAttribute('data-media-observer-attached') === 'true') {
+                                return;
+                            }
+                            
+                            // Mark as processed
+                            audio.setAttribute('data-media-observer-attached', 'true');
+                            
+                            // Add event listeners to track playback state
+                            ['play', 'pause', 'timeupdate', 'seeked', 'ended', 'loadedmetadata'].forEach(function(eventName) {
+                                audio.addEventListener(eventName, function() {
+                                    // Set as active media element when it plays
+                                    if (eventName === 'play') {
+                                        mediaState.activeMediaElement = this;
+                                    }
+                                    
+                                    // Update Android with media state
+                                    updateAndroidMetadata(this);
+                                    
+                                    // Also send event-specific notification
+                                    if (window.Android && typeof window.Android.onMediaEvent === 'function') {
+                                        try {
+                                            const tiddlerElement = this.closest('[data-tiddler-title]');
+                                            const title = tiddlerElement ? 
+                                                tiddlerElement.getAttribute('data-tiddler-title') : 
+                                                "TiddlyWiki Audio";
+                                            
+                                            window.Android.onMediaEvent(
+                                                eventName,
+                                                this.id || "audio",
+                                                this.currentTime || 0,
+                                                this.duration || 0,
+                                                this.currentSrc || "",
+                                                title
+                                            );
+                                        } catch (e) {
+                                            console.error("Error calling onMediaEvent", e);
+                                        }
+                                    }
+                                });
+                            });
+                        });
+                    };
+                    
+                    // Run initial processing
+                    processAudioElements();
+                    
+                    // Set up mutation observer to catch new audio elements
+                    const observer = new MutationObserver(function(mutations) {
+                        let shouldProcess = false;
+                        
+                        for (const mutation of mutations) {
+                            if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                                shouldProcess = true;
+                                break;
+                            }
+                        }
+                        
+                        if (shouldProcess) {
+                            processAudioElements();
+                        }
+                    });
+                    
+                    observer.observe(document.body, {
+                        childList: true,
+                        subtree: true
+                    });
+                };
+                
+                // Start observing when document is ready
+                if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                    setupAudioObserver();
+                } else {
+                    document.addEventListener('DOMContentLoaded', setupAudioObserver);
+                }
+                
+                // Create the AudioControls interface expected by TiddlyWiki
+                window.AudioControls = function() {
+                    this.currentAudio = null;
+                    this.elements = {};
+                    
+                    // Initialize overlay
+                    this.initOverlay = function() {
+                        // Only create if it doesn't exist
+                        if (document.getElementById('audio-controls-overlay')) {
+                            return;
+                        }
+                        
+                        const overlay = document.createElement('div');
+                        overlay.id = 'audio-controls-overlay';
+                        overlay.style.cssText = `
+                            position: fixed;
+                            bottom: 0;
+                            left: 0;
+                            right: 0;
+                            background: rgba(33, 33, 33, 0.9);
+                            color: white;
+                            padding: 10px;
+                            z-index: 9999;
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            transform: translateY(100%);
+                            transition: transform 0.3s ease;
+                            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
+                        `;
+                        
+                        // Title div
+                        const titleDiv = document.createElement('div');
+                        titleDiv.id = 'audio-controls-title';
+                        titleDiv.style.cssText = `
+                            flex: 1;
+                            white-space: nowrap;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            margin-right: 10px;
+                        `;
+                        
+                        // Controls div
+                        const controlsDiv = document.createElement('div');
+                        controlsDiv.style.cssText = `
+                            display: flex;
+                            align-items: center;
+                            gap: 10px;
+                        `;
+                        
+                        // Add buttons
+                        const rewindButton = document.createElement('button');
+                        rewindButton.innerHTML = '⏪';
+                        rewindButton.style.cssText = `
+                            background: none;
+                            border: none;
+                            color: white;
+                            font-size: 1.5em;
+                            cursor: pointer;
+                        `;
+                        rewindButton.onclick = function() {
+                            if (window.MediaInterface.skipBackward) {
+                                window.MediaInterface.skipBackward();
+                            }
+                        };
+                        
+                        const playButton = document.createElement('button');
+                        playButton.innerHTML = '▶️';
+                        playButton.style.cssText = `
+                            background: none;
+                            border: none;
+                            color: white;
+                            font-size: 1.5em;
+                            cursor: pointer;
+                        `;
+                        playButton.onclick = function() {
+                            const audio = mediaState.activeMediaElement;
+                            if (audio) {
+                                if (audio.paused) {
+                                    audio.play();
+                                    this.innerHTML = '⏸️';
+                                } else {
+                                    audio.pause();
+                                    this.innerHTML = '▶️';
+                                }
+                            }
+                        };
+                        
+                        const forwardButton = document.createElement('button');
+                        forwardButton.innerHTML = '⏩';
+                        forwardButton.style.cssText = `
+                            background: none;
+                            border: none;
+                            color: white;
+                            font-size: 1.5em;
+                            cursor: pointer;
+                        `;
+                        forwardButton.onclick = function() {
+                            if (window.MediaInterface.skipForward) {
+                                window.MediaInterface.skipForward();
+                            }
+                        };
+                        
+                        const closeButton = document.createElement('button');
+                        closeButton.innerHTML = '✕';
+                        closeButton.style.cssText = `
+                            background: none;
+                            border: none;
+                            color: white;
+                            font-size: 1em;
+                            cursor: pointer;
+                            margin-left: 10px;
+                        `;
+                        closeButton.onclick = function() {
+                            const audio = mediaState.activeMediaElement;
+                            if (audio) {
+                                audio.pause();
+                            }
+                            document.getElementById('audio-controls-overlay').classList.remove('active');
+                        };
+                        
+                        // Add everything to the DOM
+                        controlsDiv.appendChild(rewindButton);
+                        controlsDiv.appendChild(playButton);
+                        controlsDiv.appendChild(forwardButton);
+                        controlsDiv.appendChild(closeButton);
+                        
+                        overlay.appendChild(titleDiv);
+                        overlay.appendChild(controlsDiv);
+                        
+                        document.body.appendChild(overlay);
+                        
+                        // Store references
+                        this.elements.overlay = overlay;
+                        this.elements.titleDiv = titleDiv;
+                        this.elements.playButton = playButton;
+                    };
+                    
+                    // Function to update the overlay
+                    this.updateOverlay = function() {
+                        this.initOverlay();
+                        
+                        if (!this.currentAudio) return;
+                        
+                        // Show the overlay
+                        this.elements.overlay.classList.add('active');
+                        this.elements.overlay.style.transform = 'translateY(0)';
+                        
+                        // Update title
+                        const tiddlerElement = this.currentAudio.closest('[data-tiddler-title]');
+                        const title = tiddlerElement ? 
+                            tiddlerElement.getAttribute('data-tiddler-title') : 
+                            "TiddlyWiki Audio";
+                        
+                        this.elements.titleDiv.textContent = title;
+                        
+                        // Update play/pause button
+                        this.elements.playButton.innerHTML = this.currentAudio.paused ? '▶️' : '⏸️';
+                    };
+                    
+                    // Initialize
+                    this.initOverlay();
+                };
+                
+                // Create CSS for active state
+                const style = document.createElement('style');
+                style.textContent = `
+                    #audio-controls-overlay.active {
+                        transform: translateY(0) !important;
+                    }
+                `;
+                document.head.appendChild(style);
+                
+                console.log("🎵 TiddlyWiki Media Integration loaded");
+                
+                return true;
+            })();
+        """, null)
+    }
+    
+    /**
      * Inject script to keep the WebView running in the background
      */
     fun injectBackgroundRunningScript(webView: WebView) {
@@ -419,6 +804,9 @@ object WikiViewEnhancer {
                 
                 // Apply small screen optimizations if needed
                 injectSmallScreenOptimizations(webView, context)
+                
+                // Inject media functionality script
+                injectMediaFunctionalityScript(webView)
                 
                 // If background mode is enabled, inject the background running script
                 if (isBackgroundEnabled) {

@@ -602,6 +602,36 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+                
+                @JavascriptInterface
+                fun updateMediaMetadata(title: String, artist: String, durationMs: Long) {
+                    ThreadManager.runOnMain {
+                        try {
+                            (context as? MainActivity)?.let { activity ->
+                                activity.mediaSessionManager.updateMetadata(
+                                    title = title,
+                                    artist = artist,
+                                    duration = durationMs
+                                )
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                }
+                
+                @JavascriptInterface
+                fun updatePlaybackState(isPlaying: Boolean, positionMs: Long) {
+                    ThreadManager.runOnMain {
+                        try {
+                            (context as? MainActivity)?.let { activity ->
+                                activity.mediaSessionManager.updatePlaybackState(isPlaying, positionMs)
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                }
             }
 
             try {
