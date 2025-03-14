@@ -1348,6 +1348,7 @@ fun MainScreen(
     var showShareMenu by remember { mutableStateOf(false) }
     var showTagManagement by remember { mutableStateOf(false) }
     var showTemplateSelectionDialog by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
 
     var draggedWiki by remember { mutableStateOf<WikiInstance?>(null) }
     var isDragging by remember { mutableStateOf(false) }
@@ -1500,18 +1501,10 @@ fun MainScreen(
                                 )
 
                                 DropdownMenuItem(
-                                    text = { Text("Manage Quick Tags") },
+                                    text = { Text("Settings") },
                                     onClick = {
                                         showMenu = false
-                                        showTagManagement = true
-                                    }
-                                )
-
-                                DropdownMenuItem(
-                                    text = { Text(if (isDarkMode) "Light mode" else "Dark mode") },
-                                    onClick = {
-                                        showMenu = false
-                                        viewModel.setDarkMode(!isDarkMode)
+                                        showSettings = true
                                     }
                                 )
 
@@ -1725,6 +1718,21 @@ fun MainScreen(
                 onRemoveTag = { viewModel.removeQuickTag(it) },
                 onReorderTags = { from, to -> viewModel.reorderQuickTags(from, to) },
                 onDismiss = { showTagManagement = false }
+            )
+        }
+
+        if (showSettings) {
+            SettingsDialog(
+                isDarkMode = isDarkMode,
+                onDarkModeChange = { newMode -> 
+                    viewModel.setDarkMode(newMode)
+                },
+                onManageQuickTags = {
+                    showTagManagement = true
+                },
+                onDismiss = {
+                    showSettings = false
+                }
             )
         }
     }
@@ -2173,6 +2181,54 @@ fun TiddlerTemplateSelectionDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun SettingsDialog(
+    isDarkMode: Boolean,
+    onDarkModeChange: (Boolean) -> Unit,
+    onManageQuickTags: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Settings") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Dark Mode")
+                    Switch(
+                        checked = isDarkMode,
+                        onCheckedChange = onDarkModeChange
+                    )
+                }
+
+                Button(
+                    onClick = onManageQuickTags,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                ) {
+                    Text("Manage Quick Tags")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
             }
         }
     )
