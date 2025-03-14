@@ -605,7 +605,25 @@ class MainActivity : ComponentActivity() {
          * Inject CSS modifications to make TiddlyWiki more usable on very small screens
          */
         private fun injectSmallScreenCSS(webView: WebView?) {
-            webView?.evaluateJavascript("""
+            val context = webView?.context ?: return
+            val viewModel = getViewModel(context)
+            
+            // Only inject CSS if the device has a very small screen or the user has enabled it
+            if (!ScreenUtils.isVerySmallScreen(context)) {
+                // Remove any existing small screen styles if they exist
+                webView.evaluateJavascript("""
+                    (function() {
+                        let existingStyle = document.getElementById('tidweb-small-screen-styles');
+                        if (existingStyle) {
+                            existingStyle.parentNode.removeChild(existingStyle);
+                        }
+                        return true;
+                    })();
+                """, null)
+                return
+            }
+
+            webView.evaluateJavascript("""
                 (function() {
                     // Remove any previous small screen styles
                     let existingStyle = document.getElementById('tidweb-small-screen-styles');
@@ -2193,6 +2211,10 @@ fun SettingsDialog(
     onManageQuickTags: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
+    val viewModel: WikiViewModel = remember { MainActivity.getViewModel(context) }
+    val useSmallScreenCSS by viewModel.useSmallScreenCSS.collectAsState()
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Settings") },
@@ -2202,6 +2224,7 @@ fun SettingsDialog(
                     .fillMaxWidth()
                     .padding(vertical = 8.dp)
             ) {
+                // Dark Mode Toggle
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2216,6 +2239,33 @@ fun SettingsDialog(
                     )
                 }
 
+                // Small Screen CSS Toggle
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Small Screen Adaptations")
+                        Text(
+                            "Optimize layout for very small screens",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = useSmallScreenCSS,
+                        onCheckedChange = { enabled ->
+                            viewModel.setUseSmallScreenCSS(enabled)
+                        }
+                    )
+                }
+
+                Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+                // Quick Tags Management Button
                 Button(
                     onClick = onManageQuickTags,
                     modifier = Modifier

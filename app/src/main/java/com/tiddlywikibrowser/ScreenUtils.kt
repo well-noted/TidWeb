@@ -30,20 +30,22 @@ class ScreenUtils {
         }
 
         /**
-         * Check if the device has a very small screen (like flip phones)
-         * This uses configuration resources but also checks screen dimensions
+         * Check if the device has a very small screen and should use CSS adaptations
          */
         fun isVerySmallScreen(context: Context): Boolean {
-            // First check if it's marked as compact in resources (sw180dp)
+            val viewModel = MainActivity.getViewModel(context)
+            // If the user has explicitly enabled small screen CSS, return true
+            if (viewModel.useSmallScreenCSS.value) {
+                return true
+            }
+
+            // If not explicitly enabled, check screen dimensions
             val isCompactInResources = context.resources.getBoolean(R.bool.is_compact_layout)
-            
             if (isCompactInResources) return true
             
-            // If not already detected by resources, check dimensions directly
             val width = getScreenWidthDp(context)
             val height = getScreenHeightDp(context)
             
-            // Very small screens: either very narrow width or very short height (folded flip phone)
             return width < VERY_SMALL_SCREEN_WIDTH_THRESHOLD || 
                    (width < SMALL_SCREEN_WIDTH_THRESHOLD && height < FLIP_PHONE_FRONT_SCREEN_HEIGHT_THRESHOLD)
         }

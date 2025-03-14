@@ -20,4 +20,5 @@ object PreferencesKeys {
     val IS_DARK_MODE = booleanPreferencesKey("is_dark_mode")
     val FAVICONS = stringPreferencesKey("favicons")
     val QUICK_TAGS = stringPreferencesKey("quick_tags")
+    val USE_SMALL_SCREEN_CSS = booleanPreferencesKey("use_small_screen_css")
 }

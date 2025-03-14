@@ -28,6 +28,12 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import kotlinx.coroutines.CoroutineExceptionHandler
 
+    // Cache for WebViews - increased to handle larger wikis
+    private val MAX_WEBVIEW_CACHE = 10
+    private val webViewCache = mutableMapOf<String, WebView>()
+
+    
+
 @Composable
 fun LoadingIndicator(isVisible: Boolean) {
     AnimatedVisibility(
@@ -45,6 +51,7 @@ fun LoadingIndicator(isVisible: Boolean) {
         }
     }
 }
+
 
 @Composable
 fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
@@ -110,6 +117,9 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
     val webViewClientState = remember(stableKey) {
         mutableStateOf<ReloadBlockingWebViewClient?>(null)
     }
+
+
+
 
     // Add lifecycle observer to prevent premature cleanup
     DisposableEffect(stableKey) {
@@ -347,6 +357,7 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
         }
     }
 }
+
 
 /**
  * Safe composable wrapper to prevent compose state exceptions
