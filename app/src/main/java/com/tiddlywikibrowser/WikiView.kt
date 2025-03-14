@@ -118,9 +118,6 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
         mutableStateOf<ReloadBlockingWebViewClient?>(null)
     }
 
-
-
-
     // Add lifecycle observer to prevent premature cleanup
     DisposableEffect(stableKey) {
         val activity = context as? ComponentActivity
@@ -357,6 +354,7 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
         }
     }
 }
+
 
 
 /**

@@ -1488,7 +1488,17 @@ fun MainScreen(
                                         onClick = {
                                             showMenu = false
                                             currentWiki?.let { wiki ->
-                                                viewModel.getOrCreateWebView(wiki, context).reload()
+                                                // Instead of just reloading the current page, force reload from the original URL
+                                                val webView = viewModel.getOrCreateWebView(wiki, context)
+                                                // Get the WebViewClient and cast it to ReloadBlockingWebViewClient
+                                                val client = webView.webViewClient as? ReloadBlockingWebViewClient
+                                                if (client != null) {
+                                                    // Use forceReload with the original wiki URL
+                                                    client.forceReload(webView, wiki.url)
+                                                } else {
+                                                    // Fallback to standard reload if casting fails
+                                                    webView.loadUrl(wiki.url)
+                                                }
                                             }
                                         }
                                     )
