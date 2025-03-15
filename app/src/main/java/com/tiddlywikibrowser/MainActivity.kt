@@ -1007,6 +1007,44 @@ class MainActivity : ComponentActivity() {
                 Toast.LENGTH_SHORT).show()
         }
     }
+    
+    /**
+     * Set background mode enabled/disabled
+     */
+    fun setBackgroundEnabled(enabled: Boolean) {
+        if (_isBackgroundEnabled.value != enabled) {
+            _isBackgroundEnabled.value = enabled
+            
+            // Save the preference
+            saveBackgroundModePreference(enabled)
+            
+            // Start or stop the background service
+            if (enabled) {
+                backgroundWebViewManager.startBackgroundService()
+                
+                // Register the current WebView
+                viewModel?.currentWiki?.value?.let { wiki ->
+                    val key = wiki.idFromUrl ?: wiki.url
+                    val webView = viewModel?.getOrCreateWebView(wiki, this)
+                    webView?.let {
+                        backgroundWebViewManager.registerWebView(key, it)
+                        
+                        // Inform the user
+                        Toast.makeText(this, 
+                            "Background mode enabled. TiddlyWiki will continue running when minimized.", 
+                            Toast.LENGTH_LONG).show()
+                    }
+                }
+            } else {
+                backgroundWebViewManager.stopBackgroundService()
+                
+                // Inform the user
+                Toast.makeText(this, 
+                    "Background mode disabled.", 
+                    Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     override fun onPause() {
         super.onPause()
@@ -2173,30 +2211,66 @@ fun SettingsDialog(
                         onCheckedChange = onDarkModeChange
                     )
                 }
-            }
 
-            // Small Screen CSS Toggle
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Small Screen Adaptations")
-                    Text(
-                        "Optimize layout for very small screens",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                // Small Screen CSS Toggle
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Small Screen Adaptations")
+                        Text(
+                            "Optimize layout for very small screens",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = useSmallScreenCSS,
+                        onCheckedChange = { enabled ->
+                            viewModel.setUseSmallScreenCSS(enabled)
+                        }
                     )
                 }
-                Switch(
-                    checked = useSmallScreenCSS,
-                    onCheckedChange = { enabled ->
-                        viewModel.setUseSmallScreenCSS(enabled)
+
+                // Background Mode Toggle
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.background_mode))
+                        Text(
+                            stringResource(R.string.background_mode_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                )
+                    Switch(
+                        checked = isBackgroundEnabled,
+                        onCheckedChange = { enabled ->
+                            mainActivity?.toggleBackgroundMode()
+                        }
+                    )
+                }
+
+                Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+                // Quick Tags Management Button - moved inside the Column with proper spacing
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = onManageQuickTags,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ) {
+                    Text("Manage Quick Tags")
+                }
             }
         },
         confirmButton = {
