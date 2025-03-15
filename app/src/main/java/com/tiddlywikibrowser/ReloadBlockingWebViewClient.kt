@@ -2,6 +2,8 @@ package com.tiddlywikibrowser
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.os.Build
+import android.webkit.CookieManager
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -146,6 +148,12 @@ class ReloadBlockingWebViewClient(
         view.settings?.blockNetworkImage = false
         view.settings?.loadsImagesAutomatically = true
         view.settings?.mediaPlaybackRequiresUserGesture = false // Allow autoplay for media
+        
+        // Ensure cookies are saved when page is loaded (important for login persistence)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            CookieManager.getInstance().setAcceptCookie(true)
+            CookieManager.getInstance().flush()
+        }
         
         // Inject media monitor script if available
         (context as? MainActivity)?.let { activity ->
@@ -376,6 +384,12 @@ class ReloadBlockingWebViewClient(
         // Update UI state
         onLoadingStateChanged(false)
         onPageLoaded(true)
+
+        // Ensure cookies are persisted to disk when wiki content is loaded
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            CookieManager.getInstance().setAcceptCookie(true)
+            CookieManager.getInstance().flush()
+        }
 
         // Apply reload protection
         reinforceReloadProtection(webView)

@@ -9,6 +9,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.net.ConnectivityManager
 import android.net.Network
@@ -170,7 +171,9 @@ class MainActivity : ComponentActivity() {
         // This is called from a background thread
         // Pre-warm caches, initialize background services, etc.
         ThreadManager.runOnBackground {
-            CookieManager.getInstance().removeAllCookies(null)
+            // Initialize cookie manager but don't clear cookies
+            CookieManager.getInstance().setAcceptCookie(true)
+            
             // Use main thread for WebView operations
             ThreadManager.runOnMain {
                 // Create a temporary WebView to clear cache
@@ -814,6 +817,131 @@ class MainActivity : ComponentActivity() {
         setupNetworkMonitoring()
     }
     
+    /**
+     * Set up the main UI
+     */
+    private fun setupUI() {
+        setContent {
+            val currentContext = LocalContext.current as ComponentActivity
+            val viewModel = remember(currentContext) { getViewModel(currentContext) }
+            val isDarkMode by viewModel.isDarkMode.collectAsState(initial = false)
+
+            // Protect against composition errors with SideEffect
+            SideEffect {
+                // Assign the non-null ViewModel from remember to this.viewModel
+                this@MainActivity.viewModel = viewModel
+            }
+
+            // Handle initial wiki state preservation
+            DisposableEffect(Unit) {
+                onDispose {
+                    // Save state of current wiki when activity is disposed
+                    viewModel.currentWiki.value?.let { wiki ->
+                        val key = wiki.idFromUrl ?: wiki.url
+                        getCurrentWebView()?.let { webView ->
+                            WebViewCache.cacheWebView(key, webView)
+                        }
+                    }
+                }
+            }
+            
+            // The MaterialTheme
+            MaterialTheme(
+                colorScheme = if (isDarkMode) darkColorScheme() else lightColorScheme()
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        MainScreen(
+                            viewModel = viewModel,
+                            onAddClick = { showAddDialog = true },
+                            onShowRenameDialog = { showRenameDialog = true }
+                        )
+                        
+                        // Handle dialog visibility
+                        if (showAddDialog) {
+                            AddWikiDialog(
+                                onDismiss = { showAddDialog = false },
+                                onAdd = { name, url ->
+                                    viewModel.addWiki(name, url)
+                                    showAddDialog = false
+                                },
+                                onAddLocalFile = {
+                                    pendingWikiName = null
+                                    filePickerLauncher.launch("*/*")
+                                }
+                            )
+                        }
+                        
+                        if (showWikiSelector && pendingSharedText != null) {
+                            WikiSelectionDialog(
+                                wikis = viewModel.allWikis.collectAsState().value,
+                                quickTags = viewModel.quickTags.collectAsState().value,
+                                onDismiss = {
+                                    showWikiSelector = false
+                                    pendingSharedText = null
+                                    if (!isTaskRoot) {
+                                        finish()
+                                    }
+                                },
+                                onWikiSelected = { wiki, tags ->
+                                    handleWikiSelection(wiki, pendingSharedText, tags)
+                                    showWikiSelector = false
+                                    pendingSharedText = null
+                                    if (!isTaskRoot) {
+                                        finish()
+                                    }
+                                },
+                                onAddNew = {
+                                    showWikiSelector = false
+                                    showAddDialog = true
+                                }
+                            )
+                        }
+                        
+                        if (showDeleteConfirmDialog && viewModel.currentWiki.value != null) {
+                            AlertDialog(
+                                onDismissRequest = { showDeleteConfirmDialog = false },
+                                title = { Text("Delete Wiki") },
+                                text = { Text("Are you sure you want to delete '${viewModel.currentWiki.value?.name}'?") },
+                                confirmButton = {
+                                    TextButton(onClick = {
+                                        viewModel.currentWiki.value?.let { wiki ->
+                                            viewModel.deleteWiki(wiki)
+                                        }
+                                        showDeleteConfirmDialog = false
+                                    }) {
+                                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                                        Text("Cancel")
+                                    }
+                                }
+                            )
+                        }
+                        
+                        if (showRenameDialog && viewModel.currentWiki.value != null) {
+                            RenameWikiDialog(
+                                currentName = viewModel.currentWiki.value?.name ?: "",
+                                onDismiss = { showRenameDialog = false },
+                                onRename = { newName ->
+                                    viewModel.currentWiki.value?.let { wiki ->
+                                        viewModel.renameWiki(wiki, newName)
+                                    }
+                                    showRenameDialog = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     private fun loadPreferences() {
         // Load other preferences here
         
@@ -1006,71 +1134,17 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
     }
 
-    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
-        WebViewCache.setConfigurationChanging(true)
+    override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-
-        // Fix for orientation changes: update WebView layout
-        ThreadManager.runOnBackgroundWithDelay(100) {
-            ThreadManager.runOnMain {
-                val currentWikiUrl = viewModel?.currentWiki?.value?.url
-                currentWikiUrl?.let { url ->
-                    viewModel?.getOrCreateWebView(viewModel?.currentWiki?.value ?: return@let, this)?.let { webView ->
-                        // Get current orientation
-                        val isPortrait = newConfig.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
-
-                        // Trigger layout update with orientation awareness
-                        webView.evaluateJavascript("""
-                        (function() {
-                            // Force layout recalculation
-                            document.body.style.width = window.innerWidth + 'px';
-                            const evt = new Event('resize');
-                            window.dispatchEvent(evt);
-                            
-                            // Handle orientation-specific resizing
-                            const isPortrait = ${isPortrait};
-                            
-                            // Safely check if TiddlyWiki is available
-                            if (typeof window !== 'undefined' && 
-                                window.${"$"}tw && 
-                                typeof window.${"$"}tw.utils === 'object') {
-                                
-                                try {
-                                    if (isPortrait) {
-                                        // In portrait mode, use window resize event for better content flow
-                                        window.${"$"}tw.utils.resizeAll();
-                                        // Additional portrait-specific adjustments
-                                        document.body.classList.add('tc-portrait-mode');
-                                        document.body.classList.remove('tc-landscape-mode');
-                                    } else {
-                                        // In landscape mode, use TiddlyWiki's resize utils
-                                        window.${"$"}tw.utils.resizeAll();
-                                        // Additional landscape-specific adjustments
-                                        document.body.classList.add('tc-landscape-mode');
-                                        document.body.classList.remove('tc-portrait-mode');
-                                    }
-                                    return "TiddlyWiki resized for " + (isPortrait ? "portrait" : "landscape");
-                                } catch(e) {
-                                    console.error('TiddlyWiki resize error:', e);
-                                    return "Error: " + e.message;
-                                }
-                            } else {
-                                console.log('TiddlyWiki not fully initialized yet');
-                                return "TiddlyWiki not ready";
-                            }
-                        })();
-                    """) { result ->
-
-                        }
-                    }
-                }
-            }
-        }
-
+        WebViewCache.setConfigurationChanging(true)
+        
         // Handle any WebViews that need to be retained during configuration changes
-        viewModel?.currentWiki?.value?.let { wiki ->
-            val key = wiki.idFromUrl ?: wiki.url
-            WebViewCache.setCurrentActiveKey(key)
+        val safeViewModel = viewModel
+        if (safeViewModel != null) {
+            safeViewModel.currentWiki.value?.let { wiki ->
+                val key = wiki.idFromUrl ?: wiki.url
+                WebViewCache.setCurrentActiveKey(key)
+            }
         }
 
         // Reset flag after a short delay
@@ -1100,134 +1174,9 @@ class MainActivity : ComponentActivity() {
         val webViewDatabase = WebViewDatabase.getInstance(this)
         CookieManager.getInstance().setAcceptCookie(true)
         
-        // Clear any stale cookies
-        ThreadManager.runOnBackground {
-            CookieManager.getInstance().removeAllCookies(null)
-        }
-    }
-    
-    /**
-     * Set up the main UI
-     */
-    private fun setupUI() {
-        setContent {
-            val currentContext = LocalContext.current as ComponentActivity
-            val viewModel = remember(currentContext) { getViewModel(currentContext) }
-            val isDarkMode by viewModel.isDarkMode.collectAsState(initial = false)
-
-            // Protect against composition errors with SideEffect
-            SideEffect {
-                if (viewModel != this.viewModel) {
-                    this.viewModel = viewModel
-                }
-            }
-
-            // Handle initial wiki state preservation
-            DisposableEffect(Unit) {
-                onDispose {
-                    // Save state of current wiki when activity is disposed
-                    viewModel.currentWiki.value?.let { wiki ->
-                        val key = wiki.idFromUrl ?: wiki.url
-                        getCurrentWebView()?.let { webView ->
-                            WebViewCache.cacheWebView(key, webView)
-                        }
-                    }
-                }
-            }
-
-            MaterialTheme(
-                colorScheme = if (isDarkMode) darkColorScheme() else lightColorScheme()
-            ) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        MainScreen(
-                            viewModel = viewModel,
-                            onAddClick = { showAddDialog = true },
-                            onShowRenameDialog = { showRenameDialog = true }
-                        )
-                        
-                        // Handle dialog visibility
-                        if (showAddDialog) {
-                            AddWikiDialog(
-                                onDismiss = { showAddDialog = false },
-                                onAdd = { name, url ->
-                                    viewModel.addWiki(name, url)
-                                    showAddDialog = false
-                                },
-                                onAddLocalFile = {
-                                    pendingWikiName = null
-                                    filePickerLauncher.launch("*/*")
-                                }
-                            )
-                        }
-                        
-                        if (showWikiSelector && pendingSharedText != null) {
-                            WikiSelectionDialog(
-                                wikis = viewModel.allWikis.collectAsState().value,
-                                quickTags = viewModel.quickTags.collectAsState().value,
-                                onDismiss = {
-                                    showWikiSelector = false
-                                    pendingSharedText = null
-                                    if (!isTaskRoot) {
-                                        finish()
-                                    }
-                                },
-                                onWikiSelected = { wiki, tags ->
-                                    handleWikiSelection(wiki, pendingSharedText, tags)
-                                    showWikiSelector = false
-                                    pendingSharedText = null
-                                    if (!isTaskRoot) {
-                                        finish()
-                                    }
-                                },
-                                onAddNew = {
-                                    showWikiSelector = false
-                                    showAddDialog = true
-                                }
-                            )
-                        }
-                        
-                        if (showDeleteConfirmDialog && viewModel.currentWiki.value != null) {
-                            AlertDialog(
-                                onDismissRequest = { showDeleteConfirmDialog = false },
-                                title = { Text("Delete Wiki") },
-                                text = { Text("Are you sure you want to delete '${viewModel.currentWiki.value?.name}'?") },
-                                confirmButton = {
-                                    TextButton(onClick = {
-                                        viewModel.currentWiki.value?.let { wiki ->
-                                            viewModel.deleteWiki(wiki)
-                                        }
-                                        showDeleteConfirmDialog = false
-                                    }) {
-                                        Text("Delete", color = MaterialTheme.colorScheme.error)
-                                    }
-                                },
-                                dismissButton = {
-                                    TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                                        Text("Cancel")
-                                    }
-                                }
-                            )
-                        }
-                        
-                        if (showRenameDialog && viewModel.currentWiki.value != null) {
-                            RenameWikiDialog(
-                                currentName = viewModel.currentWiki.value?.name ?: "",
-                                onDismiss = { showRenameDialog = false },
-                                onRename = { newName ->
-                                    viewModel.currentWiki.value?.let { wiki ->
-                                        viewModel.renameWiki(wiki, newName)
-                                    }
-                                    showRenameDialog = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
+        // Ensure cookies are persisted to disk
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            CookieManager.getInstance().flush()
         }
     }
     
@@ -2060,53 +2009,6 @@ fun WikiSelectionDialog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TagSelectionDialog(
-    tags: List<String>,
-    selectedTags: List<String>,
-    onTagToggle: (String) -> Unit,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Add Tags") },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-            ) {
-                tags.forEach { tag ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = selectedTags.contains(tag),
-                            onCheckedChange = { onTagToggle(tag) }
-                        )
-                        Text(tag, modifier = Modifier.padding(start = 8.dp))
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("Done")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
 fun TagManagementDialog(
     tags: List<String>,
     onAddTag: (String) -> Unit,
@@ -2130,11 +2032,11 @@ fun TagManagementDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextField(
-                    value = newTag,
-                    onValueChange = { newTag = it },
-                    label = { Text(text = "New Tag") },
-                    modifier = Modifier.weight(1f)
-                )
+                        value = newTag,
+                        onValueChange = { newTag = it },
+                        label = { Text(text = "New Tag") },
+                        modifier = Modifier.weight(1f)
+                    )
                     IconButton(
                         onClick = {
                             if (newTag.isNotBlank()) {
@@ -2147,34 +2049,6 @@ fun TagManagementDialog(
                             imageVector = Icons.Default.Add,
                             contentDescription = "Add Tag"
                         )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Replace scrolling Column with LazyColumn
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(tags) { tag ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = tag,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(onClick = { onRemoveTag(tag) }) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Remove Tag"
-                            )
-                        }
                     }
                 }
             }
@@ -2299,66 +2173,30 @@ fun SettingsDialog(
                         onCheckedChange = onDarkModeChange
                     )
                 }
+            }
 
-                // Small Screen CSS Toggle
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Small Screen Adaptations")
-                        Text(
-                            "Optimize layout for very small screens",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = useSmallScreenCSS,
-                        onCheckedChange = { enabled ->
-                            viewModel.setUseSmallScreenCSS(enabled)
-                        }
+            // Small Screen CSS Toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Small Screen Adaptations")
+                    Text(
+                        "Optimize layout for very small screens",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                
-                // Background Mode Toggle
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.background_mode))
-                        Text(
-                            stringResource(R.string.background_mode_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                Switch(
+                    checked = useSmallScreenCSS,
+                    onCheckedChange = { enabled ->
+                        viewModel.setUseSmallScreenCSS(enabled)
                     }
-                    Switch(
-                        checked = isBackgroundEnabled,
-                        onCheckedChange = { enabled ->
-                            mainActivity?.toggleBackgroundMode()
-                        }
-                    )
-                }
-                
-                Divider(modifier = Modifier.padding(vertical = 8.dp))
-                
-                // Quick Tags Management Button - moved inside the Column with proper spacing
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = onManageQuickTags,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                ) {
-                    Text("Manage Quick Tags")
-                }
+                )
             }
         },
         confirmButton = {

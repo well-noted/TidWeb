@@ -16,36 +16,45 @@ class WebViewSetupConfig(private val wiki: WikiInstance, private val context: Co
             allowContentAccess = true
             defaultTextEncodingName = "UTF-8"
             
-            // Configure based on wiki size strategy
-            when (strategy) {
-                WikiLoadStrategy.LARGE_WIKI -> {
-                    // Aggressive optimizations for large wikis
-                    blockNetworkImage = true // Defer image loading
-                    loadsImagesAutomatically = false
-                    cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
-                    setGeolocationEnabled(false)
-                }
-                
-                WikiLoadStrategy.MEDIUM_WIKI -> {
-                    // Moderate optimizations
-                    blockNetworkImage = false
-                    loadsImagesAutomatically = true
-                    cacheMode = WebSettings.LOAD_DEFAULT
-                    setGeolocationEnabled(false)
-                }
-                
-                WikiLoadStrategy.SMALL_WIKI -> {
-                    // Standard settings for small wikis
-                    blockNetworkImage = false
-                    loadsImagesAutomatically = true
-                    cacheMode = WebSettings.LOAD_DEFAULT
-                }
-                
-                WikiLoadStrategy.INITIALIZING -> {
-                    // Minimal settings during initialization
-                    blockNetworkImage = true
-                    loadsImagesAutomatically = false
-                    cacheMode = WebSettings.LOAD_NO_CACHE
+            // Check if this is a local file - local files don't need network requests
+            if (wiki.isLocalFile || wiki.url.startsWith("file://")) {
+                // For local files, don't use network at all
+                blockNetworkImage = false
+                loadsImagesAutomatically = true
+                cacheMode = WebSettings.LOAD_CACHE_ONLY // Only load from cache for local files
+                setGeolocationEnabled(false)
+            } else {
+                // For non-local files, configure based on wiki size strategy
+                when (strategy) {
+                    WikiLoadStrategy.LARGE_WIKI -> {
+                        // Aggressive optimizations for large wikis
+                        blockNetworkImage = true // Defer image loading
+                        loadsImagesAutomatically = false
+                        cacheMode = WebSettings.LOAD_DEFAULT
+                        setGeolocationEnabled(false)
+                    }
+                    
+                    WikiLoadStrategy.MEDIUM_WIKI -> {
+                        // Moderate optimizations
+                        blockNetworkImage = false
+                        loadsImagesAutomatically = true
+                        cacheMode = WebSettings.LOAD_DEFAULT
+                        setGeolocationEnabled(false)
+                    }
+                    
+                    WikiLoadStrategy.SMALL_WIKI -> {
+                        // Standard settings for small wikis
+                        blockNetworkImage = false
+                        loadsImagesAutomatically = true
+                        cacheMode = WebSettings.LOAD_DEFAULT
+                    }
+                    
+                    WikiLoadStrategy.INITIALIZING -> {
+                        // Minimal settings during initialization
+                        blockNetworkImage = true
+                        loadsImagesAutomatically = false
+                        cacheMode = WebSettings.LOAD_NO_CACHE
+                    }
                 }
             }
             

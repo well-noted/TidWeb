@@ -87,6 +87,33 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
         WebViewCache.setCurrentActiveKey(wikiKey)
     }
     
+    // Add LaunchedEffect to fetch local file URL based on wiki type
+    LaunchedEffect(stableKey) {
+        // Skip for local files - they should be loaded directly
+        if (!wiki.isLocalFile && !wiki.url.startsWith("file://")) {
+            try {
+                // For non-local files, use network-first approach
+                localFileUrl = fileManager.getLocalFileUrlNetworkFirst(wiki.url)
+                Log.d("WikiView", "Network-first approach for ${wiki.url}, localFileUrl: $localFileUrl")
+            } catch (e: Exception) {
+                Log.e("WikiView", "Error loading with network-first approach: ${e.message}")
+                
+                // Fallback to cache-first approach if network-first fails
+                try {
+                    localFileUrl = fileManager.getLocalFileUrl(wiki.url)
+                    Log.d("WikiView", "Fallback to cache-first for ${wiki.url}, localFileUrl: $localFileUrl")
+                } catch (e: Exception) {
+                    Log.e("WikiView", "Error during fallback to cache-first: ${e.message}")
+                    // If both approaches fail, we'll use the original URL
+                }
+            }
+        } else {
+            // For local files, just use the URL directly
+            Log.d("WikiView", "Local file detected, using direct URL: ${wiki.url}")
+            // We leave localFileUrl as null for local files so wiki.url is used directly
+        }
+    }
+    
     // Set current wiki and view model for download manager
     DisposableEffect(stableKey) {
         downloadManager.setCurrentWiki(wiki, viewModel)
@@ -177,8 +204,14 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                                 isLoading = true
                                 errorState = null
                                 
-                                // Fetch the URL to load
-                                val urlToLoad = localFileUrl ?: wiki.url
+                                // Determine URL to load based on file type
+                                val urlToLoad = if (wiki.isLocalFile || wiki.url.startsWith("file://")) {
+                                    // For local files, use the wiki URL directly
+                                    wiki.url
+                                } else {
+                                    // For network files, use cached URL if available
+                                    localFileUrl ?: wiki.url
+                                }
                                 
                                 // Use our new forceReload method that properly resets WebView state
                                 viewModel.getOrCreateWebView(wiki, context)?.let { webView ->
@@ -206,9 +239,28 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                                 isFirstLoad = true
                                 hasContent = false
                                 
+                                // For non-local files, attempt to refresh the network cache too
+                                if (!wiki.isLocalFile && !wiki.url.startsWith("file://")) {
+                                    scope.launch {
+                                        try {
+                                            // Get fresh content from network
+                                            localFileUrl = fileManager.getLocalFileUrlNetworkFirst(wiki.url)
+                                        } catch (e: Exception) {
+                                            Log.e("WikiView", "Hard reload network refresh failed: ${e.message}")
+                                            // If it fails, we'll use whatever localFileUrl already has
+                                        }
+                                    }
+                                }
+                                
                                 // Small delay to let removal finish
                                 ThreadManager.runOnMainWithDelay(100) {
-                                    val urlToLoad = localFileUrl ?: wiki.url
+                                    val urlToLoad = if (wiki.isLocalFile || wiki.url.startsWith("file://")) {
+                                        // For local files, use the wiki URL directly
+                                        wiki.url
+                                    } else {
+                                        // For network files, use cached URL if available
+                                        localFileUrl ?: wiki.url
+                                    }
                                     
                                     // This will create a fresh WebView since we just removed the cached one
                                     viewModel.getOrCreateWebView(wiki, context)?.let { webView ->
