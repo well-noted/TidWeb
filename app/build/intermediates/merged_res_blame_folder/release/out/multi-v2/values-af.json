@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.tiddlywikibrowser.app-mergeReleaseResources-69:/values-af/values-af.xml",
+            "outputFile": "com.tiddlywikibrowser.app-mergeReleaseResources-68:/values-af/values-af.xml",
             "map": [
                 {
                     "source": "C:\\Users\\tetuo\\.gradle\\caches\\8.10.2\\transforms\\0a5549575477d513530c25cc04203e66\\transformed\\appcompat-1.6.1\\res\\values-af\\values-af.xml",

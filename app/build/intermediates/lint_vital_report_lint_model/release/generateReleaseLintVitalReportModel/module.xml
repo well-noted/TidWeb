@@ -1,6 +1,6 @@
 <lint-module
     format="1"
-    dir="C:\Users\tetuo\TidWeb\app"
+    dir="C:\Users\tetuo\TidWeb-main\TidWeb\app"
     name=":app"
     type="APP"
     maven="TidWeb:app:"

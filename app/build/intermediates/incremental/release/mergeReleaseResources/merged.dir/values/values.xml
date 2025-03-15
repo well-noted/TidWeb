@@ -620,7 +620,11 @@
     </attr>
     <bool name="abc_action_bar_embed_tabs">true</bool>
     <bool name="abc_config_actionMenuItemAllCaps">true</bool>
+    <bool name="is_compact_layout">false</bool>
     <bool name="mtrl_btn_textappearance_all_caps">true</bool>
+    <bool name="use_minimal_padding">false</bool>
+    <bool name="use_simplified_ui">false</bool>
+    <bool name="webview_force_zoom">false</bool>
     <color name="abc_decor_view_status_guard">#ff000000</color>
     <color name="abc_decor_view_status_guard_light">#ffffffff</color>
     <color name="abc_search_url_text_normal">#7fa87f</color>
@@ -2078,6 +2082,7 @@
     <integer name="mtrl_view_visible">0</integer>
     <integer name="show_password_duration">200</integer>
     <integer name="status_bar_notification_info_maxnum">999</integer>
+    <integer name="webview_text_zoom">100</integer>
     <plurals name="exo_controls_fastforward_by_amount_description">
     <item quantity="one">Fast forward <ns2:g example="1" id="fastforward_amount">%d</ns2:g> second</item>
     <item quantity="other">Fast forward <ns2:g example="30" id="fastforward_amount">%d</ns2:g> seconds</item>
@@ -2124,6 +2129,8 @@
     <string name="app_name">TiddlyWiki Browser</string>
     <string name="appbar_scrolling_view_behavior" translatable="false">com.google.android.material.appbar.AppBarLayout$ScrollingViewBehavior</string>
     <string name="authentication_required">Authentication required</string>
+    <string name="background_mode">Background Mode</string>
+    <string name="background_mode_desc">Keep TiddlyWiki running when app is minimized</string>
     <string name="bottom_sheet_behavior" translatable="false">com.google.android.material.bottomsheet.BottomSheetBehavior</string>
     <string name="bottom_sheet_collapse_description">Collapse bottom sheet</string>
     <string name="bottom_sheet_dismiss_description">Dismiss bottom sheet</string>
@@ -2379,6 +2386,7 @@
     <string name="path_password_eye_mask_strike_through" translatable="false">M2,4.27 L19.73,22 L22.27,19.46 L4.54,1.73 L4.54,1 L23,1 L23,23 L1,23 L1,4.27 Z</string>
     <string name="path_password_eye_mask_visible" translatable="false">M2,4.27 L2,4.27 L4.54,1.73 L4.54,1.73 L4.54,1 L23,1 L23,23 L1,23 L1,4.27 Z</string>
     <string name="path_password_strike_through" translatable="false">M3.27,4.27 L19.74,20.74</string>
+    <string name="prevent_reload_tag">wiki_loaded_state</string>
     <string name="range_end">"Range end"</string>
     <string name="range_start">"Range start"</string>
     <string name="search_bar_search">Search</string>

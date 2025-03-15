@@ -13,6 +13,19 @@
       externalAnnotations="annotations.zip"
       proguardRules="proguard.txt"/>
   <library
+      name="com.google.accompanist:accompanist-flowlayout:0.32.0@aar"
+      jars="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\85ddd974f589070077b281bf98f078e1\transformed\jetified-accompanist-flowlayout-0.32.0\jars\classes.jar"
+      resolved="com.google.accompanist:accompanist-flowlayout:0.32.0"
+      folder="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\85ddd974f589070077b281bf98f078e1\transformed\jetified-accompanist-flowlayout-0.32.0"
+      manifest="AndroidManifest.xml"
+      resFolder="res"
+      assetsFolder="assets"
+      lintJar="lint.jar"
+      publicResources="public.txt"
+      symbolFile="R.txt"
+      externalAnnotations="annotations.zip"
+      proguardRules="proguard.txt"/>
+  <library
       name="com.google.accompanist:accompanist-permissions:0.32.0@aar"
       jars="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\2665f350eb139034600f97f31f2ecafd\transformed\jetified-accompanist-permissions-0.32.0\jars\classes.jar"
       resolved="com.google.accompanist:accompanist-permissions:0.32.0"
@@ -147,19 +160,6 @@
       jars="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\0a5549575477d513530c25cc04203e66\transformed\appcompat-1.6.1\jars\classes.jar"
       resolved="androidx.appcompat:appcompat:1.6.1"
       folder="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\0a5549575477d513530c25cc04203e66\transformed\appcompat-1.6.1"
-      manifest="AndroidManifest.xml"
-      resFolder="res"
-      assetsFolder="assets"
-      lintJar="lint.jar"
-      publicResources="public.txt"
-      symbolFile="R.txt"
-      externalAnnotations="annotations.zip"
-      proguardRules="proguard.txt"/>
-  <library
-      name="androidx.lifecycle:lifecycle-extensions:2.0.0@aar"
-      jars="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\6417a0f5decea7a71ed565a838264ee3\transformed\lifecycle-extensions-2.0.0\jars\classes.jar"
-      resolved="androidx.lifecycle:lifecycle-extensions:2.0.0"
-      folder="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\6417a0f5decea7a71ed565a838264ee3\transformed\lifecycle-extensions-2.0.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -312,10 +312,10 @@
       externalAnnotations="annotations.zip"
       proguardRules="proguard.txt"/>
   <library
-      name="io.coil-kt:coil-compose-base:2.5.0@aar"
-      jars="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\8f1fe85df49016306752edefcd2eddf3\transformed\jetified-coil-compose-base-2.5.0\jars\classes.jar"
-      resolved="io.coil-kt:coil-compose-base:2.5.0"
-      folder="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\8f1fe85df49016306752edefcd2eddf3\transformed\jetified-coil-compose-base-2.5.0"
+      name="androidx.compose.foundation:foundation-layout-android:1.5.4@aar"
+      jars="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1fdae0e7e64ac0fe3a1e21d6d1dede58\transformed\jetified-foundation-layout-release\jars\classes.jar"
+      resolved="androidx.compose.foundation:foundation-layout-android:1.5.4"
+      folder="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1fdae0e7e64ac0fe3a1e21d6d1dede58\transformed\jetified-foundation-layout-release"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -325,10 +325,10 @@
       externalAnnotations="annotations.zip"
       proguardRules="proguard.txt"/>
   <library
-      name="androidx.compose.foundation:foundation-layout-android:1.5.4@aar"
-      jars="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1fdae0e7e64ac0fe3a1e21d6d1dede58\transformed\jetified-foundation-layout-release\jars\classes.jar"
-      resolved="androidx.compose.foundation:foundation-layout-android:1.5.4"
-      folder="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1fdae0e7e64ac0fe3a1e21d6d1dede58\transformed\jetified-foundation-layout-release"
+      name="io.coil-kt:coil-compose-base:2.5.0@aar"
+      jars="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\8f1fe85df49016306752edefcd2eddf3\transformed\jetified-coil-compose-base-2.5.0\jars\classes.jar"
+      resolved="io.coil-kt:coil-compose-base:2.5.0"
+      folder="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\8f1fe85df49016306752edefcd2eddf3\transformed\jetified-coil-compose-base-2.5.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -754,32 +754,6 @@
       externalAnnotations="annotations.zip"
       proguardRules="proguard.txt"/>
   <library
-      name="androidx.lifecycle:lifecycle-service:2.6.2@aar"
-      jars="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b4a3ed33180efb5e6552a2b7d0583f08\transformed\jetified-lifecycle-service-2.6.2\jars\classes.jar"
-      resolved="androidx.lifecycle:lifecycle-service:2.6.2"
-      folder="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b4a3ed33180efb5e6552a2b7d0583f08\transformed\jetified-lifecycle-service-2.6.2"
-      manifest="AndroidManifest.xml"
-      resFolder="res"
-      assetsFolder="assets"
-      lintJar="lint.jar"
-      publicResources="public.txt"
-      symbolFile="R.txt"
-      externalAnnotations="annotations.zip"
-      proguardRules="proguard.txt"/>
-  <library
-      name="androidx.lifecycle:lifecycle-process:2.6.2@aar"
-      jars="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c841f9be723dda6bd38e1e9c0ef21f48\transformed\jetified-lifecycle-process-2.6.2\jars\classes.jar"
-      resolved="androidx.lifecycle:lifecycle-process:2.6.2"
-      folder="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c841f9be723dda6bd38e1e9c0ef21f48\transformed\jetified-lifecycle-process-2.6.2"
-      manifest="AndroidManifest.xml"
-      resFolder="res"
-      assetsFolder="assets"
-      lintJar="lint.jar"
-      publicResources="public.txt"
-      symbolFile="R.txt"
-      externalAnnotations="annotations.zip"
-      proguardRules="proguard.txt"/>
-  <library
       name="androidx.lifecycle:lifecycle-common:2.6.2@jar"
       jars="C:\Users\tetuo\.gradle\caches\modules-2\files-2.1\androidx.lifecycle\lifecycle-common\2.6.2\10f354fdb64868baecd67128560c5a0d6312c495\lifecycle-common-2.6.2.jar"
       resolved="androidx.lifecycle:lifecycle-common:2.6.2"/>
@@ -1076,6 +1050,19 @@
       externalAnnotations="annotations.zip"
       proguardRules="proguard.txt"/>
   <library
+      name="androidx.versionedparcelable:versionedparcelable:1.1.1@aar"
+      jars="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\dc0f21531616e0033a68c5ebdd889127\transformed\versionedparcelable-1.1.1\jars\classes.jar"
+      resolved="androidx.versionedparcelable:versionedparcelable:1.1.1"
+      folder="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\dc0f21531616e0033a68c5ebdd889127\transformed\versionedparcelable-1.1.1"
+      manifest="AndroidManifest.xml"
+      resFolder="res"
+      assetsFolder="assets"
+      lintJar="lint.jar"
+      publicResources="public.txt"
+      symbolFile="R.txt"
+      externalAnnotations="annotations.zip"
+      proguardRules="proguard.txt"/>
+  <library
       name="androidx.arch.core:core-runtime:2.2.0@aar"
       jars="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\e8fca0093423cbd6b1f9b49534a2a2cf\transformed\core-runtime-2.2.0\jars\classes.jar"
       resolved="androidx.arch.core:core-runtime:2.2.0"
@@ -1092,19 +1079,6 @@
       name="androidx.arch.core:core-common:2.2.0@jar"
       jars="C:\Users\tetuo\.gradle\caches\modules-2\files-2.1\androidx.arch.core\core-common\2.2.0\5e1b8b81dfd5f52c56a8d53b18ca759c19a301f3\core-common-2.2.0.jar"
       resolved="androidx.arch.core:core-common:2.2.0"/>
-  <library
-      name="androidx.versionedparcelable:versionedparcelable:1.1.1@aar"
-      jars="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\dc0f21531616e0033a68c5ebdd889127\transformed\versionedparcelable-1.1.1\jars\classes.jar"
-      resolved="androidx.versionedparcelable:versionedparcelable:1.1.1"
-      folder="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\dc0f21531616e0033a68c5ebdd889127\transformed\versionedparcelable-1.1.1"
-      manifest="AndroidManifest.xml"
-      resFolder="res"
-      assetsFolder="assets"
-      lintJar="lint.jar"
-      publicResources="public.txt"
-      symbolFile="R.txt"
-      externalAnnotations="annotations.zip"
-      proguardRules="proguard.txt"/>
   <library
       name="androidx.documentfile:documentfile:1.0.0@aar"
       jars="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\240463b05e261f4b8008224b07424f92\transformed\documentfile-1.0.0\jars\classes.jar"
@@ -1202,19 +1176,6 @@
       name="com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava@jar"
       jars="C:\Users\tetuo\.gradle\caches\modules-2\files-2.1\com.google.guava\listenablefuture\9999.0-empty-to-avoid-conflict-with-guava\b421526c5f297295adef1c886e5246c39d4ac629\listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar"
       resolved="com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava"/>
-  <library
-      name="androidx.startup:startup-runtime:1.1.1@aar"
-      jars="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\31cd04cf25c7807e7cbe73d5cec0f4ff\transformed\jetified-startup-runtime-1.1.1\jars\classes.jar"
-      resolved="androidx.startup:startup-runtime:1.1.1"
-      folder="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\31cd04cf25c7807e7cbe73d5cec0f4ff\transformed\jetified-startup-runtime-1.1.1"
-      manifest="AndroidManifest.xml"
-      resFolder="res"
-      assetsFolder="assets"
-      lintJar="lint.jar"
-      publicResources="public.txt"
-      symbolFile="R.txt"
-      externalAnnotations="annotations.zip"
-      proguardRules="proguard.txt"/>
   <library
       name="androidx.resourceinspection:resourceinspection-annotation:1.0.1@jar"
       jars="C:\Users\tetuo\.gradle\caches\modules-2\files-2.1\androidx.resourceinspection\resourceinspection-annotation\1.0.1\8c21f8ff5d96d5d52c948707f7e4d6ca6773feef\resourceinspection-annotation-1.0.1.jar"
@@ -1371,6 +1332,19 @@
       externalAnnotations="annotations.zip"
       proguardRules="proguard.txt"/>
   <library
+      name="androidx.lifecycle:lifecycle-process:2.6.2@aar"
+      jars="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c841f9be723dda6bd38e1e9c0ef21f48\transformed\jetified-lifecycle-process-2.6.2\jars\classes.jar"
+      resolved="androidx.lifecycle:lifecycle-process:2.6.2"
+      folder="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c841f9be723dda6bd38e1e9c0ef21f48\transformed\jetified-lifecycle-process-2.6.2"
+      manifest="AndroidManifest.xml"
+      resFolder="res"
+      assetsFolder="assets"
+      lintJar="lint.jar"
+      publicResources="public.txt"
+      symbolFile="R.txt"
+      externalAnnotations="annotations.zip"
+      proguardRules="proguard.txt"/>
+  <library
       name="io.github.aakira:napier-android:1.4.1@aar"
       jars="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\5e85a37b7e21c3421bf988b25943b8e4\transformed\jetified-napier-release\jars\classes.jar"
       resolved="io.github.aakira:napier-android:1.4.1"
@@ -1401,6 +1375,19 @@
       jars="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\jars\classes.jar"
       resolved="androidx.profileinstaller:profileinstaller:1.3.1"
       folder="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1"
+      manifest="AndroidManifest.xml"
+      resFolder="res"
+      assetsFolder="assets"
+      lintJar="lint.jar"
+      publicResources="public.txt"
+      symbolFile="R.txt"
+      externalAnnotations="annotations.zip"
+      proguardRules="proguard.txt"/>
+  <library
+      name="androidx.startup:startup-runtime:1.1.1@aar"
+      jars="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\31cd04cf25c7807e7cbe73d5cec0f4ff\transformed\jetified-startup-runtime-1.1.1\jars\classes.jar"
+      resolved="androidx.startup:startup-runtime:1.1.1"
+      folder="C:\Users\tetuo\.gradle\caches\8.10.2\transforms\31cd04cf25c7807e7cbe73d5cec0f4ff\transformed\jetified-startup-runtime-1.1.1"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"

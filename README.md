@@ -19,6 +19,9 @@ X Improved handling for UI
 </p>
 
 
+Additional features may be added to list, please ticket or join the conversation at https://talk.tiddlywiki.org/t/tidweb-a-tiddlywiki-browser-for-android/11943
+
+
 This version of TidWeb introduces compatibility with Single-File Wikis<br>
 ![image](https://github.com/user-attachments/assets/3d7c6e0d-68d8-415f-b31f-8b3d9361ae0a)<br><br>
 This feature allows the user either the option to build from a template or to upload an html from their file-system:<br>
