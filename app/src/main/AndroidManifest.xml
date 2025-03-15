@@ -42,7 +42,7 @@
             android:theme="@style/Theme.TiddlyWikiBrowser"
             android:hardwareAccelerated="true"
             android:keepScreenOn="true"
-            android:windowSoftInputMode="adjustResize"
+            android:windowSoftInputMode="adjustPan"
             android:documentLaunchMode="intoExisting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

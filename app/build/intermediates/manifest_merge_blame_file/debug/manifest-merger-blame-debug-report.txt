@@ -114,8 +114,8 @@
 62-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:41:13-44
 63            android:theme="@style/Theme.TiddlyWikiBrowser"
 63-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:42:13-59
-64            android:windowSoftInputMode="adjustResize" >
-64-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:45:13-55
+64            android:windowSoftInputMode="adjustPan" >
+64-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:45:13-52
 65            <intent-filter>
 65-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:47:13-50:29
 66                <action android:name="android.intent.action.MAIN" />

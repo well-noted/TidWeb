@@ -61,7 +61,7 @@
             android:keepScreenOn="true"
             android:launchMode="singleTask"
             android:theme="@style/Theme.TiddlyWikiBrowser"
-            android:windowSoftInputMode="adjustResize" >
+            android:windowSoftInputMode="adjustPan" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
