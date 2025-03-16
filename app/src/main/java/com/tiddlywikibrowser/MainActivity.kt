@@ -130,6 +130,7 @@ class MainActivity : ComponentActivity() {
     private var showShareMenu by mutableStateOf(false)
     private var showTagManagement by mutableStateOf(false)
     private var showRenameDialog by mutableStateOf(false)
+    private var showTemplateSelectionDialog by mutableStateOf(false)
 
     // Add these properties for error handling
     private var showLoadErrorDialog by mutableStateOf(false)
@@ -874,6 +875,10 @@ class MainActivity : ComponentActivity() {
                                 onAddLocalFile = {
                                     pendingWikiName = null
                                     filePickerLauncher.launch("*/*")
+                                },
+                                onCreateSingleFileWiki = {
+                                    showAddDialog = false
+                                    showTemplateSelectionDialog = true
                                 }
                             )
                         }
@@ -900,6 +905,17 @@ class MainActivity : ComponentActivity() {
                                 onAddNew = {
                                     showWikiSelector = false
                                     showAddDialog = true
+                                }
+                            )
+                        }
+
+                        // Add TiddlerTemplateSelectionDialog
+                        if (showTemplateSelectionDialog) {
+                            TiddlerTemplateSelectionDialog(
+                                onDismiss = { showTemplateSelectionDialog = false },
+                                onTemplateSelected = { template ->
+                                    showTemplateSelectionDialog = false
+                                    viewModel.createSingleFileWiki(this@MainActivity, template)
                                 }
                             )
                         }
@@ -1441,7 +1457,6 @@ fun MainScreen(
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showShareMenu by remember { mutableStateOf(false) }
     var showTagManagement by remember { mutableStateOf(false) }
-    var showTemplateSelectionDialog by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
 
     var draggedWiki by remember { mutableStateOf<WikiInstance?>(null) }
@@ -1604,14 +1619,6 @@ fun MainScreen(
                                     onClick = {
                                         showMenu = false
                                         onAddClick()
-                                    }
-                                )
-
-                                DropdownMenuItem(
-                                    text = { Text("Create Single File Tiddler") },
-                                    onClick = {
-                                        showMenu = false
-                                        showTemplateSelectionDialog = true
                                     }
                                 )
 
@@ -1787,16 +1794,6 @@ fun MainScreen(
             }
         }
 
-        if (showTemplateSelectionDialog) {
-            TiddlerTemplateSelectionDialog(
-                onDismiss = { showTemplateSelectionDialog = false },
-                onTemplateSelected = { template ->
-                    showTemplateSelectionDialog = false
-                    viewModel.createSingleFileTiddler(context, template)
-                }
-            )
-        }
-
         if (showDeleteConfirmDialog && (wikiToDelete != null || currentWiki != null)) {
             val wiki = wikiToDelete ?: currentWiki
             AlertDialog(
@@ -1916,7 +1913,8 @@ fun RenameWikiDialog(
 fun AddWikiDialog(
     onDismiss: () -> Unit,
     onAdd: (String, String) -> Unit,
-    onAddLocalFile: () -> Unit
+    onAddLocalFile: () -> Unit,
+    onCreateSingleFileWiki: () -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var url by remember { mutableStateOf("") }
@@ -1968,6 +1966,24 @@ fun AddWikiDialog(
                             modifier = Modifier.padding(end = 8.dp)
                         )
                         Text("Select Local TiddlyWiki File")
+                    }
+                }
+                
+                // Add button to create a single-file wiki
+                OutlinedButton(
+                    onClick = onCreateSingleFileWiki,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Create Single-File Wiki",
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        Text("Create Single-File Wiki")
                     }
                 }
             }
@@ -2168,7 +2184,7 @@ fun TiddlerTemplateSelectionDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Select Tiddler Template") },
+        title = { Text("Select Wiki Template") },
         text = {
             Column(
                 modifier = Modifier

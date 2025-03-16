@@ -581,7 +581,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
         }
     }
 
-    fun createSingleFileTiddler(context: Context, template: TiddlerTemplate) {
+    fun createSingleFileWiki(context: Context, template: TiddlerTemplate) {
         viewModelScope.launch(Dispatchers.IO + viewModelExceptionHandler) {
             try {
                 val timestamp = System.currentTimeMillis()
@@ -607,12 +607,12 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                 withContext(Dispatchers.Main) {
                     addWiki(newWiki.name, newWiki.url)
                     setCurrentWiki(newWiki)
-                    Toast.makeText(context, "Created new tiddler: ${template.name}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Created new wiki: ${template.name}", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                Log.e("WikiViewModel", "Error creating tiddler", e)
+                Log.e("WikiViewModel", "Error creating wiki", e)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Error creating tiddler: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Error creating wiki: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
