@@ -119,6 +119,9 @@ class MainActivity : ComponentActivity() {
     private var serviceConnection: ServiceConnection? = null
     private val serviceIntent by lazy { Intent(this, MediaPlaybackService::class.java) }
 
+    // Initialize TiddlerTransferState
+    val tiddlerTransferState = TiddlerTransferManager.TiddlerTransferState()
+
     // Dialog state variables
     private var pendingSharedText by mutableStateOf<String?>(null)
     private var showWikiSelector by mutableStateOf(false)
@@ -936,6 +939,43 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+                        
+                        // Tiddler Transfer Dialogs
+                        if (tiddlerTransferState.showTiddlerSelectionDialog) {
+                            TiddlerTransferManager.TiddlerSelectionDialog(
+                                tiddlers = tiddlerTransferState.availableTiddlers,
+                                onDismiss = { tiddlerTransferState.showTiddlerSelectionDialog = false },
+                                onConfirm = { selectedTiddlers ->
+                                    tiddlerTransferState.showTiddlerSelectionDialog = false
+                                    if (selectedTiddlers.isNotEmpty()) {
+                                        TiddlerTransferManager.showWikiSelectionDialog(
+                                            this@MainActivity,
+                                            selectedTiddlers,
+                                            tiddlerTransferState.sourceWiki!!,
+                                            tiddlerTransferState.sourceWebView!!,
+                                            viewModel
+                                        )
+                                    }
+                                }
+                            )
+                        }
+                        
+                        if (tiddlerTransferState.showWikiSelectionDialog) {
+                            TiddlerTransferManager.WikiSelectionDialog(
+                                wikis = tiddlerTransferState.availableWikis,
+                                onDismiss = { tiddlerTransferState.showWikiSelectionDialog = false },
+                                onWikiSelected = { targetWiki ->
+                                    tiddlerTransferState.showWikiSelectionDialog = false
+                                    TiddlerTransferManager.performTransfer(
+                                        this@MainActivity,
+                                        tiddlerTransferState.sourceWebView!!,
+                                        targetWiki,
+                                        tiddlerTransferState.selectedTiddlers,
+                                        viewModel
+                                    )
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -1545,6 +1585,17 @@ fun MainScreen(
                                             showMenu = false
                                             onShowRenameDialog()
                                         }
+                                    )
+                                    
+                                    DropdownMenuItem(
+                                        text = { Text("Transfer Tiddlers") },
+                                        onClick = {
+                                            showMenu = false
+                                            currentWiki?.let { wiki ->
+                                                TiddlerTransferManager.initiateTransfer(context as MainActivity, wiki, viewModel)
+                                            }
+                                        },
+                                        enabled = currentWiki != null
                                     )
                                 }
 
@@ -2235,7 +2286,7 @@ fun SettingsDialog(
                         }
                     )
                 }
-
+                
                 // Background Mode Toggle
                 Row(
                     modifier = Modifier
@@ -2245,9 +2296,9 @@ fun SettingsDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.background_mode))
+                        Text("Background Mode")
                         Text(
-                            stringResource(R.string.background_mode_desc),
+                            "Keep TiddlyWiki running when minimized",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -2255,19 +2306,17 @@ fun SettingsDialog(
                     Switch(
                         checked = isBackgroundEnabled,
                         onCheckedChange = { enabled ->
-                            mainActivity?.toggleBackgroundMode()
+                            mainActivity?.setBackgroundEnabled(enabled)
                         }
                     )
                 }
-
-                Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-                // Quick Tags Management Button - moved inside the Column with proper spacing
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
+                
+                // Manage Quick Tags Button
+                OutlinedButton(
                     onClick = onManageQuickTags,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(vertical = 8.dp)
                 ) {
                     Text("Manage Quick Tags")
                 }

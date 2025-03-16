@@ -75,6 +75,10 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
+    // Loading message state
+    private val _loadingMessage = MutableStateFlow<String?>(null)
+    val loadingMessage: StateFlow<String?> = _loadingMessage
+
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
@@ -888,5 +892,13 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     private fun extractDescription(htmlContent: String): String? {
         val descRegex = "<meta\\s+name=[\"']description[\"']\\s+content=[\"'](.*?)[\"']".toRegex()
         return descRegex.find(htmlContent)?.groupValues?.get(1)
+    }
+
+    /**
+     * Set the loading state with an optional message
+     */
+    fun setLoading(isLoading: Boolean, message: String? = null) {
+        _isLoading.value = isLoading
+        _loadingMessage.value = if (isLoading) message else null
     }
 }
