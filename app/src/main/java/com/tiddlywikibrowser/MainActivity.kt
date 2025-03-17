@@ -2075,31 +2075,31 @@ fun WikiSelectionDialog(
                         }
                     }
                 }
-            }
 
-            Divider(modifier = Modifier.padding(vertical = 16.dp))
+                Divider(modifier = Modifier.padding(vertical = 16.dp))
 
-            Text(
-                text = "Select Wiki",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
+                Text(
+                    text = "Select Wiki",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
 
-            // Wiki selection
-            Column(modifier = Modifier.fillMaxWidth()) {
-                wikis.forEach { wiki ->
+                // Wiki selection
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    wikis.forEach { wiki ->
+                        TextButton(
+                            onClick = { onWikiSelected(wiki, selectedTags.toList()) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(wiki.name)
+                        }
+                    }
                     TextButton(
-                        onClick = { onWikiSelected(wiki, selectedTags.toList()) },
+                        onClick = onAddNew,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(wiki.name)
+                        Text("+ Add New Wiki")
                     }
-                }
-                TextButton(
-                    onClick = onAddNew,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("+ Add New Wiki")
                 }
             }
         },
