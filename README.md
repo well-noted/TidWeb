@@ -33,4 +33,15 @@ This feature allows the user either the option to build from a template or to up
 
 Additionally, this version includes a <b> Transfer Tiddler </b> feature, which allows a user to rapidly move tiddlers from their current storyview to any other wiki instance in their list
 
+![image](https://github.com/user-attachments/assets/ae281884-71d6-4cf8-a5f8-4df24df8bfce)
+![image](https://github.com/user-attachments/assets/a9900f7b-c28e-435f-bb02-ec4011cfd984)
+![image](https://github.com/user-attachments/assets/b9d80b83-1486-4b0a-8dba-0cd8079936fd)
+
+
+Finally, for optimal performance it is recommended to go into the settings and turn <b> Background Mode </b> on:
+
+![image](https://github.com/user-attachments/assets/0133b14e-b0c6-4e23-8f89-8cde0d266307)
+
+This will enable to app to continue running in the background, allowing you to return quickly to where you left off.
+
 
