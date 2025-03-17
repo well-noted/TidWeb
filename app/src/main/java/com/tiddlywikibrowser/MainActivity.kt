@@ -402,12 +402,39 @@ class MainActivity : ComponentActivity() {
                                     } catch(e) {}
                                 });
                                 
-                                window __stateInitialized = true;
+                                window.__stateInitialized = true;
+                                window.__statePreservationHandlersAttached = true;
                                 console.log('[State] State preservation initialized');
                             }
                             return true;
                         })();
                     """.trimIndent(), null)
+
+                    // Add listener for page load completion to help with initial background service registration
+                    webView.webViewClient = object : WebViewClient() {
+                        override fun onPageFinished(view: WebView?, url: String?) {
+                            super.onPageFinished(view, url)
+                            
+                            // Check if we're the main activity and background mode is enabled
+                            val mainActivity = context as? MainActivity
+                            if (mainActivity != null && mainActivity.isBackgroundEnabled.value) {
+                                // Get the current wiki and register this WebView if it's the current one
+                                val viewModel = getViewModel(context)
+                                viewModel.currentWiki.value?.let { wiki ->
+                                    val key = wiki.idFromUrl ?: wiki.url
+                                    if (url?.contains(key) == true || url?.contains(wiki.url) == true) {
+                                        mainActivity.backgroundWebViewManager.registerWebView(key, view!!)
+                                        Log.d("WebView", "Registered WebView on page finished for background mode")
+                                    }
+                                }
+                            }
+                            
+                            // Add specific styling for small screens
+                            if (ScreenUtils.isVerySmallScreen(context)) {
+                                injectSmallScreenCSS(view)
+                            }
+                        }
+                    }
 
                     // Add specific styling for small screens
                     if (ScreenUtils.isVerySmallScreen(context)) {
@@ -819,6 +846,9 @@ class MainActivity : ComponentActivity() {
         
         // Set up network monitoring
         setupNetworkMonitoring()
+        
+        // Register initial WebView observer to ensure first loaded WebView is properly managed
+        registerInitialWebViewObserver()
     }
     
     /**
@@ -936,7 +966,9 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 dismissButton = {
-                                    TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                                    TextButton(onClick = { 
+                                        showDeleteConfirmDialog = false 
+                                    }) {
                                         Text("Cancel")
                                     }
                                 }
@@ -1048,6 +1080,32 @@ class MainActivity : ComponentActivity() {
                 webView?.let {
                     backgroundWebViewManager.registerWebView(key, it)
                     
+                    // Check if WebView is already loaded and properly initialized
+                    it.evaluateJavascript("""
+                        (function() {
+                            return document.readyState;
+                        })();
+                    """.trimIndent()) { state ->
+                        if (state.contains("complete") || state.contains("interactive")) {
+                            // Already loaded - make sure state is preserved
+                            it.evaluateJavascript("""
+                                (function() {
+                                    // Ensure state preservation handler is attached
+                                    if (!window.__statePreservationHandlersAttached) {
+                                        document.addEventListener('pause', function() {
+                                            console.log('[State] Pausing wiki - preserving state');
+                                        });
+                                        document.addEventListener('resume', function() {
+                                            console.log('[State] Resuming wiki - restoring state');
+                                        });
+                                        window.__statePreservationHandlersAttached = true;
+                                    }
+                                    return true;
+                                })();
+                            """.trimIndent(), null)
+                        }
+                    }
+                    
                     // Inform the user
                     Toast.makeText(this, 
                         "Background mode enabled. TiddlyWiki will continue running when minimized.", 
@@ -1084,6 +1142,32 @@ class MainActivity : ComponentActivity() {
                     val webView = viewModel?.getOrCreateWebView(wiki, this)
                     webView?.let {
                         backgroundWebViewManager.registerWebView(key, it)
+                        
+                        // Check if WebView is already loaded and properly initialized
+                        it.evaluateJavascript("""
+                            (function() {
+                                return document.readyState;
+                            })();
+                        """.trimIndent()) { state ->
+                            if (state.contains("complete") || state.contains("interactive")) {
+                                // Already loaded - make sure state is preserved
+                                it.evaluateJavascript("""
+                                    (function() {
+                                        // Ensure state preservation handler is attached
+                                        if (!window.__statePreservationHandlersAttached) {
+                                            document.addEventListener('pause', function() {
+                                                console.log('[State] Pausing wiki - preserving state');
+                                            });
+                                            document.addEventListener('resume', function() {
+                                                console.log('[State] Resuming wiki - restoring state');
+                                            });
+                                            window.__statePreservationHandlersAttached = true;
+                                        }
+                                        return true;
+                                    })();
+                                """.trimIndent(), null)
+                            }
+                        }
                         
                         // Inform the user
                         Toast.makeText(this, 
@@ -1141,6 +1225,20 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         webViewPaused = false
         exoPlayerManager.onResume()
+        
+        // Ensure current WebView is registered with background service if enabled
+        if (_isBackgroundEnabled.value) {
+            viewModel?.currentWiki?.value?.let { wiki ->
+                val key = wiki.idFromUrl ?: wiki.url
+                val webView = viewModel?.getOrCreateWebView(wiki, this)
+                webView?.let {
+                    if (!backgroundWebViewManager.hasWebView(key)) {
+                        backgroundWebViewManager.registerWebView(key, it)
+                        Log.d("MainActivity", "Registered WebView on resume for background mode: ${wiki.name}")
+                    }
+                }
+            }
+        }
         
         // Check if the current WebView is in the background service
         val isInBackgroundService = viewModel?.currentWiki?.value?.let { wiki ->
@@ -1436,6 +1534,29 @@ class MainActivity : ComponentActivity() {
             }
         } catch (e: Exception) {
             Log.e("MainActivity", "Error starting media service", e)
+        }
+    }
+
+    // Add a new method to register the initial WebView
+    private fun registerInitialWebViewObserver() {
+        viewModel?.currentWiki?.let { wikiFlow ->
+            lifecycleScope.launch {
+                wikiFlow.collect { wiki ->
+                    wiki?.let {
+                        // Ensure WebView is registered when first loaded
+                        if (_isBackgroundEnabled.value) {
+                            val key = wiki.idFromUrl ?: wiki.url
+                            val webView = viewModel?.getOrCreateWebView(wiki, this@MainActivity)
+                            webView?.let { view ->
+                                // Allow a small delay for WebView to initialize properly
+                                delay(500)
+                                backgroundWebViewManager.registerWebView(key, view)
+                                Log.d("MainActivity", "Registered initial WebView for background mode: ${wiki.name}")
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -1813,9 +1934,8 @@ fun MainScreen(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = {
-                        showDeleteConfirmDialog = false
-                        wikiToDelete = null
+                    TextButton(onClick = { 
+                        showDeleteConfirmDialog = false 
                     }) {
                         Text("Cancel")
                     }
