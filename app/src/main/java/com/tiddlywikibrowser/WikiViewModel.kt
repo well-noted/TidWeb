@@ -75,6 +75,10 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
+    // Loading message state
+    private val _loadingMessage = MutableStateFlow<String?>(null)
+    val loadingMessage: StateFlow<String?> = _loadingMessage
+
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
@@ -577,7 +581,7 @@ class WikiViewModel(private val context: Context) : ViewModel() {
         }
     }
 
-    fun createSingleFileTiddler(context: Context, template: TiddlerTemplate) {
+    fun createSingleFileWiki(context: Context, template: TiddlerTemplate) {
         viewModelScope.launch(Dispatchers.IO + viewModelExceptionHandler) {
             try {
                 val timestamp = System.currentTimeMillis()
@@ -603,12 +607,12 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                 withContext(Dispatchers.Main) {
                     addWiki(newWiki.name, newWiki.url)
                     setCurrentWiki(newWiki)
-                    Toast.makeText(context, "Created new tiddler: ${template.name}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Created new wiki: ${template.name}", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                Log.e("WikiViewModel", "Error creating tiddler", e)
+                Log.e("WikiViewModel", "Error creating wiki", e)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Error creating tiddler: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Error creating wiki: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -888,5 +892,13 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     private fun extractDescription(htmlContent: String): String? {
         val descRegex = "<meta\\s+name=[\"']description[\"']\\s+content=[\"'](.*?)[\"']".toRegex()
         return descRegex.find(htmlContent)?.groupValues?.get(1)
+    }
+
+    /**
+     * Set the loading state with an optional message
+     */
+    fun setLoading(isLoading: Boolean, message: String? = null) {
+        _isLoading.value = isLoading
+        _loadingMessage.value = if (isLoading) message else null
     }
 }
