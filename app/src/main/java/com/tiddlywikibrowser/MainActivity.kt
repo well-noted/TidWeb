@@ -2139,7 +2139,7 @@ fun TagManagementDialog(
                     TextField(
                         value = newTag,
                         onValueChange = { newTag = it },
-                        label = { Text(text = "New Tag") },
+                        label = { Text(text = "Enter new tag") },
                         modifier = Modifier.weight(1f)
                     )
                     IconButton(
@@ -2154,6 +2154,44 @@ fun TagManagementDialog(
                             imageVector = Icons.Default.Add,
                             contentDescription = "Add Tag"
                         )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text(
+                    text = "Existing Tags:",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 200.dp)
+                ) {
+                    items(tags) { tag ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = tag,
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(
+                                onClick = { onRemoveTag(tag) }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete Tag"
+                                )
+                            }
+                        }
+                        Divider()
                     }
                 }
             }

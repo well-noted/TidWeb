@@ -9,53 +9,53 @@
 9        android:targetSdkVersion="34" />
 10
 11    <uses-permission android:name="android.permission.INTERNET" />
-11-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:3:5-67
-11-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:3:22-64
+11-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:3:5-67
+11-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:3:22-64
 12    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-12-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:4:5-79
-12-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:4:22-76
+12-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:4:5-79
+12-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:4:22-76
 13    <uses-permission
-13-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:5:5-6:37
+13-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:5:5-6:37
 14        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-14-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:5:22-78
+14-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:5:22-78
 15        android:maxSdkVersion="28" />
-15-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:6:9-35
+15-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:6:9-35
 16    <uses-permission
-16-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:7:5-8:37
+16-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:7:5-8:37
 17        android:name="android.permission.READ_EXTERNAL_STORAGE"
-17-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:7:22-77
+17-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:7:22-77
 18        android:maxSdkVersion="32" />
-18-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:8:9-35
+18-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:8:9-35
 19    <uses-permission android:name="android.permission.WAKE_LOCK" />
-19-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:9:5-68
-19-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:9:22-65
+19-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:9:5-68
+19-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:9:22-65
 20    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-20-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:10:5-77
-20-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:10:22-74
+20-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:10:5-77
+20-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:10:22-74
 21    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-21-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:11:5-92
-21-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:11:22-89
+21-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:11:5-92
+21-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:11:22-89
 22    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-22-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:12:5-87
-22-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:12:22-84
+22-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:12:5-87
+22-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:12:22-84
 23
 24    <!-- Updated supports-screens to ensure compatibility with very small screens (flip phones) -->
 25    <supports-screens
-25-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:15:5-22:49
+25-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:15:5-22:49
 26        android:anyDensity="true"
-26-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:20:9-34
+26-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:20:9-34
 27        android:largeScreens="true"
-27-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:18:9-36
+27-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:18:9-36
 28        android:normalScreens="true"
-28-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:17:9-37
+28-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:17:9-37
 29        android:requiresSmallestWidthDp="180"
-29-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:22:9-46
+29-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:22:9-46
 30        android:resizeable="true"
-30-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:21:9-34
+30-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:21:9-34
 31        android:smallScreens="true"
-31-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:16:9-36
+31-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:16:9-36
 32        android:xlargeScreens="true" />
-32-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:19:9-37
+32-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:19:9-37
 33
 34    <permission
 34-->[androidx.core:core:1.12.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\508f4f285c70bd05e94ccd64f3e25d3a\transformed\core-1.12.0\AndroidManifest.xml:22:5-24:47
@@ -69,192 +69,192 @@
 38-->[androidx.core:core:1.12.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\508f4f285c70bd05e94ccd64f3e25d3a\transformed\core-1.12.0\AndroidManifest.xml:26:22-94
 39
 40    <application
-40-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:24:5-115:19
+40-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:24:5-115:19
 41        android:allowBackup="true"
-41-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:25:9-35
+41-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:25:9-35
 42        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
 42-->[androidx.core:core:1.12.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\508f4f285c70bd05e94ccd64f3e25d3a\transformed\core-1.12.0\AndroidManifest.xml:28:18-86
 43        android:debuggable="true"
 44        android:extractNativeLibs="false"
 45        android:hardwareAccelerated="true"
-45-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:33:9-43
+45-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:33:9-43
 46        android:icon="@mipmap/ic_launcher"
-46-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:26:9-43
+46-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:26:9-43
 47        android:label="@string/app_name"
-47-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:27:9-41
+47-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:27:9-41
 48        android:largeHeap="true"
-48-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:34:9-33
+48-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:34:9-33
 49        android:persistent="true"
-49-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:35:9-34
+49-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:35:9-34
 50        android:requestLegacyExternalStorage="true"
-50-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:31:9-52
+50-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:31:9-52
 51        android:roundIcon="@mipmap/ic_launcher_round"
-51-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:28:9-54
+51-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:28:9-54
 52        android:supportsRtl="true"
-52-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:29:9-35
+52-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:29:9-35
 53        android:theme="@style/Theme.TiddlyWikiBrowser"
-53-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:32:9-55
+53-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:32:9-55
 54        android:usesCleartextTraffic="true" >
-54-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:30:9-44
+54-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:30:9-44
 55        <activity
-55-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:37:9-67:20
+55-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:37:9-67:20
 56            android:name="com.tiddlywikibrowser.MainActivity"
-56-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:38:13-41
+56-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:38:13-41
 57            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
-57-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:40:13-87
+57-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:40:13-87
 58            android:documentLaunchMode="intoExisting"
-58-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:46:13-54
+58-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:46:13-54
 59            android:exported="true"
-59-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:39:13-36
+59-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:39:13-36
 60            android:hardwareAccelerated="true"
-60-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:43:13-47
+60-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:43:13-47
 61            android:keepScreenOn="true"
-61-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:44:13-40
+61-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:44:13-40
 62            android:launchMode="singleTask"
-62-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:41:13-44
+62-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:41:13-44
 63            android:theme="@style/Theme.TiddlyWikiBrowser"
-63-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:42:13-59
+63-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:42:13-59
 64            android:windowSoftInputMode="adjustPan" >
-64-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:45:13-52
+64-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:45:13-52
 65            <intent-filter>
-65-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:47:13-50:29
+65-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:47:13-50:29
 66                <action android:name="android.intent.action.MAIN" />
-66-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:48:17-69
-66-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:48:25-66
+66-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:48:17-69
+66-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:48:25-66
 67
 68                <category android:name="android.intent.category.LAUNCHER" />
-68-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:49:17-77
-68-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:49:27-74
+68-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:49:17-77
+68-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:49:27-74
 69            </intent-filter>
 70            <intent-filter>
-70-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:51:13-55:29
+70-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:51:13-55:29
 71                <action android:name="android.intent.action.VIEW" />
-71-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:52:17-69
-71-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:52:25-66
+71-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:52:17-69
+71-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:52:25-66
 72
 73                <category android:name="android.intent.category.DEFAULT" />
-73-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:53:17-76
-73-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:53:27-73
+73-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:53:17-76
+73-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:53:27-73
 74                <category android:name="android.intent.category.BROWSABLE" />
-74-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:54:17-78
-74-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:54:27-75
+74-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:54:17-78
+74-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:54:27-75
 75            </intent-filter>
 76            <!-- Intent filter for receiving shared content -->
 77            <intent-filter>
-77-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:57:13-61:29
+77-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:57:13-61:29
 78                <action android:name="android.intent.action.SEND" />
-78-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:58:17-69
-78-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:58:25-66
+78-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:58:17-69
+78-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:58:25-66
 79
 80                <category android:name="android.intent.category.DEFAULT" />
-80-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:53:17-76
-80-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:53:27-73
+80-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:53:17-76
+80-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:53:27-73
 81
 82                <data android:mimeType="text/plain" />
-82-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:60:17-55
-82-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:60:23-52
+82-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:60:17-55
+82-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:60:23-52
 83            </intent-filter>
 84            <intent-filter>
-84-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:62:13-66:29
+84-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:62:13-66:29
 85                <action android:name="android.intent.action.SEND_MULTIPLE" />
-85-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:63:17-78
-85-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:63:25-75
+85-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:63:17-78
+85-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:63:25-75
 86
 87                <category android:name="android.intent.category.DEFAULT" />
-87-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:53:17-76
-87-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:53:27-73
+87-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:53:17-76
+87-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:53:27-73
 88
 89                <data android:mimeType="text/plain" />
-89-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:60:17-55
-89-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:60:23-52
+89-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:60:17-55
+89-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:60:23-52
 90            </intent-filter>
 91        </activity>
 92
 93        <!-- Receiver for media button events -->
 94        <receiver
-94-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:70:9-75:20
+94-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:70:9-75:20
 95            android:name="androidx.media.session.MediaButtonReceiver"
-95-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:70:19-76
+95-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:70:19-76
 96            android:exported="true" >
-96-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:71:13-36
+96-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:71:13-36
 97            <intent-filter>
-97-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:72:13-74:29
+97-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:72:13-74:29
 98                <action android:name="android.intent.action.MEDIA_BUTTON" />
-98-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:73:17-77
-98-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:73:25-74
+98-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:73:17-77
+98-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:73:25-74
 99            </intent-filter>
 100        </receiver>
 101
 102        <activity
-102-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:77:9-82:50
+102-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:77:9-82:50
 103            android:name="com.tiddlywikibrowser.SettingsActivity"
-103-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:78:13-45
+103-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:78:13-45
 104            android:hardwareAccelerated="true"
-104-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:82:13-47
+104-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:82:13-47
 105            android:label="@string/settings"
-105-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:79:13-45
+105-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:79:13-45
 106            android:theme="@style/Theme.TiddlyWikiBrowser"
-106-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:80:13-59
+106-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:80:13-59
 107            android:windowSoftInputMode="adjustResize" />
-107-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:81:13-55
+107-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:81:13-55
 108
 109        <service
-109-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:84:9-90:19
+109-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:84:9-90:19
 110            android:name="com.tiddlywikibrowser.MediaPlaybackService"
-110-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:84:18-54
+110-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:84:18-54
 111            android:exported="false"
-111-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:85:13-37
+111-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:85:13-37
 112            android:foregroundServiceType="mediaPlayback" >
-112-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:86:13-58
+112-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:86:13-58
 113            <intent-filter>
-113-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:87:13-89:29
+113-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:87:13-89:29
 114                <action android:name="android.media.browse.MediaBrowserService" />
-114-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:88:17-83
-114-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:88:25-80
+114-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:88:17-83
+114-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:88:25-80
 115            </intent-filter>
 116        </service>
 117
 118        <!-- Background WebView service to keep WebViews running when app is in background -->
 119        <service
-119-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:93:9-103:19
+119-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:93:9-103:19
 120            android:name="com.tiddlywikibrowser.BackgroundWebViewService"
-120-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:94:13-53
+120-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:94:13-53
 121            android:enabled="true"
-121-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:95:13-35
+121-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:95:13-35
 122            android:exported="false"
-122-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:96:13-37
+122-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:96:13-37
 123            android:foregroundServiceType="dataSync" >
-123-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:97:13-53
+123-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:97:13-53
 124            <intent-filter>
-124-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:98:13-102:29
+124-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:98:13-102:29
 125                <action android:name="com.tiddlywikibrowser.ACTION_REGISTER_WEBVIEW" />
-125-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:99:17-88
-125-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:99:25-85
+125-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:99:17-88
+125-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:99:25-85
 126                <action android:name="com.tiddlywikibrowser.ACTION_UNREGISTER_WEBVIEW" />
-126-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:100:17-90
-126-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:100:25-87
+126-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:100:17-90
+126-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:100:25-87
 127                <action android:name="com.tiddlywikibrowser.ACTION_STOP_SERVICE" />
-127-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:101:17-84
-127-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:101:25-81
+127-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:101:17-84
+127-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:101:25-81
 128            </intent-filter>
 129        </service>
 130
 131        <!-- FileProvider for sharing and accessing downloaded files -->
 132        <provider
 133            android:name="androidx.core.content.FileProvider"
-133-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:107:13-62
+133-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:107:13-62
 134            android:authorities="com.tiddlywikibrowser.fileprovider"
-134-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:108:13-64
+134-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:108:13-64
 135            android:exported="false"
-135-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:109:13-37
+135-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:109:13-37
 136            android:grantUriPermissions="true" >
-136-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:110:13-47
+136-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:110:13-47
 137            <meta-data
-137-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:111:13-113:54
+137-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:111:13-113:54
 138                android:name="android.support.FILE_PROVIDER_PATHS"
-138-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:112:17-67
+138-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:112:17-67
 139                android:resource="@xml/file_paths" />
-139-->C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\AndroidManifest.xml:113:17-51
+139-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:113:17-51
 140        </provider>
 141
 142        <activity
