@@ -31,3 +31,6 @@ This feature allows the user either the option to build from a template or to up
 
 <br><br>
 
+Additionally, this version includes a <b> Transfer Tiddler </b> feature, which allows a user to rapidly move tiddlers from their current storyview to any other wiki instance in their list
+
+
