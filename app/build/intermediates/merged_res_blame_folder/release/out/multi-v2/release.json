@@ -3489,24 +3489,7 @@
             "outputFile": "com.tiddlywikibrowser.app-merged_res-70:/values-night-v8_values-night-v8.arsc.flat",
             "map": [
                 {
-                    "source": "C:\\Users\\tetuo\\.gradle\\caches\\8.10.2\\transforms\\0a5549575477d513530c25cc04203e66\\transformed\\appcompat-1.6.1\\res\\values-night-v8\\values-night-v8.xml",
-                    "from": {
-                        "startLines": "2,3,4,5,6,7,8,9",
-                        "startColumns": "4,4,4,4,4,4,4,4",
-                        "startOffsets": "55,125,209,293,389,491,593,687",
-                        "endColumns": "69,83,83,95,101,101,93,88",
-                        "endOffsets": "120,204,288,384,486,588,682,771"
-                    },
-                    "to": {
-                        "startLines": "2,3,4,5,6,7,8,40",
-                        "startColumns": "4,4,4,4,4,4,4,4",
-                        "startOffsets": "55,125,209,293,389,491,593,3836",
-                        "endColumns": "69,83,83,95,101,101,93,88",
-                        "endOffsets": "120,204,288,384,486,588,682,3920"
-                    }
-                },
-                {
-                    "source": "C:\\Users\\tetuo\\TidWeb-main\\TidWeb\\app\\src\\main\\res\\values-night\\themes.xml",
+                    "source": "C:\\Users\\tetuo\\TidWeb\\app\\src\\main\\res\\values-night\\themes.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",
@@ -3522,6 +3505,23 @@
                         "endLines": "39",
                         "endColumns": "12",
                         "endOffsets": "3831"
+                    }
+                },
+                {
+                    "source": "C:\\Users\\tetuo\\.gradle\\caches\\8.10.2\\transforms\\0a5549575477d513530c25cc04203e66\\transformed\\appcompat-1.6.1\\res\\values-night-v8\\values-night-v8.xml",
+                    "from": {
+                        "startLines": "2,3,4,5,6,7,8,9",
+                        "startColumns": "4,4,4,4,4,4,4,4",
+                        "startOffsets": "55,125,209,293,389,491,593,687",
+                        "endColumns": "69,83,83,95,101,101,93,88",
+                        "endOffsets": "120,204,288,384,486,588,682,771"
+                    },
+                    "to": {
+                        "startLines": "2,3,4,5,6,7,8,40",
+                        "startColumns": "4,4,4,4,4,4,4,4",
+                        "startOffsets": "55,125,209,293,389,491,593,3836",
+                        "endColumns": "69,83,83,95,101,101,93,88",
+                        "endOffsets": "120,204,288,384,486,588,682,3920"
                     }
                 },
                 {
@@ -9370,6 +9370,40 @@
                     }
                 },
                 {
+                    "source": "C:\\Users\\tetuo\\TidWeb\\app\\src\\main\\res\\values\\dimens.xml",
+                    "from": {
+                        "startLines": "3,5,4,6,9",
+                        "startColumns": "4,4,4,4,4",
+                        "startOffsets": "95,193,144,244,337",
+                        "endColumns": "47,49,47,48,51",
+                        "endOffsets": "138,238,187,288,384"
+                    },
+                    "to": {
+                        "startLines": "622,624,625,626,2084",
+                        "startColumns": "4,4,4,4,4",
+                        "startOffsets": "31310,31420,31470,31518,137717",
+                        "endColumns": "47,49,47,48,51",
+                        "endOffsets": "31353,31465,31513,31562,137764"
+                    }
+                },
+                {
+                    "source": "C:\\Users\\tetuo\\TidWeb\\app\\src\\main\\res\\values\\colors.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "57",
+                        "endColumns": "56",
+                        "endOffsets": "109"
+                    },
+                    "to": {
+                        "startLines": "707",
+                        "startColumns": "4",
+                        "startOffsets": "37159",
+                        "endColumns": "56",
+                        "endOffsets": "37211"
+                    }
+                },
+                {
                     "source": "C:\\Users\\tetuo\\.gradle\\caches\\8.10.2\\transforms\\11571ed09f71c4c147a1046802828f76\\transformed\\jetified-coil-base-2.5.0\\res\\values\\values.xml",
                     "from": {
                         "startLines": "2",
@@ -9478,6 +9512,23 @@
                     }
                 },
                 {
+                    "source": "C:\\Users\\tetuo\\TidWeb\\app\\src\\main\\res\\values\\strings.xml",
+                    "from": {
+                        "startLines": "6,8,3,2,13,14,7,11,12,15,9,10,4,5",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "257,337,114,57,662,723,294,532,581,819,426,473,161,210",
+                        "endColumns": "35,87,45,55,59,94,41,47,79,64,45,57,47,45",
+                        "endOffsets": "288,420,155,108,717,813,331,575,656,879,467,526,204,251"
+                    },
+                    "to": {
+                        "startLines": "2124,2125,2126,2128,2131,2132,2150,2158,2159,2388,2399,2408,2423,2424",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "140522,140558,140646,140775,141057,141117,143135,143721,143769,169028,169857,170616,171553,171601",
+                        "endColumns": "35,87,45,55,59,94,41,47,79,64,45,57,47,45",
+                        "endOffsets": "140553,140641,140687,140826,141112,141207,143172,143764,143844,169088,169898,170669,171596,171642"
+                    }
+                },
+                {
                     "source": "C:\\Users\\tetuo\\.gradle\\caches\\8.10.2\\transforms\\257c84b5a87e32206efec7eeffdfe173\\transformed\\transition-1.2.0\\res\\values\\values.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9,10,11",
@@ -9579,23 +9630,6 @@
                         "startOffsets": "130739,132764",
                         "endColumns": "41,59",
                         "endOffsets": "130776,132819"
-                    }
-                },
-                {
-                    "source": "C:\\Users\\tetuo\\TidWeb-main\\TidWeb\\app\\src\\main\\res\\values\\dimens.xml",
-                    "from": {
-                        "startLines": "3,5,4,6,9",
-                        "startColumns": "4,4,4,4,4",
-                        "startOffsets": "95,193,144,244,337",
-                        "endColumns": "47,49,47,48,51",
-                        "endOffsets": "138,238,187,288,384"
-                    },
-                    "to": {
-                        "startLines": "622,624,625,626,2084",
-                        "startColumns": "4,4,4,4,4",
-                        "startOffsets": "31310,31420,31470,31518,137717",
-                        "endColumns": "47,49,47,48,51",
-                        "endOffsets": "31353,31465,31513,31562,137764"
                     }
                 },
                 {
@@ -9749,7 +9783,7 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\tetuo\\TidWeb-main\\TidWeb\\app\\src\\main\\res\\values\\themes.xml",
+                    "source": "C:\\Users\\tetuo\\TidWeb\\app\\src\\main\\res\\values\\themes.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",
@@ -9765,40 +9799,6 @@
                         "endLines": "7003",
                         "endColumns": "12",
                         "endOffsets": "488769"
-                    }
-                },
-                {
-                    "source": "C:\\Users\\tetuo\\TidWeb-main\\TidWeb\\app\\src\\main\\res\\values\\colors.xml",
-                    "from": {
-                        "startLines": "2",
-                        "startColumns": "4",
-                        "startOffsets": "57",
-                        "endColumns": "56",
-                        "endOffsets": "109"
-                    },
-                    "to": {
-                        "startLines": "707",
-                        "startColumns": "4",
-                        "startOffsets": "37159",
-                        "endColumns": "56",
-                        "endOffsets": "37211"
-                    }
-                },
-                {
-                    "source": "C:\\Users\\tetuo\\TidWeb-main\\TidWeb\\app\\src\\main\\res\\values\\strings.xml",
-                    "from": {
-                        "startLines": "6,8,3,2,13,14,7,11,12,15,9,10,4,5",
-                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4",
-                        "startOffsets": "257,337,114,57,662,723,294,532,581,819,426,473,161,210",
-                        "endColumns": "35,87,45,55,59,94,41,47,79,64,45,57,47,45",
-                        "endOffsets": "288,420,155,108,717,813,331,575,656,879,467,526,204,251"
-                    },
-                    "to": {
-                        "startLines": "2124,2125,2126,2128,2131,2132,2150,2158,2159,2388,2399,2408,2423,2424",
-                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4",
-                        "startOffsets": "140522,140558,140646,140775,141057,141117,143135,143721,143769,169028,169857,170616,171553,171601",
-                        "endColumns": "35,87,45,55,59,94,41,47,79,64,45,57,47,45",
-                        "endOffsets": "140553,140641,140687,140826,141112,141207,143172,143764,143844,169088,169898,170669,171596,171642"
                     }
                 },
                 {

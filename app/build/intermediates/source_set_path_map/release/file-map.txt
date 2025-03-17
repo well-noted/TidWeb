@@ -64,10 +64,10 @@ com.tiddlywikibrowser.app-jetified-ui-release-62 C:\Users\tetuo\.gradle\caches\8
 com.tiddlywikibrowser.app-constraintlayout-2.0.1-63 C:\Users\tetuo\.gradle\caches\8.10.2\transforms\f98c936a5b6add336c38fdc69b1a7fa6\transformed\constraintlayout-2.0.1\res
 com.tiddlywikibrowser.app-jetified-animation-core-release-64 C:\Users\tetuo\.gradle\caches\8.10.2\transforms\fb8bf4a9405fa3a7c230441b150f5322\transformed\jetified-animation-core-release\res
 com.tiddlywikibrowser.app-fragment-1.3.6-65 C:\Users\tetuo\.gradle\caches\8.10.2\transforms\fde020145a3689f09ec11647a3e93c46\transformed\fragment-1.3.6\res
-com.tiddlywikibrowser.app-pngs-66 C:\Users\tetuo\TidWeb-main\TidWeb\app\build\generated\res\pngs\release
-com.tiddlywikibrowser.app-resValues-67 C:\Users\tetuo\TidWeb-main\TidWeb\app\build\generated\res\resValues\release
-com.tiddlywikibrowser.app-packageReleaseResources-68 C:\Users\tetuo\TidWeb-main\TidWeb\app\build\intermediates\incremental\release\packageReleaseResources\merged.dir
-com.tiddlywikibrowser.app-packageReleaseResources-69 C:\Users\tetuo\TidWeb-main\TidWeb\app\build\intermediates\incremental\release\packageReleaseResources\stripped.dir
-com.tiddlywikibrowser.app-merged_res-70 C:\Users\tetuo\TidWeb-main\TidWeb\app\build\intermediates\merged_res\release
-com.tiddlywikibrowser.app-main-71 C:\Users\tetuo\TidWeb-main\TidWeb\app\src\main\res
-com.tiddlywikibrowser.app-release-72 C:\Users\tetuo\TidWeb-main\TidWeb\app\src\release\res
+com.tiddlywikibrowser.app-pngs-66 C:\Users\tetuo\TidWeb\app\build\generated\res\pngs\release
+com.tiddlywikibrowser.app-resValues-67 C:\Users\tetuo\TidWeb\app\build\generated\res\resValues\release
+com.tiddlywikibrowser.app-packageReleaseResources-68 C:\Users\tetuo\TidWeb\app\build\intermediates\incremental\release\packageReleaseResources\merged.dir
+com.tiddlywikibrowser.app-packageReleaseResources-69 C:\Users\tetuo\TidWeb\app\build\intermediates\incremental\release\packageReleaseResources\stripped.dir
+com.tiddlywikibrowser.app-merged_res-70 C:\Users\tetuo\TidWeb\app\build\intermediates\merged_res\release
+com.tiddlywikibrowser.app-main-71 C:\Users\tetuo\TidWeb\app\src\main\res
+com.tiddlywikibrowser.app-release-72 C:\Users\tetuo\TidWeb\app\src\release\res
