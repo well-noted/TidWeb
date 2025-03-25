@@ -58,20 +58,13 @@ class ExoPlayerManager(private val context: Context) {
                         _currentPosition = player?.currentPosition ?: 0
                         try {
                             (context as? MainActivity)?.let { activity ->
+                                // Update media session state first
                                 activity.mediaSessionManager.updatePlaybackState(isPlaying, _currentPosition)
                                 
                                 // Explicitly manage foreground service based on playback state
                                 if (isPlaying) {
-                                    // Start media service via MediaSessionManager or MainActivity
-                                    try {
-                                        if (mediaSessionManager != null) {
-                                            mediaSessionManager?.startMediaService()
-                                        } else {
-                                            activity.startMediaService()
-                                        }
-                                    } catch (e: Exception) {
-                                        Log.e("ExoPlayerManager", "Error starting media service", e)
-                                    }
+                                    // Start media service via MediaSessionManager
+                                    activity.mediaSessionManager.startMediaService()
                                 }
                             }
                         } catch (e: Exception) {
@@ -93,30 +86,18 @@ class ExoPlayerManager(private val context: Context) {
                                         
                                     Log.d("ExoPlayer", "MediaItem ready: title=$mediaTitle, duration=${exoPlayer.duration}")
                                     
-                                    (context as? MainActivity)?.mediaSessionManager?.updateMetadata(
-                                        title = mediaTitle.toString(),
-                                        artist = "TiddlyWiki Media",
-                                        duration = exoPlayer.duration
-                                    )
-                                    
-                                    // Ensure service is started when media is ready
-                                    if (exoPlayer.isPlaying) {
-                                        // Start media service via MediaSessionManager or MainActivity
-                                        try {
-                                            (context as? MainActivity)?.let { activity ->
-                                                if (mediaSessionManager != null) {
-                                                    mediaSessionManager?.startMediaService()
-                                                } else {
-                                                    activity.startMediaService()
-                                                }
-                                            }
-                                        } catch (e: Exception) {
-                                            Log.e("ExoPlayerManager", "Error starting media service", e)
-                                        }
+                                    (context as? MainActivity)?.let { activity ->
+                                        activity.mediaSessionManager.updateMetadata(
+                                            title = mediaTitle.toString(),
+                                            artist = "TiddlyWiki Media",
+                                            duration = exoPlayer.duration
+                                        )
+                                        // Ensure service is started when media is ready
+                                        activity.mediaSessionManager.startMediaService()
                                     }
                                 }
                             } catch (e: Exception) {
-                                Log.e("ExoPlayerManager", "Error in onPlaybackStateChanged", e)
+                                Log.e("ExoPlayer", "Error in onPlaybackStateChanged", e)
                             }
                         }
                     }
@@ -127,6 +108,7 @@ class ExoPlayerManager(private val context: Context) {
                     }
                 })
             }
+            return player!!
         }
         return player!!
     }

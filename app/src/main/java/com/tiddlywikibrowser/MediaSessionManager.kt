@@ -105,6 +105,9 @@ class MediaSessionManager(private val context: Context) {
                             lastPlayTimestamp = System.currentTimeMillis()
 
                             if (requestAudioFocus()) {
+                                // Start service before playing
+                                startPlaybackService()
+                                
                                 // Delay playback to allow audio focus to settle
                                 gainCallbackHandler.postDelayed({
                                     synchronized(stateChangeLock) {
@@ -443,6 +446,8 @@ class MediaSessionManager(private val context: Context) {
                 // If media is playing but we don't have metadata yet, make it active
                 hasActiveMedia = true
                 mediaSession?.isActive = true
+                // Ensure service is started when we have active media
+                startPlaybackService()
             }
 
             val stateChanged = isPlaying != playing
@@ -453,6 +458,11 @@ class MediaSessionManager(private val context: Context) {
 
             if (stateChanged || positionChanged) {
                 updatePlaybackState()
+            }
+            
+            // Update service state based on playback
+            if (playing) {
+                startPlaybackService()
             }
         }
     }

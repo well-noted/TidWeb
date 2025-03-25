@@ -81,10 +81,13 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             val channel = NotificationChannel(
                 NOTIFICATION_CHANNEL_ID,
                 "Media Playback",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Media playback controls"
                 setShowBadge(false)
+                enableLights(false)
+                enableVibration(false)
+                setSound(null, null)
             }
             
             val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
@@ -227,8 +230,10 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             val tempNotification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
                 .setContentTitle("Media Playback")
                 .setContentText("Preparing...")
-                .setSmallIcon(R.drawable.ic_play)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setOngoing(true)
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
                 .build()
                 
             startForeground(NOTIFICATION_ID, tempNotification)
