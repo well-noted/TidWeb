@@ -220,6 +220,7 @@
   <com.google.ai.client.generativeai/>
   <com.google.ai.edge.aicore/>
   <com.google.ai.edge.litert/>
+  <com.google.ai.edge.localagents/>
   <com.google.ambient.crossdevice/>
   <com.google.android.ads/>
   <com.google.android.ads.consent/>

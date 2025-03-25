@@ -835,6 +835,11 @@ class MainActivity : ComponentActivity() {
         // Initialize the background WebView manager
         backgroundWebViewManager = BackgroundWebViewManager(this)
         
+        // Start media service if background mode is enabled
+        if (_isBackgroundEnabled.value) {
+            startMediaService()
+        }
+        
         // Process intent
         handleIntent(intent)
         
@@ -866,14 +871,35 @@ class MainActivity : ComponentActivity() {
                 this@MainActivity.viewModel = viewModel
             }
 
-            // Handle initial wiki state preservation
-            DisposableEffect(Unit) {
-                onDispose {
-                    // Save state of current wiki when activity is disposed
-                    viewModel.currentWiki.value?.let { wiki ->
+            // Handle background mode state
+            LaunchedEffect(Unit) {
+                viewModel.currentWiki.collect { wiki ->
+                    if (_isBackgroundEnabled.value && wiki != null) {
                         val key = wiki.idFromUrl ?: wiki.url
-                        getCurrentWebView()?.let { webView ->
-                            WebViewCache.cacheWebView(key, webView)
+                        val webView = viewModel.getOrCreateWebView(wiki, this@MainActivity)
+                        webView?.let {
+                            // Ensure the WebView is properly initialized before registering
+                            it.evaluateJavascript("""
+                                (function() {
+                                    return document.readyState;
+                                })();
+                            """.trimIndent()) { state ->
+                                if (state.contains("complete") || state.contains("interactive")) {
+                                    backgroundWebViewManager.registerWebView(key, it)
+                                    Log.d("MainActivity", "Registered WebView for background mode: ${wiki.name}")
+                                } else {
+                                    // If not ready, wait for page load completion
+                                    it.webViewClient = object : WebViewClient() {
+                                        override fun onPageFinished(view: WebView?, url: String?) {
+                                            super.onPageFinished(view, url)
+                                            if (view != null) {
+                                                backgroundWebViewManager.registerWebView(key, view)
+                                                Log.d("MainActivity", "Registered WebView after load: ${wiki.name}")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1072,39 +1098,78 @@ class MainActivity : ComponentActivity() {
         // Start or stop the background service
         if (newState) {
             backgroundWebViewManager.startBackgroundService()
+            startMediaService() // Start media service for background audio
             
             // Register the current WebView
             viewModel?.currentWiki?.value?.let { wiki ->
                 val key = wiki.idFromUrl ?: wiki.url
                 val webView = viewModel?.getOrCreateWebView(wiki, this)
                 webView?.let {
-                    backgroundWebViewManager.registerWebView(key, it)
-                    
-                    // Check if WebView is already loaded and properly initialized
+                    // Ensure WebView is ready before registering
                     it.evaluateJavascript("""
                         (function() {
+                            // Initialize state preservation if needed
+                            if (!window.__statePreservationHandlersAttached) {
+                                document.addEventListener('pause', function() {
+                                    try {
+                                        console.log('[State] Saving wiki state');
+                                        // Add any additional state saving logic here
+                                    } catch(e) {
+                                        console.error('[State] Error saving state:', e);
+                                    }
+                                });
+                                
+                                document.addEventListener('resume', function() {
+                                    try {
+                                        console.log('[State] Restoring wiki state');
+                                        // Add any additional state restoration logic here
+                                    } catch(e) {
+                                        console.error('[State] Error restoring state:', e);
+                                    }
+                                });
+                                
+                                window.__statePreservationHandlersAttached = true;
+                                console.log('[State] State preservation initialized');
+                            }
+
+                            // Enable background audio
+                            if (!window.__audioEnabled) {
+                                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                                window.__audioEnabled = true;
+                                console.log('[Audio] Background audio enabled');
+                            }
+
                             return document.readyState;
                         })();
                     """.trimIndent()) { state ->
                         if (state.contains("complete") || state.contains("interactive")) {
-                            // Already loaded - make sure state is preserved
+                            backgroundWebViewManager.registerWebView(key, it)
+                            Log.d("BackgroundMode", "Registered WebView for background mode: ${wiki.name}")
+                            
+                            // Dispatch a custom event to notify the wiki
                             it.evaluateJavascript("""
                                 (function() {
-                                    // Ensure state preservation handler is attached
-                                    if (!window.__statePreservationHandlersAttached) {
-                                        document.addEventListener('pause', function() {
-                                            console.log('[State] Pausing wiki - preserving state');
-                                        });
-                                        document.addEventListener('resume', function() {
-                                            console.log('[State] Resuming wiki - restoring state');
-                                        });
-                                        window.__statePreservationHandlersAttached = true;
-                                    }
+                                    document.dispatchEvent(new CustomEvent('backgroundModeEnabled'));
                                     return true;
                                 })();
                             """.trimIndent(), null)
+                        } else {
+                            // If not ready, set up a load listener
+                            it.webViewClient = object : WebViewClient() {
+                                override fun onPageFinished(view: WebView?, url: String?) {
+                                    super.onPageFinished(view, url)
+                                    if (view != null && _isBackgroundEnabled.value) {
+                                        backgroundWebViewManager.registerWebView(key, view)
+                                        Log.d("BackgroundMode", "Registered WebView after load: ${wiki.name}")
+                                    }
+                                }
+                            }
                         }
                     }
+                    
+                    // Configure WebView settings for background audio
+                    it.settings.mediaPlaybackRequiresUserGesture = false
+                    it.settings.javaScriptCanOpenWindowsAutomatically = true
                     
                     // Inform the user
                     Toast.makeText(this, 
@@ -1113,7 +1178,26 @@ class MainActivity : ComponentActivity() {
                 }
             }
         } else {
+            // Clean up background mode
+            viewModel?.currentWiki?.value?.let { wiki ->
+                val key = wiki.idFromUrl ?: wiki.url
+                val webView = getCurrentWebView()
+                webView?.let {
+                    // Save state before disabling background mode
+                    WebViewCache.cacheWebView(key, it)
+                    
+                    // Notify the wiki that background mode is being disabled
+                    it.evaluateJavascript("""
+                        (function() {
+                            document.dispatchEvent(new CustomEvent('backgroundModeDisabled'));
+                            return true;
+                        })();
+                    """.trimIndent(), null)
+                }
+            }
+            
             backgroundWebViewManager.stopBackgroundService()
+            stopService(serviceIntent) // Stop media service
             
             // Inform the user
             Toast.makeText(this, 
@@ -1189,9 +1273,13 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         webViewPaused = true
-        exoPlayerManager.onPause()
         
-        // Handle current WebView differently if background mode is enabled
+        // Only pause ExoPlayer if background mode is disabled
+        if (!_isBackgroundEnabled.value) {
+            exoPlayerManager.onPause()
+        }
+        
+        // Only pause WebViews if background mode is disabled
         if (!_isBackgroundEnabled.value) {
             viewModel?.let { vm ->
                 // Save state for current WebView
@@ -1201,24 +1289,44 @@ class MainActivity : ComponentActivity() {
                 }
                 vm.pauseAllWebViews()
             }
+            
+            // Dispatch pause event to WebView
+            getCurrentWebView()?.evaluateJavascript("""
+                (function() {
+                    const event = new Event('pause');
+                    document.dispatchEvent(event);
+                })();
+            """.trimIndent(), null)
         } else {
-            // If background mode is enabled, register the current WebView with the service
+            // If background mode is enabled, ensure the WebView is registered with the service
             viewModel?.currentWiki?.value?.let { wiki ->
                 val key = wiki.idFromUrl ?: wiki.url
                 val webView = viewModel?.getOrCreateWebView(wiki, this)
                 webView?.let {
-                    backgroundWebViewManager.registerWebView(key, it)
+                    if (!backgroundWebViewManager.hasWebView(key)) {
+                        backgroundWebViewManager.registerWebView(key, it)
+                        Log.d("MainActivity", "Re-registered WebView in onPause for background mode: ${wiki.name}")
+                    }
+                    
+                    // Ensure audio can continue in background
+                    it.evaluateJavascript("""
+                        (function() {
+                            // Keep audio context active
+                            if (window.__audioEnabled) {
+                                const audioElements = document.querySelectorAll('audio,video');
+                                audioElements.forEach(el => {
+                                    if (!el.paused) {
+                                        // Ensure element stays active
+                                        el.setAttribute('data-background-playing', 'true');
+                                    }
+                                });
+                            }
+                            return true;
+                        })();
+                    """.trimIndent(), null)
                 }
             }
         }
-
-        // Dispatch pause event to WebView
-        getCurrentWebView()?.evaluateJavascript("""
-            (function() {
-                const event = new Event('pause');
-                document.dispatchEvent(event);
-            })();
-        """.trimIndent(), null)
     }
 
     override fun onResume() {
@@ -1226,32 +1334,36 @@ class MainActivity : ComponentActivity() {
         webViewPaused = false
         exoPlayerManager.onResume()
         
-        // Ensure current WebView is registered with background service if enabled
-        if (_isBackgroundEnabled.value) {
+        // Handle WebView restoration differently based on background mode
+        if (!_isBackgroundEnabled.value) {
+            viewModel?.resumeCurrentWebView(viewModel?.currentWiki?.value)
+        } else {
+            // If background mode is enabled, ensure the WebView is still active
             viewModel?.currentWiki?.value?.let { wiki ->
                 val key = wiki.idFromUrl ?: wiki.url
                 val webView = viewModel?.getOrCreateWebView(wiki, this)
+                
                 webView?.let {
                     if (!backgroundWebViewManager.hasWebView(key)) {
+                        // Re-register if somehow lost
                         backgroundWebViewManager.registerWebView(key, it)
-                        Log.d("MainActivity", "Registered WebView on resume for background mode: ${wiki.name}")
+                        Log.d("MainActivity", "Re-registered WebView in onResume for background mode: ${wiki.name}")
                     }
+                    
+                    // Ensure the WebView is visible and active
+                    it.visibility = View.VISIBLE
+                    it.onResume()
+                    
+                    // Dispatch resume event
+                    it.evaluateJavascript("""
+                        (function() {
+                            const event = new Event('resume');
+                            document.dispatchEvent(event);
+                            return true;
+                        })();
+                    """.trimIndent(), null)
                 }
             }
-        }
-        
-        // Check if the current WebView is in the background service
-        val isInBackgroundService = viewModel?.currentWiki?.value?.let { wiki ->
-            val key = wiki.idFromUrl ?: wiki.url
-            backgroundWebViewManager.hasWebView(key)
-        } ?: false
-        
-        // Only resume normally if not in background service
-        if (!isInBackgroundService) {
-            viewModel?.resumeCurrentWebView(viewModel?.currentWiki?.value)
-        } else {
-            // If it's in the background service, refresh it
-            backgroundWebViewManager.refreshCurrentWebView()
         }
         
         // When resuming, get the current WebView and set it for the MediaSessionManager
