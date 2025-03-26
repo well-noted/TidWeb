@@ -228,17 +228,26 @@ class MediaSessionManager(private val context: Context) {
 
     private fun startPlaybackService() {
         Log.d(TAG, "Starting and binding to playback service")
+        
+        // If we're already bound to a service, update it instead of starting new
+        if (playbackService != null) {
+            mediaSession?.let { session ->
+                playbackService?.setMediaSession(session)
+                return
+            }
+        }
+
         val serviceIntent = Intent(context, MediaPlaybackService::class.java)
         serviceIntent.action = "INIT_MEDIA_SERVICE"
 
-        // Start as foreground service for Android O and later
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(serviceIntent)
-        } else {
-            context.startService(serviceIntent)
-        }
-
         try {
+            // Start as foreground service for Android O and later
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                context.startService(serviceIntent)
+            }
+
             // Bind to the service
             context.bindService(
                 serviceIntent,
@@ -246,7 +255,10 @@ class MediaSessionManager(private val context: Context) {
                 Context.BIND_AUTO_CREATE
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Error binding to service", e)
+            Log.e(TAG, "Error starting/binding service", e)
+            // Try to recover by releasing and recreating media session
+            release()
+            setupMediaSession()
         }
     }
 
@@ -336,64 +348,78 @@ class MediaSessionManager(private val context: Context) {
     }
 
     private fun updatePlaybackState() {
-        val state = if (isPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
-        Log.d(TAG, "Updating playback state: ${if (isPlaying) "PLAYING" else "PAUSED"}")
-        val stateBuilder = PlaybackStateCompat.Builder()
-            .setActions(
-                PlaybackStateCompat.ACTION_PLAY or
-                        PlaybackStateCompat.ACTION_PAUSE or
-                        PlaybackStateCompat.ACTION_SEEK_TO or
-                        PlaybackStateCompat.ACTION_PLAY_PAUSE or
-                        PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
-                        PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
-                        PlaybackStateCompat.ACTION_STOP
+        synchronized(stateChangeLock) {
+            val state = if (isPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
+            Log.d(TAG, "Updating playback state: ${if (isPlaying) "PLAYING" else "PAUSED"}")
+            
+            val stateBuilder = PlaybackStateCompat.Builder()
+                .setActions(
+                    PlaybackStateCompat.ACTION_PLAY or
+                            PlaybackStateCompat.ACTION_PAUSE or
+                            PlaybackStateCompat.ACTION_SEEK_TO or
+                            PlaybackStateCompat.ACTION_PLAY_PAUSE or
+                            PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                            PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                            PlaybackStateCompat.ACTION_STOP
+                )
+                .setState(state, currentPosition, if (isPlaying) 1f else 0f)
+
+            // Add custom actions for 15s forward/backward
+            stateBuilder.addCustomAction(
+                PlaybackStateCompat.CustomAction.Builder(
+                    "SKIP_BACKWARD",
+                    "Skip Back 15s",
+                    R.drawable.ic_skip_backward_15
+                ).build()
             )
-            .setState(state, currentPosition, if (isPlaying) 1f else 0f)
 
-        // Add custom actions for 15s forward/backward
-        stateBuilder.addCustomAction(
-            PlaybackStateCompat.CustomAction.Builder(
-                "SKIP_BACKWARD",
-                "Skip Back 15s",
-                R.drawable.ic_skip_backward_15
-            ).build()
-        )
+            stateBuilder.addCustomAction(
+                PlaybackStateCompat.CustomAction.Builder(
+                    "SKIP_FORWARD",
+                    "Skip Forward 15s",
+                    R.drawable.ic_skip_forward_15
+                ).build()
+            )
 
-        stateBuilder.addCustomAction(
-            PlaybackStateCompat.CustomAction.Builder(
-                "SKIP_FORWARD",
-                "Skip Forward 15s",
-                R.drawable.ic_skip_forward_15
-            ).build()
-        )
+            val playbackState = stateBuilder.build()
+            mediaSession?.apply {
+                setPlaybackState(playbackState)
+                // Make sure to keep the session active while we have media
+                isActive = hasActiveMedia
+            }
 
-        val playbackState = stateBuilder.build()
-        mediaSession?.apply {
-            setPlaybackState(playbackState)
-            // Make sure to keep the session active while we have media
-            isActive = hasActiveMedia
+            // Ensure service is updated with new state
+            playbackService?.let { service ->
+                service.updatePlaybackState(state, currentPosition)
+            } ?: run {
+                // If service is not available, try to start it
+                if (hasActiveMedia) {
+                    startPlaybackService()
+                }
+            }
+
+            // Always update notification when playback state changes
+            updateNotificationIfNeeded()
         }
-
-        playbackService?.let { service ->
-            service.updatePlaybackState(state, currentPosition)
-        }
-
-        // Always update notification when playback state changes
-        updateNotificationIfNeeded()
     }
 
     private fun updateNotificationIfNeeded() {
-        if (hasActiveMedia) {
-            val metadata = currentMetadata ?: mediaSession?.controller?.metadata
-            val state = mediaSession?.controller?.playbackState
+        synchronized(stateChangeLock) {
+            if (hasActiveMedia) {
+                val metadata = currentMetadata ?: mediaSession?.controller?.metadata
+                val state = mediaSession?.controller?.playbackState
 
-            playbackService?.let { service ->
-                mediaSession?.let { session ->
-                    service.updateNotification(session, metadata, state, currentBitmap)
+                playbackService?.let { service ->
+                    mediaSession?.let { session ->
+                        service.updateNotification(session, metadata, state, currentBitmap)
+                    }
+                } ?: run {
+                    // If service is not available, try to start it
+                    startPlaybackService()
                 }
+            } else {
+                playbackService?.stopForeground()
             }
-        } else {
-            playbackService?.stopForeground()
         }
     }
 
@@ -460,7 +486,7 @@ class MediaSessionManager(private val context: Context) {
                 updatePlaybackState()
             }
             
-            // Update service state based on playback
+            // Always ensure service is running when playing
             if (playing) {
                 startPlaybackService()
             }
