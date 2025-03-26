@@ -1393,8 +1393,9 @@ class MainActivity : ComponentActivity() {
         } else {
             viewModel?.currentWiki?.value?.let { wiki ->
                 viewModel?.getOrCreateWebView(wiki, this)?.let { webView ->
-                    // Ensure WebView is registered
-                    if (!backgroundWebViewManager.hasWebView(wiki.idFromUrl ?: wiki.url)) {
+                    // Ensure WebView is registered and active
+                    val key = wiki.idFromUrl ?: wiki.url
+                    if (!backgroundWebViewManager.hasWebView(key)) {
                         registerWebViewForBackground(wiki, webView)
                     }
                     
@@ -1706,10 +1707,98 @@ class MainActivity : ComponentActivity() {
                             val key = wiki.idFromUrl ?: wiki.url
                             val webView = viewModel?.getOrCreateWebView(wiki, this@MainActivity)
                             webView?.let { view ->
-                                // Allow a small delay for WebView to initialize properly
-                                delay(500)
-                                backgroundWebViewManager.registerWebView(key, view)
-                                Log.d("MainActivity", "Registered initial WebView for background mode: ${wiki.name}")
+                                // Set up WebView client to handle registration after page load
+                                view.webViewClient = object : WebViewClient() {
+                                    override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                                        super.onPageStarted(view, url, favicon)
+                                        // Configure WebView settings early
+                                        view?.settings?.apply {
+                                            javaScriptEnabled = true
+                                            domStorageEnabled = true
+                                            databaseEnabled = true
+                                            mediaPlaybackRequiresUserGesture = false
+                                        }
+                                    }
+
+                                    override fun onPageFinished(view: WebView?, url: String?) {
+                                        super.onPageFinished(view, url)
+                                        if (view != null) {
+                                            // Initialize state preservation and background mode
+                                            view.evaluateJavascript("""
+                                                (function() {
+                                                    // Initialize state container
+                                                    window.__savedState = window.__savedState || {};
+                                                    
+                                                    // Set up state preservation handlers if not already done
+                                                    if (!window.__statePreservationHandlersAttached) {
+                                                        document.addEventListener('pause', function() {
+                                                            try {
+                                                                // Capture scroll position
+                                                                window.__savedState.scrollPosition = window.scrollY;
+                                                                
+                                                                // Capture media states
+                                                                const mediaElements = document.querySelectorAll('audio,video');
+                                                                window.__savedState.mediaStates = Array.from(mediaElements).map(el => ({
+                                                                    src: el.src,
+                                                                    currentTime: el.currentTime,
+                                                                    isPlaying: !el.paused
+                                                                }));
+                                                                
+                                                                console.log('[Background] State preserved:', JSON.stringify(window.__savedState));
+                                                            } catch(e) {
+                                                                console.error('[Background] Error saving state:', e);
+                                                            }
+                                                        });
+                                                        
+                                                        document.addEventListener('resume', function() {
+                                                            try {
+                                                                if (window.__savedState.scrollPosition) {
+                                                                    window.scrollTo(0, window.__savedState.scrollPosition);
+                                                                }
+                                                                if (window.__savedState.mediaStates) {
+                                                                    window.__savedState.mediaStates.forEach(state => {
+                                                                        const el = Array.from(document.querySelectorAll('audio,video'))
+                                                                            .find(e => e.src === state.src);
+                                                                        if (el) {
+                                                                            el.currentTime = state.currentTime;
+                                                                            if (state.isPlaying) el.play();
+                                                                        }
+                                                                    });
+                                                                }
+                                                                console.log('[Background] State restored');
+                                                            } catch(e) {
+                                                                console.error('[Background] Error restoring state:', e);
+                                                            }
+                                                        });
+                                                        
+                                                        window.__statePreservationHandlersAttached = true;
+                                                    }
+                                                    
+                                                    // Set up periodic state saving
+                                                    if (!window.__stateSaveInterval) {
+                                                        window.__stateSaveInterval = setInterval(function() {
+                                                            if (document.visibilityState === 'hidden') {
+                                                                document.dispatchEvent(new Event('pause'));
+                                                            }
+                                                        }, 30000);
+                                                    }
+                                                    
+                                                    // Enable background audio
+                                                    if (!window.__audioEnabled) {
+                                                        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                                                        window.__audioEnabled = true;
+                                                    }
+                                                    
+                                                    return true;
+                                                })();
+                                            """.trimIndent()) { _ ->
+                                                // After initialization, register the WebView
+                                                backgroundWebViewManager.registerWebView(key, view)
+                                                Log.d("MainActivity", "Registered initial WebView after load: ${wiki.name}")
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
