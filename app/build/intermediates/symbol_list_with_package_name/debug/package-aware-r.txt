@@ -3583,6 +3583,7 @@ id pooling_container_listener_holder_tag
 id position
 id postLayout
 id pressed
+id prevent_reload_tag
 id progress_circular
 id progress_horizontal
 id radio
@@ -3659,6 +3660,7 @@ id tag_accessibility_actions
 id tag_accessibility_clickable_spans
 id tag_accessibility_heading
 id tag_accessibility_pane_title
+id tag_background_enabled
 id tag_on_apply_window_listener
 id tag_on_receive_content_listener
 id tag_on_receive_content_mime_types

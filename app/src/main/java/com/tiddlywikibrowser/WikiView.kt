@@ -27,6 +27,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import kotlinx.coroutines.CoroutineExceptionHandler
+import android.view.View
+import android.view.ViewGroup
+import android.webkit.WebSettings
 
     // Cache for WebViews - increased to handle larger wikis
     private val MAX_WEBVIEW_CACHE = 10
@@ -75,7 +78,7 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
     
     // Create a stable key for this composable that doesn't change during its lifecycle
     // This helps prevent recomposition issues when switching between wikis quickly
-    val stableKey = remember(wiki.url) { "${wiki.url}_${System.currentTimeMillis()}" }
+    val stableKey = remember(wikiKey) { wikiKey }
     
     // Use LaunchedEffect for setup tasks that should run once per key change
     LaunchedEffect(stableKey) {
@@ -280,119 +283,183 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
             AndroidView(
                 factory = { ctx ->
                     try {
-                        Log.d("WikiView", "Creating/retrieving WebView for: ${wiki.url}")
+                        Log.d("WikiView", "AndroidView Factory for: $wikiKey (Stable Key: $stableKey)")
                         
-                        // Check if there's a cached WebView first to avoid creating a new one
-                        val webView = WebViewCache.getAndRestoreCachedWebView(
+                        val mainActivity = ctx as? MainActivity
+                        val isBackgroundEnabled = mainActivity?.isBackgroundEnabled?.value ?: false
+                        
+                        // Initialize webView directly instead of using lateinit
+                        val webView: WebView = if (isBackgroundEnabled) {
+                            Log.d("WikiView", "Background mode is ON. Trying to get WebView from BackgroundWebViewManager for key: $wikiKey")
+                            val backgroundWebView = mainActivity?.backgroundWebViewManager?.getWebView(wikiKey)
+                            if (backgroundWebView != null) {
+                                Log.d("WikiView", "Found WebView in BackgroundWebViewManager for $wikiKey. Reusing it.")
+                                // IMPORTANT: Remove from previous parent if exists
+                                (backgroundWebView.parent as? ViewGroup)?.removeView(backgroundWebView)
+                                // Ensure it's visible and resumed state is correct
+                                backgroundWebView.visibility = View.VISIBLE
+                                backgroundWebView.onResume()
+                                // Mark as already having content to avoid unnecessary reloads triggered by state flags
+                                hasContent = true
+                                isLoading = false
+                                backgroundWebView // Assign to webView
+                            } else {
+                                Log.d("WikiView", "WebView not found in BackgroundWebViewManager for $wikiKey. Falling back to standard creation.")
+                                // Fallback to standard creation/cache retrieval
+                                WebViewCache.getAndRestoreCachedWebView(
                             wikiKey,
                             newWebViewFactory = { 
-                                // Only create a new WebView if necessary
                                 viewModel.getOrCreateWebView(wiki, ctx).apply {
-                                    // The WebView is new, so mark it for initial load
                                     setTag(R.string.prevent_reload_tag, false)
                                 }
-                            }
-                        )
-                        
-                        // Apply essential WebView settings
-                        webView.settings.apply {
-                            // Essential settings
-                            javaScriptEnabled = true
-                            domStorageEnabled = true
-                            
-                            // Always allow initial load
-                            blockNetworkImage = false
-                            loadsImagesAutomatically = true
-                            
-                            // Enable file download support
-                            allowFileAccess = true
-                            setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW)
-                        }
-                        
-                        // Set up download listener
-                        downloadManager.setupDownloadListener(webView)
-                        
-                        // Set WebView to visible
-                        webView.visibility = android.view.View.VISIBLE
-                        
-                        // Create our custom WebViewClient that prevents reloads
-                        val webViewClient = ReloadBlockingWebViewClient(
-                            context = ctx,
-                            wikiUrl = wiki.url,
-                            onLoadingStateChanged = { loading ->
-                                // Only update state if still active to prevent state updates
-                                // after component disposal
-                                if (isActive) {
-                                    isLoading = loading
-                                }
-                            },
-                            onErrorReceived = { error ->
-                                if (isActive) {
-                                    errorState = error
-                                }
-                            },
-                            onPageLoaded = { success ->
-                                if (isActive) {
-                                    hasContent = success
-                                    isFirstLoad = false
-                                }
-                            }
-                        )
-                        
-                        // Store the client for access in update lambda and lifecycle events
-                        webViewClientState.value = webViewClient
-                        
-                        // Set the client on the WebView
-                        webView.webViewClient = webViewClient
-                        
-                        // Check if this WebView needs to be loaded or if it's a restored one
-                        val isAlreadyLoaded = webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false
-                        
-                        if (!isAlreadyLoaded && isFirstLoad) {
-                            // Initial load needed - this is a new WebView
-                            lastLoadTime = System.currentTimeMillis()
-                            isLoading = true
-                            
-                            // Only load URL for new WebViews, not restored ones
-                            ThreadManager.runOnMain {
-                                val urlToLoad = localFileUrl ?: wiki.url
-                                Log.d("WikiView", "Initial load of URL: $urlToLoad")
-                                webView.loadUrl(urlToLoad)
+                                    }
+                                ) // Assign to webView
                             }
                         } else {
-                            // This WebView was restored, no need to reload
-                            Log.d("WikiView", "Using restored WebView, no reload needed")
-                            isLoading = false
-                            isFirstLoad = false
-                            hasContent = true
+                            Log.d("WikiView", "Background mode is OFF. Using standard WebView creation/retrieval for key: $wikiKey")
+                            // Standard behavior when background mode is off
+                            WebViewCache.getAndRestoreCachedWebView(
+                                wikiKey,
+                                newWebViewFactory = {
+                                    viewModel.getOrCreateWebView(wiki, ctx).apply {
+                                        setTag(R.string.prevent_reload_tag, false)
+                                    }
+                                }
+                            ) // Assign to webView
+                        }
+
+                        // Ensure client is set up
+                        if (webView.webViewClient !is ReloadBlockingWebViewClient) {
+                             val client = ReloadBlockingWebViewClient(
+                                context = ctx,
+                                wikiUrl = wiki.url,
+                                onLoadingStateChanged = { isLoadingValue ->
+                                    isLoading = isLoadingValue
+                                    if (!isLoadingValue) {
+                                        errorState = null
+                                    }
+                                },
+                                onPageLoaded = { success ->
+                                    isLoading = false
+                                    hasContent = success
+                                    lastLoadTime = System.currentTimeMillis()
+                                    if (success) {
+                                        WikiViewEnhancer.injectScrollDetectionScript(webView)
+                                        WikiViewEnhancer.injectSmallScreenOptimizations(webView, ctx)
+                                        WikiViewEnhancer.injectMediaFunctionalityScript(webView)
+                                        if (isBackgroundEnabled) {
+                                             WikiViewEnhancer.injectBackgroundRunningScript(webView)
+                                        }
+                                    }
+                                },
+                                onErrorReceived = { errorDesc ->
+                                    isLoading = false
+                                    errorState = errorDesc ?: "Failed to load wiki"
+                                    hasContent = false
+                                }
+                             )
+                             webView.webViewClient = client
+                             webViewClientState.value = client
+                        } else {
+                             // If client already exists, ensure our state reference is updated
+                             webViewClientState.value = webView.webViewClient as ReloadBlockingWebViewClient
+                        }
+
+                        // Apply essential WebView settings that might have been lost
+                        webView.settings.apply {
+                            javaScriptEnabled = true
+                            domStorageEnabled = true
+                            databaseEnabled = true // Ensure database is enabled
+                            allowFileAccess = true
+                            mediaPlaybackRequiresUserGesture = !isBackgroundEnabled // Link to background mode
+                            setGeolocationEnabled(false) // Keep disabled
+                            // Re-apply zoom settings etc. if needed
+                            setSupportZoom(true)
+                            builtInZoomControls = true
+                            displayZoomControls = false
+                            useWideViewPort = true
+                            loadWithOverviewMode = true
+                            cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK // Ensure caching strategy
+
+                            // Apply text zoom based on screen size (important on resume)
+                            val textZoom = ScreenUtils.getWebViewTextZoom(context)
+                            setTextZoom(textZoom)
                             
-                            // Make sure the WebView shows its content properly
-                            webView.invalidate()
+                            // Force accessibility mode if needed
+                            if (ScreenUtils.shouldForceWebViewZoom(context)) {
+                                builtInZoomControls = true
+                                displayZoomControls = false
+                            }
+                            
+                            // Optimize for very small screens if needed
+                            if (ScreenUtils.isVerySmallScreen(context)) {
+                                layoutAlgorithm = WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
+                            }
+                        }
+
+                        // Initialize download listener
+                        downloadManager.setupDownloadListener(webView)
+                        
+                        // Initial Load Logic (Only if not already loaded/restored from background)
+                        val needsInitialLoad = (webView.getTag(R.string.prevent_reload_tag) as? Boolean ?: false) == false || webView.url == null || webView.url == "about:blank"
+                        
+                        if (needsInitialLoad && !hasContent) {
+                            Log.d("WikiView", "WebView needs initial load for $wikiKey.")
+                            val urlToLoad = when {
+                                wiki.isLocalFile || wiki.url.startsWith("file://") -> wiki.url
+                                else -> localFileUrl ?: wiki.url // Use cached file URL if available
+                            }
+                            
+                            Log.d("WikiView", "Loading URL: $urlToLoad")
+                                webView.loadUrl(urlToLoad)
+                            webView.setTag(R.string.prevent_reload_tag, true) // Mark as loading initiated
+                        } else {
+                             Log.d("WikiView", "WebView for $wikiKey already loaded or restored. Skipping initial load.")
+                             // Ensure visibility and resume state even if not loading
+                             webView.visibility = View.VISIBLE
+                             webView.onResume()
+                             // If it was restored from background, loading should be false
+                             if (isBackgroundEnabled && mainActivity?.backgroundWebViewManager?.hasWebView(wikiKey) == true) {
+                            isLoading = false
+                             }
                         }
                         
-                        webView
+                        return@AndroidView webView
+
                     } catch (e: Exception) {
-                        Log.e("WikiView", "Error creating WebView: ${e.message}", e)
-                        errorState = "Error creating WebView: ${e.message}"
-                        // Return an empty WebView as a fallback
-                        WebView(ctx)
+                        Log.e("WikiView", "Error in AndroidView factory", e)
+                        // Return a dummy view or handle error appropriately
+                        android.widget.FrameLayout(ctx) // Placeholder FrameLayout on error
                     }
                 },
-                update = { webView ->
-                    // Avoid any state updates during update if the composable is not active
+                update = { view -> // Use 'view' as parameter name, it's the standard
+                    // This block runs when the composable updates but the view instance is reused.
+                    Log.d("WikiView", "AndroidView Update for: $wikiKey (isActive: $isActive)")
                     if (isActive) {
-                        // Always ensure visibility - NO need to reload when switching wikis
-                        webView.visibility = android.view.View.VISIBLE
+                        // Always ensure visibility
+                        view.visibility = android.view.View.VISIBLE
                         
-                        // We can safely ensure our reload protection is in place though
+                        // Use safe cast to WebView before calling methods
+                        (view as? WebView)?.let { webViewInstance ->
+                            // Crucial: Call webView.onResume() here to ensure rendering resumes
+                            Log.d("WikiView", "Calling webView.onResume() in update lambda for $wikiKey")
+                            webViewInstance.onResume()
+                            
+                            // Reinforce reload protection
                         webViewClientState.value?.let { client ->
-                            // Reinforce protection - this will only do something if the WebView is loaded
-                            if (webView.getTag(R.string.prevent_reload_tag) == true) {
-                                // Use runCatching to prevent any exceptions from affecting the UI
+                                if (webViewInstance.getTag(R.string.prevent_reload_tag) == true) {
                                 runCatching {
-                                    client.reinforceReloadProtection(webView)
+                                        Log.d("WikiView", "Reinforcing reload protection in update lambda for $wikiKey")
+                                        // Pass the safely casted WebView instance
+                                        client.reinforceReloadProtection(webViewInstance)
+                                    }.onFailure { e ->
+                                        Log.w("WikiView", "Error reinforcing reload protection in update lambda: ${e.message}")
+                                    }
                                 }
                             }
+                        } ?: run {
+                            // Log if the view passed to update is unexpectedly not a WebView
+                            Log.w("WikiView", "Update lambda called but view is not a WebView? Type: ${view::class.simpleName}")
                         }
                     }
                 },

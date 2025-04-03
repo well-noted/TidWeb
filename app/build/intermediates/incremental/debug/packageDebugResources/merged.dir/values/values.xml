@@ -5,6 +5,8 @@
     <bool name="use_simplified_ui">false</bool>
     <bool name="webview_force_zoom">false</bool>
     <color name="ic_launcher_background">#FFFFFF</color>
+    <item name="prevent_reload_tag" type="id"/>
+    <item name="tag_background_enabled" type="id"/>
     <integer name="webview_text_zoom">100</integer>
     <string name="add">Add</string>
     <string name="add_first_wiki">Add your first TiddlyWiki using the + button</string>

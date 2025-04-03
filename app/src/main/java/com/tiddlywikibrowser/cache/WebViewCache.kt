@@ -141,11 +141,34 @@ object WebViewCache {
                     val bundle = Bundle()
                     webView.saveState(bundle)
                     
+                    // Preserve important WebView settings
+                    val settingsBundle = Bundle()
+                    settingsBundle.putBoolean("mediaPlaybackRequiresUserGesture", 
+                        !webView.settings.mediaPlaybackRequiresUserGesture)
+                    settingsBundle.putBoolean("javaScriptEnabled", 
+                        webView.settings.javaScriptEnabled)
+                    settingsBundle.putBoolean("domStorageEnabled", 
+                        webView.settings.domStorageEnabled)
+                    
+                    // Store the settings in the main bundle
+                    bundle.putBundle("webview_settings", settingsBundle)
+                    
+                    // Check if this WebView is running in background mode
+                    val backgroundEnabledKey = "$key:background_enabled"
+                    val backgroundEnabled = bundle.getBoolean(backgroundEnabledKey, false) ||
+                                            !webView.settings.mediaPlaybackRequiresUserGesture
+                    bundle.putBoolean(backgroundEnabledKey, backgroundEnabled)
+                    
+                    Log.d(TAG, "Cached WebView for $key with background mode: $backgroundEnabled")
+                    
                     // Check bundle size and trim if necessary
                     if (bundle.sizeAsParcel() > 400 * 1024) { // 400KB limit
                         Log.w(TAG, "WebView state bundle too large, using minimal state")
                         val minimalBundle = Bundle()
                         minimalBundle.putString("url", webView.url)
+                        // Preserve the critical settings even in minimal state
+                        minimalBundle.putBundle("webview_settings", settingsBundle)
+                        minimalBundle.putBoolean(backgroundEnabledKey, backgroundEnabled)
                         webViewStates[key] = minimalBundle
                     } else {
                         webViewStates[key] = bundle
@@ -456,6 +479,34 @@ object WebViewCache {
                             if (!isAlreadyLoaded) {
                                 webViewStates[key]?.let { state ->
                                     try {
+                                        // Restore WebView settings first
+                                        state.getBundle("webview_settings")?.let { settingsBundle ->
+                                            try {
+                                                webView.settings.apply {
+                                                    javaScriptEnabled = settingsBundle.getBoolean("javaScriptEnabled", true)
+                                                    domStorageEnabled = settingsBundle.getBoolean("domStorageEnabled", true)
+                                                    
+                                                    // Restore background mode settings
+                                                    val allowBackgroundMedia = settingsBundle.getBoolean("mediaPlaybackRequiresUserGesture", false)
+                                                    if (allowBackgroundMedia) {
+                                                        mediaPlaybackRequiresUserGesture = false
+                                                        Log.d(TAG, "Restored background media setting: $key")
+                                                    }
+                                                }
+                                            } catch (e: Exception) {
+                                                Log.e(TAG, "Error restoring WebView settings: ${e.message}")
+                                            }
+                                        }
+                                        
+                                        // Also check direct background mode flag
+                                        val backgroundEnabledKey = "$key:background_enabled"
+                                        val wasBackgroundEnabled = state.getBoolean(backgroundEnabledKey, false)
+                                        if (wasBackgroundEnabled) {
+                                            webView.settings.mediaPlaybackRequiresUserGesture = false
+                                            Log.d(TAG, "Restored WebView with background mode enabled: $key")
+                                        }
+                                        
+                                        // Then restore the full WebView state
                                         webView.restoreState(state)
                                         Log.d(TAG, "Restored state during resume for WebView: $key")
                                     } catch (e: Exception) {
@@ -464,6 +515,24 @@ object WebViewCache {
                                 }
                             } else {
                                 Log.d(TAG, "Skipping state restore on resume (already loaded): $key")
+                                
+                                // Even for already loaded WebViews, restore background mode settings
+                                webViewStates[key]?.let { state ->
+                                    state.getBundle("webview_settings")?.let { settingsBundle ->
+                                        val allowBackgroundMedia = settingsBundle.getBoolean("mediaPlaybackRequiresUserGesture", false)
+                                        if (allowBackgroundMedia) {
+                                            webView.settings.mediaPlaybackRequiresUserGesture = false
+                                            Log.d(TAG, "Restored background media setting for loaded WebView: $key")
+                                        }
+                                    }
+                                    
+                                    // Also check direct background mode flag
+                                    val backgroundEnabledKey = "$key:background_enabled"
+                                    val wasBackgroundEnabled = state.getBoolean(backgroundEnabledKey, false)
+                                    if (wasBackgroundEnabled) {
+                                        webView.settings.mediaPlaybackRequiresUserGesture = false
+                                    }
+                                }
                             }
                             
                             // Always restore the loaded state flag from our cache
@@ -474,6 +543,9 @@ object WebViewCache {
                             // Resume WebView and make it the active key
                             webView.onResume()
                             currentActiveKey = key
+                            
+                            // Update access time
+                            updateAccessTime(key)
                             
                             Log.d(TAG, "Resumed WebView: $key")
                         }
@@ -634,6 +706,34 @@ object WebViewCache {
     private fun endOperation() {
         lastOperationTime = System.currentTimeMillis()
         activeOperation = false
+    }
+
+    /**
+     * Clear just the cache entry for a specific key without destroying the WebView
+     * This is useful when we need to force a refresh of settings but keep the WebView instance
+     */
+    fun clearCacheEntry(key: String) {
+        if (isActiveOperation()) {
+            Log.d(TAG, "Postponing clearCacheEntry - another operation in progress")
+            ThreadManager.runOnBackgroundWithDelay(100) {
+                clearCacheEntry(key)
+            }
+            return
+        }
+        
+        startOperation()
+        
+        try {
+            Log.d(TAG, "Clearing cache entry for: $key")
+            cacheLock.write {
+                // Just remove the state data, not the WebView itself
+                webViewStates.remove(key)
+                webViewLoadedState.remove(key)
+                lastAccessTime.remove(key)
+            }
+        } finally {
+            endOperation()
+        }
     }
 }
 
