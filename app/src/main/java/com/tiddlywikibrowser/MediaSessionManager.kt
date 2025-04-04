@@ -31,10 +31,12 @@ class MediaSessionManager(private val context: Context) {
     private var currentMetadata: MediaMetadataCompat? = null
     private var wasPlayingBeforeFocusLoss = false
     private var lastPlayTimestamp: Long = 0
+    private var isServiceBound = false
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             val binder = service as? MediaPlaybackService.LocalBinder
             playbackService = binder?.service
+            isServiceBound = true
             Log.d(TAG, "Service connected")
 
             // Now that service is connected, update it with our media session
@@ -56,6 +58,7 @@ class MediaSessionManager(private val context: Context) {
 
         override fun onServiceDisconnected(name: ComponentName?) {
             playbackService = null
+            isServiceBound = false
             Log.d(TAG, "Service disconnected")
         }
     }
@@ -531,37 +534,49 @@ class MediaSessionManager(private val context: Context) {
         }
     }
 
+    /**
+     * Set the current WebView to monitor for media
+     */
     fun setWebView(webView: android.webkit.WebView?) {
         Log.d(TAG, "Setting WebView reference")
 
         // Update the WebView reference and reset media state
-        webView?.evaluateJavascript("""
-            (function() {
-                // Check for existing media and update state
-                const media = document.querySelector('audio,video');
-                if (media) {
-                    return JSON.stringify({
-                        exists: true,
-                        playing: !media.paused,
-                        currentTime: media.currentTime,
-                        duration: media.duration,
-                        title: media.getAttribute('title') || document.title,
-                        artist: media.getAttribute('artist') || 'TiddlyWiki Audio'
-                    });
-                }
-                return JSON.stringify({ exists: false });
-            })();
-        """.trimIndent()) { result ->
+        if (webView != null) {
             try {
-                Log.d(TAG, "WebView media check result: $result")
-                // Process the result to update media state if needed
+                // Check if WebView is destroyed before using it
+                webView.settings
+                
+                webView.evaluateJavascript("""
+                    (function() {
+                        // Check for existing media and update state
+                        const media = document.querySelector('audio,video');
+                        if (media) {
+                            return JSON.stringify({
+                                exists: true,
+                                playing: !media.paused,
+                                currentTime: media.currentTime,
+                                duration: media.duration,
+                                title: document.title
+                            });
+                        }
+                        return JSON.stringify({exists: false});
+                    })();
+                """.trimIndent()) { result ->
+                    Log.d(TAG, "WebView media check result: $result")
+                }
             } catch (e: Exception) {
-                Log.e(TAG, "Error processing WebView result", e)
+                Log.e(TAG, "Error checking WebView for media: ${e.message}")
             }
         }
+    }
 
-        // Install media detection script that will keep reporting media state changes
-        webView?.evaluateJavascript(MainActivity.mediaMonitorScript, null)
+
+
+    /**
+     * Check if the service is already bound
+     */
+    fun isServiceBound(): Boolean {
+        return isServiceBound
     }
 
     fun bindToService() {

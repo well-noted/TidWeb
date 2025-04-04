@@ -592,6 +592,8 @@ object WebViewCache {
 
     /**
      * Remove a cached WebView if it's no longer needed
+     * IMPORTANT: When background mode is enabled, WebViews registered with the BackgroundWebViewService
+     * should not be destroyed
      */
     fun removeCachedWebView(key: String) {
         if (isConfigurationChanging) return
@@ -607,6 +609,27 @@ object WebViewCache {
         startOperation()
         
         try {
+            // First check if this WebView is in background mode
+            val isInBackgroundMode = cacheLock.read {
+                webViewStates[key]?.let { state ->
+                    val backgroundEnabledKey = "$key:background_enabled"
+                    state.getBoolean(backgroundEnabledKey, false)
+                } ?: false
+            }
+            
+            // If background mode is enabled, don't destroy the WebView
+            if (isInBackgroundMode) {
+                Log.d(TAG, "WebView for $key is in background mode, skipping destruction")
+                // Just remove from our cache but don't destroy
+                cacheLock.write {
+                    webViewCache.remove(key)
+                    // Keep the state in case we need to restore it later
+                }
+                // Early return to skip destruction
+                return
+            }
+            
+            // For non-background mode WebViews, proceed with normal destruction
             val webView = cacheLock.write {
                 val view = webViewCache.remove(key)
                 webViewStates.remove(key)
@@ -730,6 +753,38 @@ object WebViewCache {
                 webViewStates.remove(key)
                 webViewLoadedState.remove(key)
                 lastAccessTime.remove(key)
+            }
+        } finally {
+            endOperation()
+        }
+    }
+
+    /**
+     * Mark the WebView state as uncertain without removing it
+     * Useful when we need to indicate that the state might need refreshing
+     * but we don't want to destroy the WebView (especially in background mode)
+     */
+    fun markWebViewStateUncertain(key: String) {
+        if (isActiveOperation()) {
+            Log.d(TAG, "Postponing markWebViewStateUncertain - another operation in progress")
+            ThreadManager.runOnBackgroundWithDelay(100) {
+                markWebViewStateUncertain(key)
+            }
+            return
+        }
+        
+        startOperation()
+        
+        try {
+            Log.d(TAG, "Marking WebView state uncertain for key: $key")
+            cacheLock.write {
+                // We don't remove the WebView itself, but we flag it as needing a potential refresh
+                webViewLoadedState[key] = false
+                
+                // Also update the Bundle to indicate it may need refreshing
+                webViewStates[key]?.let { state ->
+                    state.putBoolean("$key:state_uncertain", true)
+                }
             }
         } finally {
             endOperation()

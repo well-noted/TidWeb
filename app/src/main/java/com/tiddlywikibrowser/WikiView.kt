@@ -338,6 +338,15 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                                     if (!isLoadingValue) {
                                         errorState = null
                                     }
+                                    
+                                    // Apply background mode settings on every navigation state change
+                                    if (isBackgroundEnabled && isLoadingValue) {
+                                        Log.d("WikiView", "Applying background mode during navigation for $wikiKey")
+                                        // This ensures background mode is applied during navigations within the wiki
+                                        ThreadManager.runOnMain {
+                                            WikiViewEnhancer.injectBackgroundRunningScript(webView)
+                                        }
+                                    }
                                 },
                                 onPageLoaded = { success ->
                                     isLoading = false
@@ -371,7 +380,20 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                             domStorageEnabled = true
                             databaseEnabled = true // Ensure database is enabled
                             allowFileAccess = true
-                            mediaPlaybackRequiresUserGesture = !isBackgroundEnabled // Link to background mode
+                            
+                            // IMPORTANT: Apply background mode settings early
+                            // When background mode is enabled, we don't require user gesture for media playback
+                            mediaPlaybackRequiresUserGesture = !isBackgroundEnabled
+                            
+                            // Apply specific background mode settings
+                            if (isBackgroundEnabled) {
+                                Log.d("WikiView", "Applying early background mode settings for $wikiKey")
+                                // Set additional settings needed for background operation
+                                setMediaPlaybackRequiresUserGesture(!isBackgroundEnabled) // Ensure this is set immediately
+                                // Allow JavaScript to continue executing in background
+                                setJavaScriptCanOpenWindowsAutomatically(true)
+                            }
+                            
                             setGeolocationEnabled(false) // Keep disabled
                             // Re-apply zoom settings etc. if needed
                             setSupportZoom(true)
@@ -405,6 +427,13 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                         
                         if (needsInitialLoad && !hasContent) {
                             Log.d("WikiView", "WebView needs initial load for $wikiKey.")
+                            
+                            // Pre-inject background script if background mode is enabled
+                            if (isBackgroundEnabled) {
+                                Log.d("WikiView", "Pre-injecting background script for initial load")
+                                WikiViewEnhancer.injectBackgroundRunningScript(webView)
+                            }
+                            
                             val urlToLoad = when {
                                 wiki.isLocalFile || wiki.url.startsWith("file://") -> wiki.url
                                 else -> localFileUrl ?: wiki.url // Use cached file URL if available

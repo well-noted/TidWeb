@@ -1284,6 +1284,13 @@ class MainActivity : ComponentActivity() {
                         Log.d("MainActivity", "Registering current wiki for background mode: ${wiki.name}")
                         viewModel?.getOrCreateWebView(wiki, this)?.let { webView ->
                             registerWebViewForBackground(wiki, webView)
+                            
+                            // Force registration regardless of cache state
+                            val key = wiki.idFromUrl ?: wiki.url
+                            if (!backgroundWebViewManager.hasWebView(key)) {
+                                Log.d("MainActivity", "Force registering WebView for background mode: ${wiki.name}")
+                                backgroundWebViewManager.registerWebView(key, webView)
+                            }
                         }
                     }
                 }, 500)
@@ -1330,6 +1337,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Register a WebView for background operation with state preservation
+     * @param wiki The wiki instance associated with this WebView
+     * @param webView The WebView to register for background processing
+     */
     private fun registerWebViewForBackground(wiki: WikiInstance, webView: WebView) {
         val key = wiki.idFromUrl ?: wiki.url
         
@@ -1389,7 +1401,7 @@ class MainActivity : ComponentActivity() {
                     });
                     
                     // Set up periodic state saving
-                    setInterval(function() {
+                    window.__stateSaveInterval = setInterval(function() {
                         if (document.visibilityState === 'hidden') {
                             document.dispatchEvent(new Event('pause'));
                         }
@@ -1424,7 +1436,6 @@ class MainActivity : ComponentActivity() {
         
         if (!_isBackgroundEnabled.value) {
             Log.d("MainActivity", "onPause - Background mode disabled, performing standard pause.")
-            // Standard behavior when background mode is disabled
             exoPlayerManager.onPause()
             viewModel?.let { vm ->
                 vm.currentWiki.value?.let { wiki ->
@@ -1507,17 +1518,36 @@ class MainActivity : ComponentActivity() {
                 }
 
                 webView?.let { wv ->
-                    // Make WebView visible and active
-                    wv.visibility = View.VISIBLE
-                    webView.onResume()
-                    
-                    // Trigger state restoration
-                    webView.evaluateJavascript("""
-                        (function() {
-                            document.dispatchEvent(new Event('resume'));
-                            return true;
-                        })();
-                    """.trimIndent(), null)
+                    try {
+                        // Check if WebView is not destroyed before using it
+                        if (!isWebViewDestroyed(wv)) {
+                            // Make WebView visible and active
+                            wv.visibility = View.VISIBLE
+                            wv.onResume()
+                            
+                            // Only evaluate JavaScript if WebView is not destroyed
+                            try {
+                                wv.evaluateJavascript("""
+                                    (function() {
+                                        document.dispatchEvent(new Event('resume'));
+                                        return true;
+                                    })();
+                                """.trimIndent(), null)
+                            } catch (e: Exception) {
+                                Log.e("MainActivity", "Error dispatching resume event to WebView: ${e.message}")
+                            }
+                        } else {
+                            Log.w("MainActivity", "Skipping resume operations on destroyed WebView")
+                            // Force recreation of this WebView
+                            WebViewCache.removeCachedWebView(key)
+                            viewModel?.getOrCreateWebView(currentWiki, this)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Error resuming WebView: ${e.message}")
+                        // Force recreation of this WebView
+                        WebViewCache.removeCachedWebView(key)
+                        viewModel?.getOrCreateWebView(currentWiki, this)
+                    }
                 } ?: run {
                     Log.e("MainActivity", "Failed to get WebView instance on resume in background mode for wiki: ${currentWiki.name}")
                 }
@@ -1525,9 +1555,32 @@ class MainActivity : ComponentActivity() {
         }
         
         // Update media session
-        getCurrentWebView()?.let { webView ->
-            mediaSessionManager.setWebView(webView)
-            mediaSessionManager.bindToService()
+        try {
+            getCurrentWebView()?.let { webView ->
+                if (!isWebViewDestroyed(webView)) {
+                    mediaSessionManager.setWebView(webView)
+                    // Only bind to service if we haven't already bound
+                    if (!mediaSessionManager.isServiceBound()) {
+                        mediaSessionManager.bindToService()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error updating media session: ${e.message}")
+        }
+    }
+    
+    /**
+     * Safely check if a WebView is destroyed to avoid crashes
+     */
+    private fun isWebViewDestroyed(webView: WebView): Boolean {
+        return try {
+            // A simple and safe test - try to get the settings which will fail for destroyed WebViews
+            webView.settings
+            false // If we get here, WebView is not destroyed
+        } catch (e: Exception) {
+            Log.w("MainActivity", "WebView appears to be destroyed: ${e.message}")
+            true // WebView is likely destroyed
         }
     }
 
@@ -1581,6 +1634,7 @@ class MainActivity : ComponentActivity() {
     // Implement the onLowMemory callback
     override fun onLowMemory() {
         super.onLowMemory()
+        Log.d("MainActivity", "onLowMemory called - cleaning up resources")
         WebViewCache.onLowMemory()
         viewModel?.onLowMemory()
     }
@@ -1588,6 +1642,28 @@ class MainActivity : ComponentActivity() {
     // Implement onTrimMemory
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
+        Log.d("MainActivity", "onTrimMemory called with level: $level")
+        
+        // In background mode, we need to be more careful about memory management
+        if (_isBackgroundEnabled.value) {
+            // Only mark state as uncertain - don't remove the WebView
+            viewModel?.currentWiki?.value?.let { wiki ->
+                val key = wiki.idFromUrl ?: wiki.url
+                WebViewCache.markWebViewStateUncertain(key)
+                
+                // Make sure the WebView is registered with the background service
+                if (backgroundWebViewManager.hasWebView(key)) {
+                    Log.d("MainActivity", "WebView is registered with background service, skipping state marking")
+                } else {
+                    // If it's not in the background service, try to recover
+                    Log.d("MainActivity", "WebView not found in background service, attempting recovery")
+                    viewModel?.getOrCreateWebView(wiki, this)?.let { webView ->
+                        backgroundWebViewManager.registerWebView(key, webView)
+                    }
+                }
+            }
+        }
+        
         if (level >= ComponentCallbacks2.TRIM_MEMORY_MODERATE) {
             ThreadManager.runOnBackground {
                 viewModel?.onLowMemory()
@@ -1625,10 +1701,6 @@ class MainActivity : ComponentActivity() {
         super.onSaveInstanceState(outState)
     }
 
-    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
-        super.onRestoreInstanceState(savedInstanceState)
-        WebViewCache.setConfigurationChanging(false)
-    }
 
     /**
      * Apply WebView configuration settings
@@ -2236,113 +2308,80 @@ fun MainScreen(
                     )
                 )
             ) {
-                Box {
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = showTrashCan,
-                        enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
-                        exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(bottom = 8.dp)
-                    ) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
-                            shape = CircleShape,
-                            modifier = Modifier
-                                .padding(8.dp)
-                                .size(48.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete wiki",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier
-                                    .padding(12.dp)
-                                    .alpha(trashCanAlpha)
-                            )
-                        }
-                    }
+                NavigationBar {
+                    // Add item for "Add Wiki" button
+                    if (wikis.isEmpty()) {
+                        NavigationBarItem(
+                            icon = { Icon(Icons.Default.Add, contentDescription = "Add Wiki") },
+                            label = { Text("Add Wiki") },
+                            selected = false,
+                            onClick = onAddClick
+                        )
+                    } else {
+                        // Wiki items
+                        wikis.forEachIndexed { index, wiki ->
+                            val isSelected = wiki == currentWiki
+                            var offsetX by remember { mutableStateOf(0f) }
 
-                    Surface(
-                        color = MaterialTheme.colorScheme.surface,
-                        tonalElevation = 3.dp,
-                        shadowElevation = 3.dp,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        NavigationBar {
-                            if (wikis.isEmpty()) {
-                                NavigationBarItem(
-                                    icon = { Icon(Icons.Default.Add, contentDescription = "Add Wiki") },
-                                    label = { Text("Add Wiki") },
-                                    selected = false,
-                                    onClick = onAddClick
-                                )
-                            } else {
-                                wikis.forEachIndexed { index, wiki ->
-                                    val isSelected = wiki == currentWiki
-                                    var offsetX by remember { mutableStateOf(0f) }
+                            NavigationBarItem(
+                                icon = {
+                                    Icon(
+                                        Icons.Default.Book,
+                                        contentDescription = wiki.name,
+                                        modifier = Modifier
+                                            .pointerInput(Unit) {
+                                                detectDragGestures(
+                                                    onDragStart = { offset ->
+                                                        dragStartTime.value = System.currentTimeMillis()
+                                                        draggedWiki = wiki
+                                                        isDragging = true
+                                                    },
+                                                    onDrag = { change, dragAmount ->
+                                                        change.consume()
+                                                        offsetX += dragAmount.x
+                                                        dragOffset = offsetX
 
-                                    NavigationBarItem(
-                                        icon = {
-                                            Icon(
-                                                Icons.Default.Book,
-                                                contentDescription = wiki.name,
-                                                modifier = Modifier
-                                                    .pointerInput(Unit) {
-                                                        detectDragGestures(
-                                                            onDragStart = { offset ->
-                                                                dragStartTime.value = System.currentTimeMillis()
-                                                                draggedWiki = wiki
-                                                                isDragging = true
-                                                            },
-                                                            onDrag = { change, dragAmount ->
-                                                                change.consume()
-                                                                offsetX += dragAmount.x
-                                                                dragOffset = offsetX
+                                                        // Show trash can after hold threshold
+                                                        if (System.currentTimeMillis() - dragStartTime.value > holdThreshold) {
+                                                            showTrashCan = true
+                                                        }
+                                                    },
+                                                    onDragEnd = {
+                                                        // Check if dragged to trash can position
+                                                        if (showTrashCan && dragOffset.absoluteValue < 100) {
+                                                            wikiToDelete = draggedWiki
+                                                            showDeleteConfirmDialog = true
+                                                        } else {
+                                                            // Calculate new position
+                                                            val dragDistance = dragOffset
+                                                            val itemWidth = size.width.toFloat()
+                                                            val newPosition = (dragDistance / itemWidth).roundToInt()
 
-                                                                // Show trash can after hold threshold
-                                                                if (System.currentTimeMillis() - dragStartTime.value > holdThreshold) {
-                                                                    showTrashCan = true
+                                                            if (newPosition != 0) {
+                                                                val targetIndex = (index + newPosition).coerceIn(0, wikis.size - 1)
+                                                                if (targetIndex != index) {
+                                                                    viewModel.reorderWikis(index, targetIndex)
                                                                 }
-                                                            },
-                                                            onDragEnd = {
-                                                                // Check if dragged to trash can position
-                                                                if (showTrashCan && dragOffset.absoluteValue < 100) {
-                                                                    wikiToDelete = draggedWiki
-                                                                    showDeleteConfirmDialog = true
-                                                                } else {
-                                                                    // Calculate new position
-                                                                    val dragDistance = dragOffset
-                                                                    val itemWidth = size.width.toFloat()
-                                                                    val newPosition = (dragDistance / itemWidth).roundToInt()
-
-                                                                    if (newPosition != 0) {
-                                                                        val targetIndex = (index + newPosition).coerceIn(0, wikis.size - 1)
-                                                                        if (targetIndex != index) {
-                                                                            viewModel.reorderWikis(index, targetIndex)
-                                                                        }
-                                                                    }
-                                                                }
-
-                                                                // Reset states
-                                                                draggedWiki = null
-                                                                isDragging = false
-                                                                dragOffset = 0f
-                                                                offsetX = 0f
-                                                                showTrashCan = false
                                                             }
-                                                        )
+                                                        }
+
+                                                        // Reset states
+                                                        draggedWiki = null
+                                                        isDragging = false
+                                                        dragOffset = 0f
+                                                        offsetX = 0f
+                                                        showTrashCan = false
                                                     }
-                                                    .offset { IntOffset(offsetX.roundToInt(), 0) }
-                                                    .scale(if (isDragging && draggedWiki == wiki) 1.1f else 1f)
-                                            )
-                                        },
-                                        label = { Text(wiki.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                        selected = isSelected,
-                                        onClick = { viewModel.setCurrentWiki(wiki) }
+                                                )
+                                            }
+                                            .offset { IntOffset(offsetX.roundToInt(), 0) }
+                                            .scale(if (isDragging && draggedWiki == wiki) 1.1f else 1f)
                                     )
-                                }
-                            }
+                                },
+                                label = { Text(wiki.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                selected = isSelected,
+                                onClick = { viewModel.setCurrentWiki(wiki) }
+                            )
                         }
                     }
                 }

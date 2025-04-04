@@ -159,8 +159,12 @@ class BackgroundWebViewService : Service() {
                         })();
                     """.trimIndent(), null)
                     
-                    // Save state and pause the WebView
+                    // Only pause the WebView but don't destroy it
+                    // This is critical - we're intentionally NOT destroying the WebView
+                    // just caching its state so it can be resumed later
                     WebViewCache.cacheWebView(key, webView)
+                    
+                    // Just pause, don't destroy
                     webView.onPause()
                 } catch (e: Exception) {
                     Log.e(TAG, "Error cleaning up WebView: ${e.message}")
@@ -325,4 +329,4 @@ class BackgroundWebViewService : Service() {
         const val ACTION_STOP_SERVICE = "com.tiddlywikibrowser.action.STOP_SERVICE"
         const val EXTRA_WEBVIEW_KEY = "webview_key"
     }
-} 
+}

@@ -78,8 +78,33 @@ class TiddlyWikiSplitter(private val context: Context) {
                             background-color: #333;
                         }
                     }
+
+                    /* When app is in background mode */
+                    .background-mode-active .loading-container {
+                        opacity: 0.8;
+                    }
+                    .background-mode-active .status:after {
+                        content: " (Background Mode Active)";
+                        color: #007AFF;
+                    }
                 </style>
                 <script>
+                    // Flag to track background mode
+                    let isBackgroundModeActive = false;
+                    
+                    // Listen for background mode events
+                    document.addEventListener('backgroundModeEnabled', function() {
+                        isBackgroundModeActive = true;
+                        document.body.classList.add('background-mode-active');
+                        console.log('[TiddlyWikiSplitter] Background mode enabled');
+                    });
+                    
+                    document.addEventListener('backgroundModeDisabled', function() {
+                        isBackgroundModeActive = false;
+                        document.body.classList.remove('background-mode-active');
+                        console.log('[TiddlyWikiSplitter] Background mode disabled');
+                    });
+                    
                     // Enhanced progressive loader for TiddlyWiki
                     // Loads and processes the wiki in chunks to prevent ANRs
                     class ProgressiveWikiLoader {
