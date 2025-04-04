@@ -381,9 +381,12 @@ class ReloadBlockingWebViewClient(
         // Mark the WebView as loaded to prevent future reloads
         webView.setTag(R.string.prevent_reload_tag, true)
 
-        // Update UI state
-        onLoadingStateChanged(false)
-        onPageLoaded(true)
+        // Force loading state to false to ensure spinner is dismissed
+        ThreadManager.runOnMain {
+            // Update UI state - ensure this runs on UI thread
+            onLoadingStateChanged(false)
+            onPageLoaded(true)
+        }
 
         // Ensure cookies are persisted to disk when wiki content is loaded
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
