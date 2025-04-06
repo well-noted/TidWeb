@@ -340,6 +340,379 @@ object WikiViewEnhancer {
     }
     
     /**
+     * Injects script to handle TiddlyWiki prompts and dropdown menus
+     * Uses a more direct approach to fix popup and dialog issues
+     */
+    fun injectPromptAndDropdownHandling(webView: WebView) {
+        webView.evaluateJavascript("""
+            (function() {
+                // Add CSS to fix visibility of popups and dialogs
+                const style = document.createElement('style');
+                style.textContent = `
+                    /* Force popups to be visible and properly positioned */
+                    .tc-popup, .tc-drop-down, .tc-block-dropdown {
+                        opacity: 1 !important;
+                        visibility: visible !important;
+                        z-index: 9999 !important;
+                        max-width: 95vw !important;
+                        max-height: 80vh !important;
+                        overflow-y: auto !important;
+                        transform: none !important;
+                    }
+                    
+                    /* Make modal wrappers visible */
+                    .tc-modal-wrapper {
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        z-index: 10000 !important;
+                    }
+                    
+                    /* Make modals properly sized and visible */
+                    .tc-modal {
+                        visibility: visible !important;
+                        opacity: 1 !important;
+                        max-width: 95vw !important;
+                        max-height: 90vh !important;
+                        overflow-y: auto !important;
+                        transform: none !important;
+                    }
+                    
+                    /* Style dialog buttons to be touch-friendly */
+                    .tc-modal button {
+                        min-height: 44px !important;
+                        min-width: 44px !important;
+                        padding: 10px !important;
+                        margin: 5px !important;
+                    }
+                    
+                    /* Make dropdown items more tappable */
+                    .tc-drop-down a, .tc-drop-down button, 
+                    .tc-block-dropdown a, .tc-block-dropdown button {
+                        min-height: 44px !important;
+                        padding: 10px !important;
+                        display: block !important;
+                    }
+                    
+                    /* Make sure dialog buttons appear correctly */
+                    .tc-modal-footer {
+                        display: flex !important;
+                        justify-content: flex-end !important;
+                        gap: 10px !important;
+                    }
+                `;
+                document.head.appendChild(style);
+                
+                // Override TiddlyWiki's popup display method if it exists
+                if (window.'${'$'}tw' && '${'$'}tw'.utils && '${'$'}tw'.utils.popup && typeof '${'$'}tw'.utils.popup.display === 'function') {
+                    console.log("TiddlyWiki popup utility found - overriding display method");
+                    
+                    // Save original method
+                    const originalPopupDisplay = '${'$'}tw'.utils.popup.display;
+                    
+                    // Override with our own implementation
+                    '${'$'}tw'.utils.popup.display = function(popupName) {
+                        // Call original implementation first
+                        const result = originalPopupDisplay.apply(this, arguments);
+                        
+                        // Now ensure the popup is actually visible
+                        setTimeout(function() {
+                            const popup = document.getElementById(popupName);
+                            if (popup) {
+                                console.log("Fixing popup visibility for: " + popupName);
+                                popup.style.display = "block";
+                                popup.style.visibility = "visible";
+                                popup.style.opacity = "1";
+                            }
+                        }, 50);
+                        
+                        return result;
+                    };
+                }
+                
+                // Override TiddlyWiki's modal mechanism if it exists
+                if (window.'${'$'}tw' && '${'$'}tw'.modal) {
+                    console.log("TiddlyWiki modal utility found");
+                    
+                    // Make sure modal display works
+                    const originalDisplay = '${'$'}tw'.modal.display;
+                    if (typeof originalDisplay === 'function') {
+                        '${'$'}tw'.modal.display = function(title, options) {
+                            // Call original implementation
+                            const result = originalDisplay.apply(this, arguments);
+                            
+                            // Force visibility of modal wrapper
+                            setTimeout(function() {
+                                const modalWrappers = document.querySelectorAll('.tc-modal-wrapper');
+                                modalWrappers.forEach(function(wrapper) {
+                                    wrapper.style.display = "flex";
+                                    wrapper.style.visibility = "visible";
+                                    wrapper.style.opacity = "1";
+                                    
+                                    // Also fix the modal itself
+                                    const modal = wrapper.querySelector('.tc-modal');
+                                    if (modal) {
+                                        modal.style.display = "block";
+                                        modal.style.visibility = "visible";
+                                        modal.style.opacity = "1";
+                                    }
+                                });
+                            }, 50);
+                            
+                            return result;
+                        };
+                    }
+                }
+                
+                // Direct fix for delete button functionality
+                function fixDeleteButtons() {
+                    const deleteButtons = document.querySelectorAll('.tc-tiddler-controls [aria-label^="Delete"], .tc-tiddler-controls [title^="Delete"]');
+                    
+                    deleteButtons.forEach(function(button) {
+                        // Skip if already processed
+                        if (button.hasAttribute('data-fixed')) return;
+                        
+                        // Mark as processed
+                        button.setAttribute('data-fixed', 'true');
+                        
+                        // Add our own click handler
+                        button.addEventListener('click', function(event) {
+                            // Prevent default action
+                            event.preventDefault();
+                            event.stopPropagation();
+                            
+                            // Get tiddler title
+                            const tiddlerFrame = this.closest('.tc-tiddler-frame');
+                            if (!tiddlerFrame) return;
+                            
+                            const title = tiddlerFrame.getAttribute('data-tiddler-title');
+                            if (!title) return;
+                            
+                            // Create simple dialog
+                            const dialog = document.createElement('div');
+                            dialog.style.cssText = "position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:10000; display:flex; align-items:center; justify-content:center;";
+                            dialog.innerHTML = `
+                                <div style="background:white; padding:20px; border-radius:8px; width:80%; max-width:400px;">
+                                    <h3 style="margin-top:0;">Delete Tiddler</h3>
+                                    <p>Are you sure you want to delete "'$'{title}"?</p>
+                                    <div style="display:flex; justify-content:flex-end; gap:10px;">
+                                        <button id="cancel-delete" style="min-height:44px; padding:10px; min-width:80px;">Cancel</button>
+                                        <button id="confirm-delete" style="min-height:44px; padding:10px; min-width:80px; background:#f44336; color:white; border:none;">Delete</button>
+                                    </div>
+                                </div>
+                            `;
+                            
+                            document.body.appendChild(dialog);
+                            
+                            // Handle cancel
+                            dialog.querySelector('#cancel-delete').addEventListener('click', function() {
+                                document.body.removeChild(dialog);
+                            });
+                            
+                            // Handle confirm
+                            dialog.querySelector('#confirm-delete').addEventListener('click', function() {
+                                if (window.'${'$'}tw' && '${'$'}tw'.wiki && typeof '${'$'}tw'.wiki.deleteTiddler === 'function') {
+                                    '${'$'}tw'.wiki.deleteTiddler(title);
+                                    console.log("Deleted tiddler: " + title);
+                                } else {
+                                    console.error("Could not access TiddlyWiki's API to delete tiddler");
+                                    // Try to call original click handler as fallback
+                                    if (typeof button.onclick === 'function') {
+                                        button.onclick();
+                                    }
+                                }
+                                document.body.removeChild(dialog);
+                            });
+                            
+                            // Allow clicking outside to cancel
+                            dialog.addEventListener('click', function(e) {
+                                if (e.target === dialog) {
+                                    document.body.removeChild(dialog);
+                                }
+                            });
+                        });
+                    });
+                }
+                
+                // Observe DOM changes to fix newly added elements
+                const observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.addedNodes.length > 0) {
+                            // Fix any new delete buttons
+                            fixDeleteButtons();
+                            
+                            // Check for newly added popups and fix them
+                            for (let i = 0; i < mutation.addedNodes.length; i++) {
+                                const node = mutation.addedNodes[i];
+                                if (node.nodeType === 1) { // Element node
+                                    // Fix popups
+                                    if (node.classList && (
+                                        node.classList.contains('tc-popup') || 
+                                        node.classList.contains('tc-drop-down') ||
+                                        node.classList.contains('tc-block-dropdown')
+                                    )) {
+                                        node.style.display = "block";
+                                        node.style.visibility = "visible";
+                                        node.style.opacity = "1";
+                                    }
+                                    
+                                    // Fix modals
+                                    if (node.classList && node.classList.contains('tc-modal-wrapper')) {
+                                        node.style.display = "flex";
+                                        node.style.visibility = "visible";
+                                        node.style.opacity = "1";
+                                        
+                                        const modal = node.querySelector('.tc-modal');
+                                        if (modal) {
+                                            modal.style.display = "block";
+                                            modal.style.visibility = "visible";
+                                            modal.style.opacity = "1";
+                                        }
+                                    }
+                                    
+                                    // Also check children
+                                    const popups = node.querySelectorAll('.tc-popup, .tc-drop-down, .tc-block-dropdown');
+                                    popups.forEach(function(popup) {
+                                        popup.style.display = "block";
+                                        popup.style.visibility = "visible";
+                                        popup.style.opacity = "1";
+                                    });
+                                    
+                                    const modals = node.querySelectorAll('.tc-modal-wrapper');
+                                    modals.forEach(function(wrapper) {
+                                        wrapper.style.display = "flex";
+                                        wrapper.style.visibility = "visible";
+                                        wrapper.style.opacity = "1";
+                                        
+                                        const modal = wrapper.querySelector('.tc-modal');
+                                        if (modal) {
+                                            modal.style.display = "block";
+                                            modal.style.visibility = "visible";
+                                            modal.style.opacity = "1";
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    });
+                });
+                
+                // Start observing
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true
+                });
+                
+                // Fix existing delete buttons
+                fixDeleteButtons();
+                
+                // Fix existing popups and modals
+                document.querySelectorAll('.tc-popup, .tc-drop-down, .tc-block-dropdown').forEach(function(popup) {
+                    popup.style.display = "block";
+                    popup.style.visibility = "visible";
+                    popup.style.opacity = "1";
+                });
+                
+                document.querySelectorAll('.tc-modal-wrapper').forEach(function(wrapper) {
+                    wrapper.style.display = "flex";
+                    wrapper.style.visibility = "visible";
+                    wrapper.style.opacity = "1";
+                    
+                    const modal = wrapper.querySelector('.tc-modal');
+                    if (modal) {
+                        modal.style.display = "block";
+                        modal.style.visibility = "visible";
+                        modal.style.opacity = "1";
+                    }
+                });
+                
+                // Add global click handler for dropdown toggle buttons to ensure they work
+                document.addEventListener('click', function(event) {
+                    // Check if the click was on a dropdown button
+                    let target = event.target;
+                    while (target && target !== document) {
+                        // Look for buttons that typically trigger dropdowns
+                        if (target.getAttribute('aria-expanded') === 'true' || 
+                            target.getAttribute('aria-expanded') === 'false' ||
+                            target.classList.contains('tc-btn-invisible') ||
+                            target.classList.contains('tc-drop-down-button')) {
+                            
+                            // Wait a moment then ensure any popups are visible
+                            setTimeout(function() {
+                                document.querySelectorAll('.tc-popup, .tc-drop-down, .tc-block-dropdown').forEach(function(popup) {
+                                    popup.style.display = "block";
+                                    popup.style.visibility = "visible";
+                                    popup.style.opacity = "1";
+                                });
+                            }, 100);
+                            
+                            break;
+                        }
+                        target = target.parentNode;
+                    }
+                });
+                
+                // Also run fixes when TiddlyWiki refreshes the page
+                if (window.'${'$'}tw') {
+                    '${'$'}tw'.hook.addHook("th-page-refreshed", function() {
+                        setTimeout(function() {
+                            fixDeleteButtons();
+                            
+                            document.querySelectorAll('.tc-popup, .tc-drop-down, .tc-block-dropdown').forEach(function(popup) {
+                                popup.style.display = "block";
+                                popup.style.visibility = "visible";
+                                popup.style.opacity = "1";
+                            });
+                            
+                            document.querySelectorAll('.tc-modal-wrapper').forEach(function(wrapper) {
+                                wrapper.style.display = "flex";
+                                wrapper.style.visibility = "visible";
+                                wrapper.style.opacity = "1";
+                                
+                                const modal = wrapper.querySelector('.tc-modal');
+                                if (modal) {
+                                    modal.style.display = "block";
+                                    modal.style.visibility = "visible";
+                                    modal.style.opacity = "1";
+                                }
+                            });
+                        }, 100);
+                    });
+                }
+                
+                // Create a global helper function to force-show all dialogs and popups
+                window.forceShowDialogsAndPopups = function() {
+                    document.querySelectorAll('.tc-popup, .tc-drop-down, .tc-block-dropdown').forEach(function(popup) {
+                        popup.style.display = "block";
+                        popup.style.visibility = "visible";
+                        popup.style.opacity = "1";
+                    });
+                    
+                    document.querySelectorAll('.tc-modal-wrapper').forEach(function(wrapper) {
+                        wrapper.style.display = "flex";
+                        wrapper.style.visibility = "visible";
+                        wrapper.style.opacity = "1";
+                        
+                        const modal = wrapper.querySelector('.tc-modal');
+                        if (modal) {
+                            modal.style.display = "block";
+                            modal.style.visibility = "visible";
+                            modal.style.opacity = "1";
+                        }
+                    });
+                    return true;
+                };
+                
+                // Run the force show function periodically to catch any popups that might be missed
+                setInterval(window.forceShowDialogsAndPopups, 1000);
+                
+                console.log("TiddlyWiki prompt and dropdown handler loaded (simplified approach)");
+                return true;
+            })();
+        """, null)
+    }
+    
+    /**
      * Inject media functionality support scripts
      * This connects TiddlyWiki's audio parser with Android's media session API
      */
@@ -804,6 +1177,9 @@ object WikiViewEnhancer {
                 
                 // Apply small screen optimizations if needed
                 injectSmallScreenOptimizations(webView, context)
+                
+                // Inject prompt and dropdown handling script
+                injectPromptAndDropdownHandling(webView)
                 
                 // Inject media functionality script
                 injectMediaFunctionalityScript(webView)

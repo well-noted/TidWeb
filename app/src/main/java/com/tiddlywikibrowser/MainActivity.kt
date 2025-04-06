@@ -1731,9 +1731,20 @@ class MainActivity : ComponentActivity() {
                 val currentTime = System.currentTimeMillis()
                 if (currentTime - lastNetworkCheckTime > NETWORK_CHECK_THROTTLE) {
                     lastNetworkCheckTime = currentTime
-                    ThreadManager.runOnBackground {
+                    ThreadManager.runOnMain {
+                        // Update offline status in ViewModel
                         val viewModel = getViewModel(this@MainActivity)
                         viewModel.setOfflineState(true)
+                        Log.d("NetworkMonitor", "Network lost - App is now offline")
+                        
+                        // Update WebView cache mode for offline operation
+                        viewModel.currentWiki.value?.let { wiki ->
+                            if (!wiki.isLocalFile) {
+                                viewModel.getOrCreateWebView(wiki, this@MainActivity)?.let { webView ->
+                                    webView.settings.cacheMode = WebSettings.LOAD_CACHE_ONLY
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1745,21 +1756,54 @@ class MainActivity : ComponentActivity() {
                     lastNetworkCheckTime = currentTime
                     ThreadManager.runOnBackground {
                         val capabilities = connectivityManager.getNetworkCapabilities(network)
-                        val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+                        val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true && 
+                                          capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                        
                         if (hasInternet) {
-                            val viewModel = getViewModel(this@MainActivity)
-                            viewModel.setOfflineState(false)
+                            ThreadManager.runOnMain {
+                                // Update offline status in ViewModel
+                                val viewModel = getViewModel(this@MainActivity)
+                                viewModel.setOfflineState(false)
+                                Log.d("NetworkMonitor", "Network available - App is now online")
+                                
+                                // Restore normal cache mode
+                                viewModel.currentWiki.value?.let { wiki ->
+                                    if (!wiki.isLocalFile) {
+                                        viewModel.getOrCreateWebView(wiki, this@MainActivity)?.let { webView ->
+                                            webView.settings.cacheMode = WebSettings.LOAD_DEFAULT
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
 
+        // Register network callback
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             try {
                 connectivityManager.registerDefaultNetworkCallback(networkCallback!!)
+                
+                // Initial check for network state
+                ThreadManager.runOnBackground {
+                    val activeNetwork = connectivityManager.activeNetwork
+                    val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
+                    val isOffline = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) != true ||
+                                   capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) != true
+                    
+                    ThreadManager.runOnMain {
+                        val viewModel = getViewModel(this@MainActivity)
+                        viewModel.setOfflineState(isOffline)
+                        Log.d("NetworkMonitor", "Initial network state: ${if (isOffline) "OFFLINE" else "ONLINE"}")
+                    }
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
+                // Fallback in case of exception - assume we might be offline
+                val viewModel = getViewModel(this@MainActivity)
+                viewModel.setOfflineState(true)
             }
         }
     }
@@ -2123,6 +2167,30 @@ fun MainScreen(
                     TopAppBar(
                         title = { Text(currentWiki?.name ?: "TiddlyWiki Browser") },
                         actions = {
+                            // Offline indicator
+                            val isOffline by viewModel.isOffline.collectAsState()
+                            val isLocalFile = currentWiki?.isLocalFile ?: false
+                            
+                            if (isOffline && !isLocalFile) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(end = 8.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.CloudOff,
+                                        contentDescription = "Offline Mode",
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        "Offline",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.padding(start = 4.dp)
+                                    )
+                                }
+                            }
+                            
                             // Share button
                             IconButton(onClick = { showShareMenu = true }) {
                                 Icon(Icons.Default.Share, contentDescription = "Share")
@@ -2220,6 +2288,62 @@ fun MainScreen(
                                             }
                                         }
                                     )
+                                    
+                                    // Add Force Online Refresh option - especially useful when offline
+                                    val isOffline by viewModel.isOffline.collectAsState()
+                                    val isLocalFile = currentWiki?.isLocalFile ?: false
+                                    
+                                    if (!isLocalFile) {
+                                        DropdownMenuItem(
+                                            text = { 
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(
+                                                        if (isOffline) "Force Online Refresh" else "Refresh from Network",
+                                                        color = if (isOffline) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                    if (isOffline) {
+                                                        Icon(
+                                                            Icons.Default.CloudOff,
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.error,
+                                                            modifier = Modifier
+                                                                .padding(start = 4.dp)
+                                                                .size(16.dp)
+                                                        )
+                                                    }
+                                                }
+                                            },
+                                            onClick = {
+                                                showMenu = false
+                                                currentWiki?.let { wiki ->
+                                                    val webView = viewModel.getOrCreateWebView(wiki, context)
+                                                    
+                                                    // First, update cache mode to bypass cache
+                                                    webView.settings.cacheMode = WebSettings.LOAD_NO_CACHE
+                                                    
+                                                    // Get the WebViewClient and cast it to ReloadBlockingWebViewClient
+                                                    val client = webView.webViewClient as? ReloadBlockingWebViewClient
+                                                    if (client != null) {
+                                                        // Use forceReload with the original wiki URL
+                                                        client.forceReload(webView, wiki.url)
+                                                    } else {
+                                                        // Fallback to standard reload if casting fails
+                                                        webView.loadUrl(wiki.url)
+                                                    }
+                                                    
+                                                    // Reset offline state
+                                                    viewModel.setOfflineState(false)
+                                                    
+                                                    // Show toast message
+                                                    Toast.makeText(
+                                                        context, 
+                                                        "Refreshing from network...", 
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
+                                                }
+                                            }
+                                        )
+                                    }
 
                                     DropdownMenuItem(
                                         text = { Text("Rename Wiki") },

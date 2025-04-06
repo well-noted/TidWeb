@@ -37,6 +37,11 @@ class ReloadBlockingWebViewClient(
     private var contentDetectionAttempts = 0
     private val CONTENT_DETECTION_ATTEMPTS = 3 // Number of attempts to check for content
     private val CONTENT_DETECTION_DELAY = 800L // ms between content detection attempts
+    
+    // Add tracking for loading from cache
+    private var loadedFromCache = false
+    private var networkRequestsMade = 0
+    private var networkResponsesReceived = 0
 
     // Keep track of the last successful load time to prevent unnecessary reloads
     private var lastSuccessfulLoadTime = 0L
@@ -44,6 +49,11 @@ class ReloadBlockingWebViewClient(
 
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
         Log.d(TAG, "onPageStarted: $url")
+
+        // Reset cache tracking on new page load
+        loadedFromCache = false
+        networkRequestsMade = 0
+        networkResponsesReceived = 0
 
         // Critical for first load: save the URL to check later
         if (url != null && url != "about:blank") {
@@ -115,6 +125,11 @@ class ReloadBlockingWebViewClient(
     override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
         val url = request?.url?.toString() ?: return null
         
+        // Count network requests for main resources
+        if (request.isForMainFrame) {
+            networkRequestsMade++
+        }
+        
         // Don't block download resources
         if (isDownloadableFileType(url)) {
             return null
@@ -136,6 +151,20 @@ class ReloadBlockingWebViewClient(
         return super.shouldInterceptRequest(view, request)
     }
 
+    override fun onReceivedHttpError(view: WebView?, request: WebResourceRequest?, errorResponse: WebResourceResponse?) {
+        super.onReceivedHttpError(view, request, errorResponse)
+        
+        // If we get HTTP errors for main frame, it might indicate we're offline
+        if (request?.isForMainFrame == true) {
+            // Check if we might be offline
+            ThreadManager.runOnMain {
+                val viewModel = MainActivity.getViewModel(context)
+                viewModel.setOfflineState(true)
+                Log.d(TAG, "HTTP error for main frame - marking as offline")
+            }
+        }
+    }
+
     override fun onPageFinished(view: WebView?, url: String?) {
         Log.d(TAG, "onPageFinished: $url")
 
@@ -143,6 +172,9 @@ class ReloadBlockingWebViewClient(
             super.onPageFinished(view, url)
             return
         }
+
+        // Determine if loaded from cache
+        determineIfLoadedFromCache(view)
 
         // Enable media features when page is loaded
         view.settings?.blockNetworkImage = false
@@ -380,6 +412,9 @@ class ReloadBlockingWebViewClient(
 
         // Mark the WebView as loaded to prevent future reloads
         webView.setTag(R.string.prevent_reload_tag, true)
+
+        // Update offline status based on our detection
+        updateOfflineState(loadedFromCache)
 
         // Force loading state to false to ensure spinner is dismissed
         ThreadManager.runOnMain {
@@ -691,6 +726,88 @@ class ReloadBlockingWebViewClient(
                     Log.e(TAG, "Error stopping WebView loading: ${e.message}")
                 }
             }
+        }
+    }
+
+    /**
+     * Determine if the page was loaded from cache by analyzing various signals
+     */
+    private fun determineIfLoadedFromCache(webView: WebView) {
+        try {
+            // Check WebView cache mode first
+            val cacheMode = webView.settings.cacheMode
+            if (cacheMode == WebSettings.LOAD_CACHE_ONLY) {
+                loadedFromCache = true
+                updateOfflineState(true)
+                return
+            }
+            
+            // If we had network responses, it's likely not from cache
+            if (networkResponsesReceived > 0) {
+                loadedFromCache = false
+                return
+            }
+            
+            // Check navigator.onLine status and network info
+            webView.evaluateJavascript("""
+                (function() {
+                    try {
+                        // Check navigator.onLine
+                        const isOnline = navigator.onLine;
+                        
+                        // Check performance timing data
+                        let loadTiming = {};
+                        if (window.performance && window.performance.timing) {
+                            const t = window.performance.timing;
+                            loadTiming = {
+                                redirectTime: t.redirectEnd - t.redirectStart,
+                                dnsTime: t.domainLookupEnd - t.domainLookupStart,
+                                connTime: t.connectEnd - t.connectStart,
+                                responseTime: t.responseEnd - t.responseStart,
+                                domTime: t.domComplete - t.domLoading
+                            };
+                        }
+                        
+                        // Zero DNS/Connect time can indicate a cached response
+                        const networkTimeSuspiciouslyLow = 
+                            loadTiming.dnsTime === 0 && 
+                            loadTiming.connTime === 0 && 
+                            loadTiming.responseTime < 10;
+                        
+                        return JSON.stringify({
+                            online: isOnline,
+                            timing: loadTiming,
+                            cachedLikelihood: networkTimeSuspiciouslyLow ? 'high' : 'low'
+                        });
+                    } catch(e) {
+                        return JSON.stringify({error: e.toString()});
+                    }
+                })();
+            """.trimIndent()) { result ->
+                try {
+                    val jsonResult = result.trim('"').replace("\\\"", "\"")
+                    if (jsonResult.contains("\"online\":false") || 
+                        jsonResult.contains("\"cachedLikelihood\":\"high\"")) {
+                        loadedFromCache = true
+                        updateOfflineState(true)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error checking cache state: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error determining cache state: ${e.message}")
+        }
+    }
+    
+    /**
+     * Update the offline state in the ViewModel
+     */
+    private fun updateOfflineState(isOffline: Boolean) {
+        ThreadManager.runOnMain {
+            val viewModel = MainActivity.getViewModel(context)
+            viewModel.setOfflineState(isOffline)
+            Log.d(TAG, "Offline state updated: $isOffline")
         }
     }
 }
