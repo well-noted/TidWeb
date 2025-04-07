@@ -404,14 +404,14 @@ object WikiViewEnhancer {
                 document.head.appendChild(style);
                 
                 // Override TiddlyWiki's popup display method if it exists
-                if (window.'${'$'}tw' && '${'$'}tw'.utils && '${'$'}tw'.utils.popup && typeof '${'$'}tw'.utils.popup.display === 'function') {
+                if (window.${'$'}tw && ${'$'}tw.utils && ${'$'}tw.utils.popup && typeof ${'$'}tw.utils.popup.display === 'function') {
                     console.log("TiddlyWiki popup utility found - overriding display method");
                     
                     // Save original method
-                    const originalPopupDisplay = '${'$'}tw'.utils.popup.display;
+                    const originalPopupDisplay = ${'$'}tw.utils.popup.display;
                     
                     // Override with our own implementation
-                    '${'$'}tw'.utils.popup.display = function(popupName) {
+                    ${'$'}tw.utils.popup.display = function(popupName) {
                         // Call original implementation first
                         const result = originalPopupDisplay.apply(this, arguments);
                         
@@ -431,13 +431,13 @@ object WikiViewEnhancer {
                 }
                 
                 // Override TiddlyWiki's modal mechanism if it exists
-                if (window.'${'$'}tw' && '${'$'}tw'.modal) {
+                if (window.${'$'}tw && ${'$'}tw.modal) {
                     console.log("TiddlyWiki modal utility found");
                     
                     // Make sure modal display works
-                    const originalDisplay = '${'$'}tw'.modal.display;
+                    const originalDisplay = ${'$'}tw.modal.display;
                     if (typeof originalDisplay === 'function') {
-                        '${'$'}tw'.modal.display = function(title, options) {
+                        ${'$'}tw.modal.display = function(title, options) {
                             // Call original implementation
                             const result = originalDisplay.apply(this, arguments);
                             
@@ -494,7 +494,7 @@ object WikiViewEnhancer {
                             dialog.innerHTML = `
                                 <div style="background:white; padding:20px; border-radius:8px; width:80%; max-width:400px;">
                                     <h3 style="margin-top:0;">Delete Tiddler</h3>
-                                    <p>Are you sure you want to delete "'$'{title}"?</p>
+                                    <p>Are you sure you want to delete "${'$'}{title}"?</p>
                                     <div style="display:flex; justify-content:flex-end; gap:10px;">
                                         <button id="cancel-delete" style="min-height:44px; padding:10px; min-width:80px;">Cancel</button>
                                         <button id="confirm-delete" style="min-height:44px; padding:10px; min-width:80px; background:#f44336; color:white; border:none;">Delete</button>
@@ -511,8 +511,8 @@ object WikiViewEnhancer {
                             
                             // Handle confirm
                             dialog.querySelector('#confirm-delete').addEventListener('click', function() {
-                                if (window.'${'$'}tw' && '${'$'}tw'.wiki && typeof '${'$'}tw'.wiki.deleteTiddler === 'function') {
-                                    '${'$'}tw'.wiki.deleteTiddler(title);
+                                if (window.${'$'}tw && ${'$'}tw.wiki && typeof ${'$'}tw.wiki.deleteTiddler === 'function') {
+                                    ${'$'}tw.wiki.deleteTiddler(title);
                                     console.log("Deleted tiddler: " + title);
                                 } else {
                                     console.error("Could not access TiddlyWiki's API to delete tiddler");
@@ -653,8 +653,8 @@ object WikiViewEnhancer {
                 });
                 
                 // Also run fixes when TiddlyWiki refreshes the page
-                if (window.'${'$'}tw') {
-                    '${'$'}tw'.hook.addHook("th-page-refreshed", function() {
+                if (window.${'$'}tw) {
+                    ${'$'}tw.hook.addHook("th-page-refreshed", function() {
                         setTimeout(function() {
                             fixDeleteButtons();
                             
@@ -1098,7 +1098,8 @@ object WikiViewEnhancer {
     }
     
     /**
-     * Inject script to keep the WebView running in the background
+     * Inject script to keep the WebView running in the background and handle offline/online syncing
+     * with prevention of automatic page refreshes
      */
     fun injectBackgroundRunningScript(webView: WebView) {
         webView.evaluateJavascript("""
@@ -1110,49 +1111,163 @@ object WikiViewEnhancer {
                     clearInterval(window.tidBackgroundTimer);
                 }
                 
+                // Track online/offline status
+                let wasOffline = !navigator.onLine;
+                
+                // Function to sync without causing page refresh
+                function syncWithoutRefresh() {
+                    try {
+                        if (window.${'$'}tw && window.${'$'}tw.syncer) {
+                            // First save any pending changes
+                            if (typeof window.${'$'}tw.wiki.saveWiki === 'function') {
+                                window.${'$'}tw.wiki.saveWiki();
+                            }
+                            
+                            // Check if wiki has unsaved/dirty tiddlers
+                            let hasDirtyTiddlers = false;
+                            if (window.${'$'}tw.syncer.isDirty && window.${'$'}tw.syncer.isDirty()) {
+                                hasDirtyTiddlers = true;
+                            }
+                            
+                            // Temporarily override the page refresh function
+                            const originalRefreshPageFunction = window.${'$'}tw.syncer.refreshPage;
+                            let refreshRequested = false;
+                            
+                            window.${'$'}tw.syncer.refreshPage = function() {
+                                console.log("Page refresh requested during sync - suppressing automatic refresh");
+                                refreshRequested = true;
+                                // We don't call the original function, preventing refresh
+                            };
+                            
+                            // First push local changes to server
+                            if (typeof window.${'$'}tw.syncer.syncToServer === 'function') {
+                                console.log("Syncing changes to server");
+                                window.${'$'}tw.syncer.syncToServer();
+                            }
+                            
+                            // Then pull server changes
+                            if (typeof window.${'$'}tw.syncer.syncFromServer === 'function') {
+                                console.log("Syncing changes from server"); 
+                                window.${'$'}tw.syncer.syncFromServer();
+                            }
+                            
+                            // Restore original refresh function
+                            window.${'$'}tw.syncer.refreshPage = originalRefreshPageFunction;
+                            
+                            // Instead of automatic refresh, selectively refresh tiddlers if needed
+                            if (refreshRequested) {
+                                console.log("Performing selective tiddler refresh instead of page refresh");
+                                if (typeof window.${'$'}tw.wiki.refreshTiddlers === 'function') {
+                                    window.${'$'}tw.wiki.refreshTiddlers();
+                                }
+                                
+                                // Notify user of changes with a non-disruptive message
+                                if (window.${'$'}tw.notifier && typeof window.${'$'}tw.notifier.display === 'function') {
+                                    window.${'$'}tw.notifier.display({
+                                        title: "Changes synchronized",
+                                        message: "Updates from the server have been synchronized",
+                                        refreshMessage: "Refresh now",
+                                        refresh: function() {
+                                            // Only if user clicks refresh, do a full page reload
+                                            window.location.reload();
+                                        }
+                                    });
+                                }
+                            }
+                            
+                            return { refreshRequested: refreshRequested };
+                        }
+                    } catch (e) {
+                        console.error("Error in syncWithoutRefresh:", e);
+                        return { error: e.toString() };
+                    }
+                }
+                
                 // Create a background timer that pings every 20 seconds
                 window.tidBackgroundTimer = setInterval(function() {
                     try {
                         // Execute a simple operation to keep TiddlyWiki active
-                        // This keeps any auto-save or sync processes running
-                        if (window.'${'$'}tw' && window.'${'$'}tw'.wiki) {
-                            // Just access something in the wiki to keep it alive
+                        if (window.${'$'}tw && window.${'$'}tw.wiki) {
                             const timestamp = new Date().toISOString();
                             console.log("TiddlyWiki background task ping: " + timestamp);
                             
-                            // Run any pending tasks (like auto-saves) if they exist
-                            if (typeof window.'${'$'}tw'.syncer?.syncFromServer === 'function') {
-                                window.'${'$'}tw'.syncer.syncFromServer();
+                            // Check if we've come back online
+                            if (wasOffline && navigator.onLine) {
+                                console.log("Network connectivity restored - initiating gentle sync");
+                                syncWithoutRefresh();
                             }
                             
-                            // Run any auto-save operations if they exist
-                            if (typeof window.'${'$'}tw'.wiki?.autosave?.save === 'function') {
-                                window.'${'$'}tw'.wiki.autosave.save();
+                            // Update offline status tracking
+                            wasOffline = !navigator.onLine;
+                            
+                            // Regular sync process if online (but non-disruptive)
+                            if (navigator.onLine) {
+                                // Run periodic gentle sync
+                                syncWithoutRefresh();
+                            } else {
+                                // Make sure to save any pending changes locally when offline
+                                if (typeof window.${'$'}tw.wiki.saveWiki === 'function') {
+                                    window.${'$'}tw.wiki.saveWiki();
+                                }
                             }
                         }
                     } catch (e) {
-                        console.error("Error in background task: ", e);
+                        console.error("Error in background task:", e);
                     }
                 }, 20000);
+                
+                // Add event listener for online status
+                window.addEventListener('online', function() {
+                    console.log("Device is now online - initiating gentle sync");
+                    syncWithoutRefresh();
+                    wasOffline = false;
+                });
+                
+                // Track when we go offline
+                window.addEventListener('offline', function() {
+                    console.log("Device is now offline - local changes will be saved");
+                    wasOffline = true;
+                    
+                    // Make sure to save any pending changes locally
+                    if (window.${'$'}tw && window.${'$'}tw.wiki && typeof window.${'$'}tw.wiki.saveWiki === 'function') {
+                        window.${'$'}tw.wiki.saveWiki();
+                    }
+                });
                 
                 // Add event handlers for visibility changes
                 document.addEventListener("visibilitychange", function() {
                     if (document.visibilityState === "hidden") {
                         console.log("TiddlyWiki went to background");
-                        // You could trigger a save here
-                        if (window.'${'$'}tw' && window.'${'$'}tw'.wiki) {
-                            if (typeof window.'${'$'}tw'.wiki.saveWiki === 'function') {
-                                window.'${'$'}tw'.wiki.saveWiki();
+                        // Save when app goes to background
+                        if (window.${'$'}tw && window.${'$'}tw.wiki) {
+                            if (typeof window.${'$'}tw.wiki.saveWiki === 'function') {
+                                window.${'$'}tw.wiki.saveWiki();
                             }
                         }
                     } else {
                         console.log("TiddlyWiki returned to foreground");
-                        // Trigger a sync when the page becomes visible again
-                        if (window.'${'$'}tw' && window.'${'$'}tw'.syncer && typeof window.'${'$'}tw'.syncer.syncFromServer === 'function') {
-                            window.'${'$'}tw'.syncer.syncFromServer();
+                        // When returning to foreground, check if we need to sync
+                        if (navigator.onLine) {
+                            // Sync with non-disruptive approach
+                            syncWithoutRefresh();
                         }
                     }
                 });
+                
+                // Add a global sync function that can be called manually if needed
+                window.tiddlyBrowserSync = function(options) {
+                    options = options || {};
+                    const force = !!options.force;
+                    
+                    const result = syncWithoutRefresh();
+                    
+                    if (force && result && result.refreshRequested) {
+                        // Only force refresh if explicitly requested
+                        window.location.reload();
+                    }
+                    
+                    return result;
+                };
                 
                 return true;
             })();
