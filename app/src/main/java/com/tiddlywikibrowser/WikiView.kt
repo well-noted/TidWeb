@@ -401,7 +401,7 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                             displayZoomControls = false
                             useWideViewPort = true
                             loadWithOverviewMode = true
-                            cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK // Ensure caching strategy
+                            cacheMode = WebSettings.LOAD_DEFAULT // Load from network first, fallback to cache
 
                             // Apply text zoom based on screen size (important on resume)
                             val textZoom = ScreenUtils.getWebViewTextZoom(context)
