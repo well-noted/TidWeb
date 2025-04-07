@@ -1754,27 +1754,31 @@ class MainActivity : ComponentActivity() {
                 val currentTime = System.currentTimeMillis()
                 if (currentTime - lastNetworkCheckTime > NETWORK_CHECK_THROTTLE) {
                     lastNetworkCheckTime = currentTime
+                    
+                    // Set offline to false immediately after network becomes available
+                    ThreadManager.runOnMain {
+                        val viewModel = getViewModel(this@MainActivity)
+                        viewModel.setOfflineState(false)
+                        Log.d("NetworkMonitor", "Network available - App is now online")
+                        
+                        // Restore normal cache mode
+                        viewModel.currentWiki.value?.let { wiki ->
+                            if (!wiki.isLocalFile) {
+                                viewModel.getOrCreateWebView(wiki, this@MainActivity)?.let { webView ->
+                                    webView.settings.cacheMode = WebSettings.LOAD_DEFAULT
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Validate internet access in the background, but don't wait for it
                     ThreadManager.runOnBackground {
                         val capabilities = connectivityManager.getNetworkCapabilities(network)
                         val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true && 
                                           capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
                         
-                        if (hasInternet) {
-                            ThreadManager.runOnMain {
-                                // Update offline status in ViewModel
-                                val viewModel = getViewModel(this@MainActivity)
-                                viewModel.setOfflineState(false)
-                                Log.d("NetworkMonitor", "Network available - App is now online")
-                                
-                                // Restore normal cache mode
-                                viewModel.currentWiki.value?.let { wiki ->
-                                    if (!wiki.isLocalFile) {
-                                        viewModel.getOrCreateWebView(wiki, this@MainActivity)?.let { webView ->
-                                            webView.settings.cacheMode = WebSettings.LOAD_DEFAULT
-                                        }
-                                    }
-                                }
-                            }
+                        if (!hasInternet) {
+                            Log.d("NetworkMonitor", "Network available but internet validation failed")
                         }
                     }
                 }
