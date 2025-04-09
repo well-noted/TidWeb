@@ -2453,58 +2453,120 @@ fun MainScreen(
 
                             NavigationBarItem(
                                 icon = {
-                                    Icon(
-                                        Icons.Default.Book,
-                                        contentDescription = wiki.name,
-                                        modifier = Modifier
-                                            .pointerInput(Unit) {
-                                                detectDragGestures(
-                                                    onDragStart = { offset ->
-                                                        dragStartTime.value = System.currentTimeMillis()
-                                                        draggedWiki = wiki
-                                                        isDragging = true
-                                                    },
-                                                    onDrag = { change, dragAmount ->
-                                                        change.consume()
-                                                        offsetX += dragAmount.x
-                                                        dragOffset = offsetX
+                                    // Check for favicon and use it if available
+                                    val faviconMap by viewModel.faviconMap.collectAsState()
+                                    val favicon = faviconMap[wiki.url]
+                                    
+                                    if (favicon != null) {
+                                        // Display the favicon
+                                        Image(
+                                            bitmap = favicon.asImageBitmap(),
+                                            contentDescription = wiki.name,
+                                            modifier = Modifier
+                                                .size(24.dp)
+                                                .pointerInput(Unit) {
+                                                    detectDragGestures(
+                                                        onDragStart = { offset ->
+                                                            dragStartTime.value = System.currentTimeMillis()
+                                                            draggedWiki = wiki
+                                                            isDragging = true
+                                                        },
+                                                        onDrag = { change, dragAmount ->
+                                                            change.consume()
+                                                            offsetX += dragAmount.x
+                                                            dragOffset = offsetX
 
-                                                        // Show trash can after hold threshold
-                                                        if (System.currentTimeMillis() - dragStartTime.value > holdThreshold) {
-                                                            showTrashCan = true
-                                                        }
-                                                    },
-                                                    onDragEnd = {
-                                                        // Check if dragged to trash can position
-                                                        if (showTrashCan && dragOffset.absoluteValue < 100) {
-                                                            wikiToDelete = draggedWiki
-                                                            showDeleteConfirmDialog = true
-                                                        } else {
-                                                            // Calculate new position
-                                                            val dragDistance = dragOffset
-                                                            val itemWidth = size.width.toFloat()
-                                                            val newPosition = (dragDistance / itemWidth).roundToInt()
+                                                            // Show trash can after hold threshold
+                                                            if (System.currentTimeMillis() - dragStartTime.value > holdThreshold) {
+                                                                showTrashCan = true
+                                                            }
+                                                        },
+                                                        onDragEnd = {
+                                                            // Check if dragged to trash can position
+                                                            if (showTrashCan && dragOffset.absoluteValue < 100) {
+                                                                wikiToDelete = draggedWiki
+                                                                showDeleteConfirmDialog = true
+                                                            } else {
+                                                                // Calculate new position
+                                                                val dragDistance = dragOffset
+                                                                val itemWidth = size.width.toFloat()
+                                                                val newPosition = (dragDistance / itemWidth).roundToInt()
 
-                                                            if (newPosition != 0) {
-                                                                val targetIndex = (index + newPosition).coerceIn(0, wikis.size - 1)
-                                                                if (targetIndex != index) {
-                                                                    viewModel.reorderWikis(index, targetIndex)
+                                                                if (newPosition != 0) {
+                                                                    val targetIndex = (index + newPosition).coerceIn(0, wikis.size - 1)
+                                                                    if (targetIndex != index) {
+                                                                        viewModel.reorderWikis(index, targetIndex)
+                                                                    }
                                                                 }
                                                             }
-                                                        }
 
-                                                        // Reset states
-                                                        draggedWiki = null
-                                                        isDragging = false
-                                                        dragOffset = 0f
-                                                        offsetX = 0f
-                                                        showTrashCan = false
-                                                    }
-                                                )
-                                            }
-                                            .offset { IntOffset(offsetX.roundToInt(), 0) }
-                                            .scale(if (isDragging && draggedWiki == wiki) 1.1f else 1f)
-                                    )
+                                                            // Reset states
+                                                            draggedWiki = null
+                                                            isDragging = false
+                                                            dragOffset = 0f
+                                                            offsetX = 0f
+                                                            showTrashCan = false
+                                                        }
+                                                    )
+                                                }
+                                                .offset { IntOffset(offsetX.roundToInt(), 0) }
+                                                .scale(if (isDragging && draggedWiki == wiki) 1.1f else 1f)
+                                        )
+                                    } else {
+                                        // Fallback to default icon
+                                        Icon(
+                                            Icons.Default.Book,
+                                            contentDescription = wiki.name,
+                                            modifier = Modifier
+                                                .pointerInput(Unit) {
+                                                    detectDragGestures(
+                                                        onDragStart = { offset ->
+                                                            dragStartTime.value = System.currentTimeMillis()
+                                                            draggedWiki = wiki
+                                                            isDragging = true
+                                                        },
+                                                        onDrag = { change, dragAmount ->
+                                                            change.consume()
+                                                            offsetX += dragAmount.x
+                                                            dragOffset = offsetX
+
+                                                            // Show trash can after hold threshold
+                                                            if (System.currentTimeMillis() - dragStartTime.value > holdThreshold) {
+                                                                showTrashCan = true
+                                                            }
+                                                        },
+                                                        onDragEnd = {
+                                                            // Check if dragged to trash can position
+                                                            if (showTrashCan && dragOffset.absoluteValue < 100) {
+                                                                wikiToDelete = draggedWiki
+                                                                showDeleteConfirmDialog = true
+                                                            } else {
+                                                                // Calculate new position
+                                                                val dragDistance = dragOffset
+                                                                val itemWidth = size.width.toFloat()
+                                                                val newPosition = (dragDistance / itemWidth).roundToInt()
+
+                                                                if (newPosition != 0) {
+                                                                    val targetIndex = (index + newPosition).coerceIn(0, wikis.size - 1)
+                                                                    if (targetIndex != index) {
+                                                                        viewModel.reorderWikis(index, targetIndex)
+                                                                    }
+                                                                }
+                                                            }
+
+                                                            // Reset states
+                                                            draggedWiki = null
+                                                            isDragging = false
+                                                            dragOffset = 0f
+                                                            offsetX = 0f
+                                                            showTrashCan = false
+                                                        }
+                                                    )
+                                                }
+                                                .offset { IntOffset(offsetX.roundToInt(), 0) }
+                                                .scale(if (isDragging && draggedWiki == wiki) 1.1f else 1f)
+                                        )
+                                    }
                                 },
                                 label = { Text(wiki.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 selected = isSelected,

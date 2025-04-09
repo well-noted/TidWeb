@@ -723,6 +723,55 @@ class WikiViewModel(private val context: Context) : ViewModel() {
         }
     }
 
+    /**
+     * Update favicon for a specific URL
+     */
+    fun updateFavicon(url: String, favicon: Bitmap) {
+        viewModelScope.launch(viewModelExceptionHandler) {
+            try {
+                // Create a new map with the updated favicon
+                val currentMap = _faviconMap.value.toMutableMap()
+                
+                // Remove old favicon if it exists to prevent memory leaks
+                currentMap[url]?.recycle()
+                
+                // Add the new favicon
+                currentMap[url] = favicon
+                
+                // Update the flow value
+                _faviconMap.value = currentMap
+                
+                // Save to persistent storage
+                saveFavicons(currentMap)
+            } catch (e: Exception) {
+                Log.e("WikiViewModel", "Error updating favicon", e)
+            }
+        }
+    }
+    
+    /**
+     * Save favicons to persistent storage
+     */
+    private suspend fun saveFavicons(faviconMap: Map<String, Bitmap>) {
+        try {
+            val json = JSONObject()
+            
+            faviconMap.forEach { (url, bitmap) ->
+                val outputStream = java.io.ByteArrayOutputStream()
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+                val bytes = outputStream.toByteArray()
+                val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.DEFAULT)
+                json.put(url, base64)
+            }
+            
+            context.dataStore.edit { preferences ->
+                preferences[PreferencesKeys.FAVICONS] = json.toString()
+            }
+        } catch (e: Exception) {
+            Log.e("WikiViewModel", "Error saving favicons", e)
+        }
+    }
+
     // Helper methods for state persistence
     private suspend fun saveWikis(wikis: List<WikiInstance>) {
         context.dataStore.edit { preferences ->

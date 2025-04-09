@@ -64,6 +64,11 @@ class ReloadBlockingWebViewClient(
                 isInitialPageStarted = true
                 onLoadingStateChanged(true)
             }
+            
+            // Save favicon when it's available
+            if (favicon != null) {
+                saveFavicon(url, favicon)
+            }
         }
 
         super.onPageStarted(view, url, favicon)
@@ -808,6 +813,26 @@ class ReloadBlockingWebViewClient(
             val viewModel = MainActivity.getViewModel(context)
             viewModel.setOfflineState(isOffline)
             Log.d(TAG, "Offline state updated: $isOffline")
+        }
+    }
+
+    /**
+     * Save favicon to the ViewModel
+     */
+    private fun saveFavicon(url: String, favicon: Bitmap) {
+        try {
+            // Get the ViewModel from MainActivity
+            val viewModel = MainActivity.getViewModel(context)
+            
+            // Convert URL to a consistent format for storage (remove fragments)
+            val baseUrl = url.substringBefore('#')
+            
+            // Save the favicon to the ViewModel
+            viewModel.updateFavicon(baseUrl, favicon)
+            
+            Log.d(TAG, "Favicon saved for: $baseUrl")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save favicon: ${e.message}", e)
         }
     }
 }
