@@ -437,6 +437,9 @@ class BackgroundWebViewService : Service() {
                     video.__setupComplete = true;
                     video.__shouldBePlaying = !video.paused && !video.ended;
                     
+                    // Set up floating video functionality (follow on scroll)
+                    setupFloatingVideoMode(video);
+                    
                     // Notify Android when video starts playing
                     video.addEventListener('play', function() {
                         video.__shouldBePlaying = true;
@@ -480,6 +483,168 @@ class BackgroundWebViewService : Service() {
                             }
                         }
                     });
+                }
+                
+                // Function to setup floating video that follows the user while scrolling
+                function setupFloatingVideoMode(video) {
+                    if (video.__floatingVideoSetup) return;
+                    
+                    // Create a container for the floating video
+                    const floatingContainer = document.createElement('div');
+                    floatingContainer.className = 'floating-video-container';
+                    floatingContainer.id = 'floating-container-' + Math.floor(Math.random() * 100000);
+                    floatingContainer.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 9999; width: 240px; height: auto; display: none; box-shadow: 0 4px 8px rgba(0,0,0,0.3); border-radius: 8px; overflow: hidden; background: #000; transition: all 0.3s ease;';
+                    document.body.appendChild(floatingContainer);
+                    
+                    // Store original position and parent
+                    video.__originalParent = video.parentNode;
+                    video.__originalNextSibling = video.nextSibling;
+                    video.__originalWidth = video.offsetWidth;
+                    video.__originalHeight = video.offsetHeight;
+                    video.__floatingMode = false;
+                    video.__floatingContainer = floatingContainer;
+                    
+                    // Add close button to the floating container
+                    const closeButton = document.createElement('div');
+                    closeButton.className = 'floating-video-close';
+                    closeButton.innerHTML = '×';
+                    closeButton.style.cssText = 'position: absolute; top: 5px; right: 5px; width: 20px; height: 20px; background: rgba(0,0,0,0.6); color: white; border-radius: 50%; text-align: center; line-height: 18px; cursor: pointer; z-index: 10001; font-size: 16px;';
+                    closeButton.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        // Return video to original position
+                        cancelFloatingMode(video);
+                        // Pause the video when minimized
+                        video.pause();
+                    });
+                    floatingContainer.appendChild(closeButton);
+                    
+                    // Helper function to make the video float
+                    function makeVideoFloat() {
+                        if (video.__floatingMode) return;
+                        
+                        console.log('[FloatingVideo] Making video float');
+                        
+                        // Save current video state
+                        const wasPlaying = !video.paused;
+                        const currentTime = video.currentTime;
+                        
+                        // Move video to floating container
+                        floatingContainer.appendChild(video);
+                        
+                        // Adjust video size for floating container
+                        video.style.width = '100%';
+                        video.style.height = 'auto';
+                        
+                        // Show the floating container
+                        floatingContainer.style.display = 'block';
+                        
+                        // Mark as floating
+                        video.__floatingMode = true;
+                        
+                        // Force video to keep same state as before
+                        video.currentTime = currentTime;
+                        if (wasPlaying) {
+                            video.play().catch(e => console.log('[FloatingVideo] Error resuming:', e));
+                        }
+                        
+                        // Add click handler to return to original position when clicked
+                        video.addEventListener('click', videoClickHandler);
+                    }
+                    
+                    // Helper function to cancel floating mode
+                    function cancelFloatingMode(vid) {
+                        if (!vid.__floatingMode) return;
+                        
+                        console.log('[FloatingVideo] Returning video to original position');
+                        
+                        // Save current video state
+                        const wasPlaying = !vid.paused;
+                        const currentTime = vid.currentTime;
+                        
+                        // Hide the floating container
+                        vid.__floatingContainer.style.display = 'none';
+                        
+                        // Return video to its original position
+                        if (vid.__originalParent) {
+                            if (vid.__originalNextSibling) {
+                                vid.__originalParent.insertBefore(vid, vid.__originalNextSibling);
+                            } else {
+                                vid.__originalParent.appendChild(vid);
+                            }
+                            
+                            // Restore original size
+                            vid.style.width = '';
+                            vid.style.height = '';
+                        }
+                        
+                        // Mark as not floating
+                        vid.__floatingMode = false;
+                        
+                        // Force video to keep same state as before
+                        vid.currentTime = currentTime;
+                        if (wasPlaying) {
+                            vid.play().catch(e => console.log('[FloatingVideo] Error resuming after float:', e));
+                        }
+                        
+                        // Remove click handler
+                        vid.removeEventListener('click', videoClickHandler);
+                    }
+                    
+                    // Click handler for the floating video
+                    function videoClickHandler(e) {
+                        if (e.target === closeButton) return;
+                        
+                        // If the video is in floating mode, return it to original position
+                        if (video.__floatingMode) {
+                            cancelFloatingMode(video);
+                        }
+                    }
+                    
+                    // Function to check if element is visible in viewport
+                    function isElementInViewport(el) {
+                        const rect = el.getBoundingClientRect();
+                        return (
+                            rect.top >= 0 &&
+                            rect.left >= 0 &&
+                            rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+                            rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+                        );
+                    }
+                    
+                    // Setup scroll event to check video visibility
+                    const scrollHandler = function() {
+                        // Only apply to playing videos
+                        if (video.paused || video.ended) {
+                            if (video.__floatingMode) {
+                                cancelFloatingMode(video);
+                            }
+                            return;
+                        }
+                        
+                        // Check if video is out of viewport
+                        if (!isElementInViewport(video) && !video.__floatingMode) {
+                            // Make video float
+                            makeVideoFloat();
+                        } 
+                        // Check if video is back in viewport while floating
+                        else if (video.__floatingMode && video.__originalParent && isElementInViewport(video.__originalParent)) {
+                            // Return video to original position
+                            cancelFloatingMode(video);
+                        }
+                    };
+                    
+                    // Add scroll event listener
+                    window.addEventListener('scroll', scrollHandler, { passive: true });
+                    
+                    // Initial check for position
+                    scrollHandler();
+                    
+                    // Also check on resize
+                    window.addEventListener('resize', scrollHandler, { passive: true });
+                    
+                    // Mark as setup
+                    video.__floatingVideoSetup = true;
+                    console.log('[FloatingVideo] Setup complete for video');
                 }
                 
                 // Set up all existing videos
