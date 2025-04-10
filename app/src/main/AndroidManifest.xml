@@ -94,7 +94,7 @@
             android:name=".BackgroundWebViewService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync">
+            android:foregroundServiceType="dataSync|mediaPlayback">
             <intent-filter>
                 <action android:name="com.tiddlywikibrowser.ACTION_REGISTER_WEBVIEW" />
                 <action android:name="com.tiddlywikibrowser.ACTION_UNREGISTER_WEBVIEW" />

@@ -431,6 +431,13 @@ class MediaSessionManager(private val context: Context) {
             val hadMetadata = hasActiveMedia
             hasActiveMedia = title != null && duration != null && duration > 0
             currentBitmap = bitmap
+            
+            // Determine if this is video content based on the title or other information
+            val isVideo = title?.contains("video", ignoreCase = true) == true || 
+                          title?.contains("TiddlyWiki Video", ignoreCase = true) == true
+            
+            // Create a variable to hold media type information
+            val isVideoContent = isVideo
 
             if (title != null) {
                 val metadata = MediaMetadataCompat.Builder()
@@ -439,6 +446,12 @@ class MediaSessionManager(private val context: Context) {
                     .apply {
                         duration?.let { putLong(MediaMetadataCompat.METADATA_KEY_DURATION, it) }
                         bitmap?.let { putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, it) }
+                        
+                        // Add additional metadata for videos
+                        if (isVideoContent) {
+                            putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, "Video: $title")
+                            putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, "Playing in background")
+                        }
                     }
                     .build()
 

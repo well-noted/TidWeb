@@ -338,7 +338,7 @@ ADDED from C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:93:9-103:19
 	android:exported
 		ADDED from C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:96:13-37
 	android:foregroundServiceType
-		ADDED from C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:97:13-53
+		ADDED from C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:97:13-67
 	android:name
 		ADDED from C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:94:13-53
 intent-filter#action:name:com.tiddlywikibrowser.ACTION_REGISTER_WEBVIEW+action:name:com.tiddlywikibrowser.ACTION_STOP_SERVICE+action:name:com.tiddlywikibrowser.ACTION_UNREGISTER_WEBVIEW

@@ -96,6 +96,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.datastore.preferences.core.edit
 import kotlin.math.absoluteValue
 import androidx.compose.animation.AnimatedVisibilityScope
+import android.view.WindowManager
+import android.widget.FrameLayout
 
 // Memory threshold for optimization (50MB)
 private const val MEMORY_THRESHOLD = 50L * 1024L * 1024L
@@ -177,7 +179,7 @@ class MainActivity : ComponentActivity() {
         ThreadManager.runOnBackground {
             // Initialize cookie manager but don't clear cookies
             CookieManager.getInstance().setAcceptCookie(true)
-            
+
             // Use main thread for WebView operations
             ThreadManager.runOnMain {
                 // Create a temporary WebView to clear cache
@@ -414,7 +416,7 @@ class MainActivity : ComponentActivity() {
                     webView.webViewClient = object : WebViewClient() {
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
-                            
+
                             // Check if we're the main activity and background mode is enabled
                             val mainActivity = context as? MainActivity
                             if (mainActivity != null && mainActivity.isBackgroundEnabled.value) {
@@ -428,7 +430,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
-                            
+
                             // Add specific styling for small screens
                             if (ScreenUtils.isVerySmallScreen(context)) {
                                 injectSmallScreenCSS(view)
@@ -454,23 +456,70 @@ class MainActivity : ComponentActivity() {
             webView.webChromeClient = object : WebChromeClient() {
                 private var customView: View? = null
                 private var customViewCallback: CustomViewCallback? = null
+                private var originalSystemUiVisibility = 0
 
                 override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                     customView = view
                     customViewCallback = callback
                     (context as? MainActivity)?.let { activity ->
+                        // Save the current UI visibility to restore later
+                        originalSystemUiVisibility = activity.window.decorView.systemUiVisibility
+
+                        // Set full screen mode
+                        activity.window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                                or View.SYSTEM_UI_FLAG_FULLSCREEN
+                                or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
+
+                        // Add the custom view to the activity's content view
+                        val decorView = activity.window.decorView as FrameLayout
+                        decorView.addView(view, FrameLayout.LayoutParams(
+                            FrameLayout.LayoutParams.MATCH_PARENT,
+                            FrameLayout.LayoutParams.MATCH_PARENT))
+
+                        // Hide the regular WebView and other UI components
+                        activity.actionBar?.hide()
+                        // Hide any existing content views - use a safer approach
+                        activity.setMainContentVisible(false)
+
+                        // If the view is an ExoPlayer view, configure it
                         if (view is PlayerView) {
                             activity.exoPlayerManager.getOrCreatePlayer().also { player ->
                                 view.player = player
                             }
                         }
+
+                        // Keep the screen on during video playback
+                        activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     }
                 }
 
                 override fun onHideCustomView() {
-                    customViewCallback?.onCustomViewHidden()
-                    customView = null
-                    customViewCallback = null
+                    (context as? MainActivity)?.let { activity ->
+                        // Restore original UI visibility
+                        activity.window.decorView.systemUiVisibility = originalSystemUiVisibility
+
+                        // Remove the custom view
+                        val decorView = activity.window.decorView as FrameLayout
+                        if (customView != null) {
+                            decorView.removeView(customView)
+                        }
+
+                        // Show the regular WebView and UI components
+                        activity.actionBar?.show()
+                        // Restore visibility of main content
+                        activity.setMainContentVisible(true)
+
+                        // Allow the screen to turn off again
+                        activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+                        // Clear the custom view reference
+                        customView = null
+                        customViewCallback?.onCustomViewHidden()
+                        customViewCallback = null
+                    }
                 }
 
                 override fun onProgressChanged(view: WebView?, newProgress: Int) {
@@ -636,7 +685,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                
+
                 @JavascriptInterface
                 fun updateMediaMetadata(title: String, artist: String, durationMs: Long) {
                     ThreadManager.runOnMain {
@@ -653,7 +702,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                
+
                 @JavascriptInterface
                 fun updatePlaybackState(isPlaying: Boolean, positionMs: Long) {
                     ThreadManager.runOnMain {
@@ -695,7 +744,7 @@ class MainActivity : ComponentActivity() {
         private fun injectSmallScreenCSS(webView: WebView?) {
             val context = webView?.context ?: return
             val viewModel = getViewModel(context)
-            
+
             // Only inject CSS if the device has a very small screen or the user has enabled it
             if (!ScreenUtils.isVerySmallScreen(context)) {
                 // Remove any existing small screen styles if they exist
@@ -822,36 +871,36 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         try {
             // Initialize WebView configuration first
             applyWebViewConfiguration()
-            
+
             // Synchronously load critical preferences before initializing services
             // Specifically load background mode state to ensure proper initialization
             loadBackgroundModePreference()
-            
+
             // Initialize the media session manager
             mediaSessionManager = MediaSessionManager(this)
-            
+
             // Initialize the ExoPlayer manager after mediaSessionManager
             exoPlayerManager = ExoPlayerManager(this)
-            
+
             // Initialize the background WebView manager
             backgroundWebViewManager = BackgroundWebViewManager(this)
-            
+
             // Load remaining preferences
             loadPreferences()
-            
+
             // Process intent after core components are initialized
             handleIntent(intent)
-            
+
             // Set up the UI last
             setupUI()
-            
+
             // Set up network monitoring
             setupNetworkMonitoring()
-            
+
             // Register initial WebView observer after UI is ready
             ThreadManager.runOnBackground {
                 try {
@@ -869,7 +918,7 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Error initializing app. Please try again.", Toast.LENGTH_LONG).show()
         }
     }
-    
+
     /**
      * Synchronously load the background mode preference
      * This is critical to have loaded before initializing services
@@ -882,9 +931,9 @@ class MainActivity : ComponentActivity() {
             }
             val isEnabled = preferences[PreferencesKeys.BACKGROUND_MODE_ENABLED] ?: false
             _isBackgroundEnabled.value = isEnabled
-            
+
             Log.d("MainActivity", "Background mode preference loaded synchronously: $isEnabled")
-            
+
             // We need this to be available immediately, so we initialize the value synchronously
             if (isEnabled) {
                 // Don't start services here, will be done in loadPreferences
@@ -896,7 +945,7 @@ class MainActivity : ComponentActivity() {
             _isBackgroundEnabled.value = false
         }
     }
-    
+
     /**
      * Set up the main UI
      */
@@ -945,7 +994,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-            
+
             // The MaterialTheme
             MaterialTheme(
                 colorScheme = if (isDarkMode) darkColorScheme() else lightColorScheme()
@@ -960,7 +1009,7 @@ class MainActivity : ComponentActivity() {
                             onAddClick = { showAddDialog = true },
                             onShowRenameDialog = { showRenameDialog = true }
                         )
-                        
+
                         // Handle dialog visibility
                         if (showAddDialog) {
                             AddWikiDialog(
@@ -979,7 +1028,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
-                        
+
                         if (showWikiSelector && pendingSharedText != null) {
                             WikiSelectionDialog(
                                 wikis = viewModel.allWikis.collectAsState().value,
@@ -1016,7 +1065,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
-                        
+
                         if (showDeleteConfirmDialog && viewModel.currentWiki.value != null) {
                             AlertDialog(
                                 onDismissRequest = { showDeleteConfirmDialog = false },
@@ -1033,15 +1082,15 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 dismissButton = {
-                                    TextButton(onClick = { 
-                                        showDeleteConfirmDialog = false 
+                                    TextButton(onClick = {
+                                        showDeleteConfirmDialog = false
                                     }) {
                                         Text("Cancel")
                                     }
                                 }
                             )
                         }
-                        
+
                         if (showRenameDialog && viewModel.currentWiki.value != null) {
                             RenameWikiDialog(
                                 currentName = viewModel.currentWiki.value?.name ?: "",
@@ -1054,7 +1103,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
-                        
+
                         // Tiddler Transfer Dialogs
                         if (tiddlerTransferState.showTiddlerSelectionDialog) {
                             TiddlerTransferManager.TiddlerSelectionDialog(
@@ -1074,7 +1123,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
-                        
+
                         if (tiddlerTransferState.showWikiSelectionDialog) {
                             TiddlerTransferManager.WikiSelectionDialog(
                                 wikis = tiddlerTransferState.availableWikis,
@@ -1096,17 +1145,17 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     private fun loadPreferences() {
         // Load other preferences here (background mode is already loaded by loadBackgroundModePreference)
-        
+
         // Start the background services if enabled
         if (_isBackgroundEnabled.value) {
             Log.d("MainActivity", "Starting background services from loadPreferences")
-            
+
             // Start both background manager service and media service
             backgroundWebViewManager.startBackgroundService()
-            
+
             // Use a slight delay to ensure the background service is bound first
             Handler(Looper.getMainLooper()).postDelayed({
                 try {
@@ -1116,11 +1165,11 @@ class MainActivity : ComponentActivity() {
                     Log.e("MainActivity", "Error starting media service during initialization", e)
                 }
             }, 500)
-            
+
             Log.d("MainActivity", "Background mode initialized from preferences")
         }
     }
-    
+
     /**
      * Save the background mode preference
      */
@@ -1131,22 +1180,22 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     /**
      * Toggle background mode on/off
      */
     fun toggleBackgroundMode() {
         val newState = !_isBackgroundEnabled.value
         _isBackgroundEnabled.value = newState
-        
+
         // Save the preference
         saveBackgroundModePreference(newState)
-        
+
         // Start or stop the background service
         if (newState) {
             backgroundWebViewManager.startBackgroundService()
             startMediaService() // Start media service for background audio
-            
+
             // Register the current WebView
             viewModel?.currentWiki?.value?.let { wiki ->
                 val key = wiki.idFromUrl ?: wiki.url
@@ -1192,7 +1241,7 @@ class MainActivity : ComponentActivity() {
                         if (state.contains("complete") || state.contains("interactive")) {
                             backgroundWebViewManager.registerWebView(key, it)
                             Log.d("BackgroundMode", "Registered WebView for background mode: ${wiki.name}")
-                            
+
                             // Dispatch a custom event to notify the wiki
                             it.evaluateJavascript("""
                                 (function() {
@@ -1213,14 +1262,14 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
-                    
+
                     // Configure WebView settings for background audio
                     it.settings.mediaPlaybackRequiresUserGesture = false
                     it.settings.javaScriptCanOpenWindowsAutomatically = true
-                    
+
                     // Inform the user
-                    Toast.makeText(this, 
-                        "Background mode enabled. TiddlyWiki will continue running when minimized.", 
+                    Toast.makeText(this,
+                        "Background mode enabled. TiddlyWiki will continue running when minimized.",
                         Toast.LENGTH_LONG).show()
                 }
             }
@@ -1232,7 +1281,7 @@ class MainActivity : ComponentActivity() {
                 webView?.let {
                     // Save state before disabling background mode
                     WebViewCache.cacheWebView(key, it)
-                    
+
                     // Notify the wiki that background mode is being disabled
                     it.evaluateJavascript("""
                         (function() {
@@ -1242,17 +1291,17 @@ class MainActivity : ComponentActivity() {
                     """.trimIndent(), null)
                 }
             }
-            
+
             backgroundWebViewManager.stopBackgroundService()
             stopService(serviceIntent) // Stop media service
-            
+
             // Inform the user
-            Toast.makeText(this, 
-                "Background mode disabled.", 
+            Toast.makeText(this,
+                "Background mode disabled.",
                 Toast.LENGTH_SHORT).show()
         }
     }
-    
+
     /**
      * Set background mode enabled/disabled
      */
@@ -1260,10 +1309,10 @@ class MainActivity : ComponentActivity() {
         if (_isBackgroundEnabled.value != enabled) {
             Log.d("MainActivity", "Setting background mode to: $enabled")
             _isBackgroundEnabled.value = enabled
-            
+
             // Save the preference
             saveBackgroundModePreference(enabled)
-            
+
             if (enabled) {
                 // First, clear any WebView cache that may have the wrong settings
                 viewModel?.currentWiki?.value?.let { wiki ->
@@ -1271,20 +1320,20 @@ class MainActivity : ComponentActivity() {
                     // Just clean up the cache entry, don't destroy the view yet
                     WebViewCache.clearCacheEntry(key)
                 }
-                
+
                 // Start services first
                 backgroundWebViewManager.startBackgroundService()
-                
+
                 // Use a slight delay to ensure the background service is initialized
                 Handler(Looper.getMainLooper()).postDelayed({
                     startMediaService()
-                    
+
                     // Register current WebView after service is started
                     viewModel?.currentWiki?.value?.let { wiki ->
                         Log.d("MainActivity", "Registering current wiki for background mode: ${wiki.name}")
                         viewModel?.getOrCreateWebView(wiki, this)?.let { webView ->
                             registerWebViewForBackground(wiki, webView)
-                            
+
                             // Force registration regardless of cache state
                             val key = wiki.idFromUrl ?: wiki.url
                             if (!backgroundWebViewManager.hasWebView(key)) {
@@ -1294,9 +1343,9 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }, 500)
-                
-                Toast.makeText(this, 
-                    "Background mode enabled. TiddlyWiki will continue running when minimized.", 
+
+                Toast.makeText(this,
+                    "Background mode enabled. TiddlyWiki will continue running when minimized.",
                     Toast.LENGTH_LONG).show()
             } else {
                 // Clean up background mode
@@ -1321,17 +1370,17 @@ class MainActivity : ComponentActivity() {
                                 return true;
                             })();
                         """.trimIndent(), null)
-                        
+
                         // Cache the WebView state
                         WebViewCache.cacheWebView(key, it)
                     }
                 }
-                
+
                 backgroundWebViewManager.stopBackgroundService()
                 stopService(serviceIntent)
-                
-                Toast.makeText(this, 
-                    "Background mode disabled.", 
+
+                Toast.makeText(this,
+                    "Background mode disabled.",
                     Toast.LENGTH_SHORT).show()
             }
         }
@@ -1344,7 +1393,7 @@ class MainActivity : ComponentActivity() {
      */
     private fun registerWebViewForBackground(wiki: WikiInstance, webView: WebView) {
         val key = wiki.idFromUrl ?: wiki.url
-        
+
         // First ensure the WebView is properly configured for background operation
         webView.settings.apply {
             javaScriptEnabled = true
@@ -1433,7 +1482,7 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         webViewPaused = true
-        
+
         if (!_isBackgroundEnabled.value) {
             Log.d("MainActivity", "onPause - Background mode disabled, performing standard pause.")
             exoPlayerManager.onPause()
@@ -1457,41 +1506,41 @@ class MainActivity : ComponentActivity() {
                         Log.w("MainActivity", "Re-registering WebView for background mode on pause (was it lost?)")
                         registerWebViewForBackground(wiki, webView)
                     }
-                    
+
                     // Make sure the media service is running
-                     try {
-                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                             startForegroundService(serviceIntent)
-                         } else {
-                             startService(serviceIntent)
-                         }
-                     } catch (e: Exception) {
-                         Log.e("MainActivity", "Failed to start media service in onPause", e)
-                     }
-                     
-                     // Trigger state preservation
-                     webView.evaluateJavascript("""
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(serviceIntent)
+                        } else {
+                            startService(serviceIntent)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Failed to start media service in onPause", e)
+                    }
+
+                    // Trigger state preservation
+                    webView.evaluateJavascript("""
                          (function() {
                              document.dispatchEvent(new Event('pause'));
                              return true;
                          })();
                      """.trimIndent(), null)
-                     
-                     // DO NOT explicitly pause or cache the WebView here when background mode is enabled.
-                     // BackgroundWebViewManager handles its lifecycle.
-                 }
-             }
-         }
+
+                    // DO NOT explicitly pause or cache the WebView here when background mode is enabled.
+                    // BackgroundWebViewManager handles its lifecycle.
+                }
+            }
+        }
     }
 
     override fun onResume() {
         super.onResume()
         webViewPaused = false
         exoPlayerManager.onResume()
-        
+
         // Log the current background mode state for diagnosis
         Log.d("MainActivity", "onResume - Background mode is ${if (_isBackgroundEnabled.value) "ENABLED" else "DISABLED"}")
-        
+
         if (!_isBackgroundEnabled.value) {
             // Standard behavior
             Log.d("MainActivity", "onResume - Background mode disabled, resuming standard WebView.")
@@ -1524,7 +1573,7 @@ class MainActivity : ComponentActivity() {
                             // Make WebView visible and active
                             wv.visibility = View.VISIBLE
                             wv.onResume()
-                            
+
                             // Only evaluate JavaScript if WebView is not destroyed
                             try {
                                 wv.evaluateJavascript("""
@@ -1553,7 +1602,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        
+
         // Update media session
         try {
             getCurrentWebView()?.let { webView ->
@@ -1569,7 +1618,7 @@ class MainActivity : ComponentActivity() {
             Log.e("MainActivity", "Error updating media session: ${e.message}")
         }
     }
-    
+
     /**
      * Safely check if a WebView is destroyed to avoid crashes
      */
@@ -1643,14 +1692,14 @@ class MainActivity : ComponentActivity() {
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
         Log.d("MainActivity", "onTrimMemory called with level: $level")
-        
+
         // In background mode, we need to be more careful about memory management
         if (_isBackgroundEnabled.value) {
             // Only mark state as uncertain - don't remove the WebView
             viewModel?.currentWiki?.value?.let { wiki ->
                 val key = wiki.idFromUrl ?: wiki.url
                 WebViewCache.markWebViewStateUncertain(key)
-                
+
                 // Make sure the WebView is registered with the background service
                 if (backgroundWebViewManager.hasWebView(key)) {
                     Log.d("MainActivity", "WebView is registered with background service, skipping state marking")
@@ -1663,7 +1712,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        
+
         if (level >= ComponentCallbacks2.TRIM_MEMORY_MODERATE) {
             ThreadManager.runOnBackground {
                 viewModel?.onLowMemory()
@@ -1680,7 +1729,7 @@ class MainActivity : ComponentActivity() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         WebViewCache.setConfigurationChanging(true)
-        
+
         // Handle any WebViews that need to be retained during configuration changes
         val safeViewModel = viewModel
         if (safeViewModel != null) {
@@ -1708,23 +1757,23 @@ class MainActivity : ComponentActivity() {
     private fun applyWebViewConfiguration() {
         // Initialize WebView with appropriate settings
         WebView.setWebContentsDebuggingEnabled(true)
-        
+
         // Set default cache mode
         val webViewDatabase = WebViewDatabase.getInstance(this)
         CookieManager.getInstance().setAcceptCookie(true)
-        
+
         // Ensure cookies are persisted to disk
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             CookieManager.getInstance().flush()
         }
     }
-    
+
     /**
      * Set up network monitoring
      */
     private fun setupNetworkMonitoring() {
         connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        
+
         networkCallback = object : ConnectivityManager.NetworkCallback() {
             override fun onLost(network: Network) {
                 super.onLost(network)
@@ -1736,7 +1785,7 @@ class MainActivity : ComponentActivity() {
                         val viewModel = getViewModel(this@MainActivity)
                         viewModel.setOfflineState(true)
                         Log.d("NetworkMonitor", "Network lost - App is now offline")
-                        
+
                         // Update WebView cache mode for offline operation
                         viewModel.currentWiki.value?.let { wiki ->
                             if (!wiki.isLocalFile) {
@@ -1754,13 +1803,13 @@ class MainActivity : ComponentActivity() {
                 val currentTime = System.currentTimeMillis()
                 if (currentTime - lastNetworkCheckTime > NETWORK_CHECK_THROTTLE) {
                     lastNetworkCheckTime = currentTime
-                    
+
                     // Set offline to false immediately after network becomes available
                     ThreadManager.runOnMain {
                         val viewModel = getViewModel(this@MainActivity)
                         viewModel.setOfflineState(false)
                         Log.d("NetworkMonitor", "Network available - App is now online")
-                        
+
                         // Restore normal cache mode
                         viewModel.currentWiki.value?.let { wiki ->
                             if (!wiki.isLocalFile) {
@@ -1770,13 +1819,13 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
-                    
+
                     // Validate internet access in the background, but don't wait for it
                     ThreadManager.runOnBackground {
                         val capabilities = connectivityManager.getNetworkCapabilities(network)
-                        val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true && 
-                                          capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-                        
+                        val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
+                                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+
                         if (!hasInternet) {
                             Log.d("NetworkMonitor", "Network available but internet validation failed")
                         }
@@ -1789,14 +1838,14 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             try {
                 connectivityManager.registerDefaultNetworkCallback(networkCallback!!)
-                
+
                 // Initial check for network state
                 ThreadManager.runOnBackground {
                     val activeNetwork = connectivityManager.activeNetwork
                     val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
                     val isOffline = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) != true ||
-                                   capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) != true
-                    
+                            capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) != true
+
                     ThreadManager.runOnMain {
                         val viewModel = getViewModel(this@MainActivity)
                         viewModel.setOfflineState(isOffline)
@@ -1811,7 +1860,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     /**
      * Handle the intent received by the activity
      */
@@ -1825,7 +1874,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     /**
      * Get the current WebView
      */
@@ -1834,7 +1883,7 @@ class MainActivity : ComponentActivity() {
             viewModel?.getOrCreateWebView(wiki, this)
         }
     }
-    
+
     /**
      * Handle wiki selection for sharing content
      */
@@ -1929,7 +1978,7 @@ class MainActivity : ComponentActivity() {
                     return
                 }
             }
-            
+
             // Start the service based on Android version
             val intent = Intent(this, MediaPlaybackService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -1945,19 +1994,19 @@ class MainActivity : ComponentActivity() {
                 startService(intent)
                 Log.d("MainActivity", "Started media service as regular service")
             }
-            
+
             // Bind to the service if needed
             if (serviceConnection == null) {
                 serviceConnection = object : ServiceConnection {
                     override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
                         Log.d("MainActivity", "Connected to media service")
                     }
-                    
+
                     override fun onServiceDisconnected(name: ComponentName?) {
                         Log.d("MainActivity", "Disconnected from media service")
                     }
                 }
-                
+
                 bindService(intent, serviceConnection!!, Context.BIND_AUTO_CREATE)
             }
         } catch (e: Exception) {
@@ -1972,16 +2021,16 @@ class MainActivity : ComponentActivity() {
             lifecycleScope.launch {
                 try {
                     Log.d("MainActivity", "Starting initial WebView observer, background mode: ${_isBackgroundEnabled.value}")
-                    
+
                     wikiFlow.collect { wiki ->
                         wiki?.let {
                             // Ensure WebView is registered when first loaded
                             if (_isBackgroundEnabled.value) {
                                 Log.d("MainActivity", "Background mode enabled, registering WebView for wiki: ${wiki.name}")
-                                
+
                                 val key = wiki.idFromUrl ?: wiki.url
                                 val webView = viewModel?.getOrCreateWebView(wiki, this@MainActivity)
-                                
+
                                 webView?.let { view ->
                                     // Configure WebView settings early
                                     ThreadManager.runOnMain {
@@ -1993,13 +2042,13 @@ class MainActivity : ComponentActivity() {
                                             setGeolocationEnabled(false)
                                         }
                                     }
-                                    
+
                                     // Set up WebView client to handle registration after page load
                                     view.webViewClient = object : WebViewClient() {
                                         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                                             super.onPageStarted(view, url, favicon)
                                             Log.d("MainActivity", "Page loading started for ${wiki.name}")
-                                            
+
                                             // Configure WebView settings early
                                             ThreadManager.runOnMain {
                                                 view?.settings?.apply {
@@ -2015,7 +2064,7 @@ class MainActivity : ComponentActivity() {
                                             super.onPageFinished(view, url)
                                             if (view != null && _isBackgroundEnabled.value) {
                                                 Log.d("MainActivity", "Page load finished, registering for background: ${wiki.name}")
-                                                
+
                                                 // Initialize state preservation and background mode
                                                 view.evaluateJavascript("""
                                                     (function() {
@@ -2095,7 +2144,7 @@ class MainActivity : ComponentActivity() {
                                                     if (_isBackgroundEnabled.value) {
                                                         backgroundWebViewManager.registerWebView(key, view)
                                                         Log.d("MainActivity", "Successfully registered WebView for background mode: ${wiki.name}")
-                                                        
+
                                                         // Trigger media monitoring script
                                                         view.evaluateJavascript(mediaMonitorScript, null)
                                                     }
@@ -2111,6 +2160,48 @@ class MainActivity : ComponentActivity() {
                     Log.e("MainActivity", "Error in initial WebView observer", e)
                 }
             }
+        }
+    }
+
+    /**
+     * Helper method to set the visibility of the main content (WebView containers)
+     */
+    fun setMainContentVisible(visible: Boolean) {
+        val visibility = if (visible) View.VISIBLE else View.GONE
+
+        // Try to find containers using different potential IDs
+        try {
+            // Try common container IDs
+            val containerIds = arrayOf(
+                "webview_container", "webview_container_layout",
+                "content_layout", "main_content", "webview_parent"
+            )
+
+            var foundContainer = false
+            for (id in containerIds) {
+                val resId = resources.getIdentifier(id, "id", packageName)
+                if (resId != 0) {
+                    findViewById<View>(resId)?.visibility = visibility
+                    foundContainer = true
+                }
+            }
+
+            // If no specific container found, try to manage the root layout
+            if (!foundContainer) {
+                // Find the root content view and apply visibility to direct children
+                val rootContent = findViewById<ViewGroup>(android.R.id.content)
+                if (rootContent != null && rootContent.childCount > 0) {
+                    for (i in 0 until rootContent.childCount) {
+                        val child = rootContent.getChildAt(i)
+                        // Don't hide the view that might contain our custom view
+                        if (child !is FrameLayout) {
+                            child.visibility = visibility
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error changing content visibility: ${e.message}")
         }
     }
 }
@@ -2174,7 +2265,7 @@ fun MainScreen(
                             // Offline indicator
                             val isOffline by viewModel.isOffline.collectAsState()
                             val isLocalFile = currentWiki?.isLocalFile ?: false
-                            
+
                             if (isOffline && !isLocalFile) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -2194,7 +2285,7 @@ fun MainScreen(
                                     )
                                 }
                             }
-                            
+
                             // Share button
                             IconButton(onClick = { showShareMenu = true }) {
                                 Icon(Icons.Default.Share, contentDescription = "Share")
@@ -2292,14 +2383,14 @@ fun MainScreen(
                                             }
                                         }
                                     )
-                                    
+
                                     // Add Force Online Refresh option - especially useful when offline
                                     val isOffline by viewModel.isOffline.collectAsState()
                                     val isLocalFile = currentWiki?.isLocalFile ?: false
-                                    
+
                                     if (!isLocalFile) {
                                         DropdownMenuItem(
-                                            text = { 
+                                            text = {
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     Text(
                                                         if (isOffline) "Force Online Refresh" else "Refresh from Network",
@@ -2321,10 +2412,10 @@ fun MainScreen(
                                                 showMenu = false
                                                 currentWiki?.let { wiki ->
                                                     val webView = viewModel.getOrCreateWebView(wiki, context)
-                                                    
+
                                                     // First, update cache mode to bypass cache
                                                     webView.settings.cacheMode = WebSettings.LOAD_NO_CACHE
-                                                    
+
                                                     // Get the WebViewClient and cast it to ReloadBlockingWebViewClient
                                                     val client = webView.webViewClient as? ReloadBlockingWebViewClient
                                                     if (client != null) {
@@ -2334,14 +2425,14 @@ fun MainScreen(
                                                         // Fallback to standard reload if casting fails
                                                         webView.loadUrl(wiki.url)
                                                     }
-                                                    
+
                                                     // Reset offline state
                                                     viewModel.setOfflineState(false)
-                                                    
+
                                                     // Show toast message
                                                     Toast.makeText(
-                                                        context, 
-                                                        "Refreshing from network...", 
+                                                        context,
+                                                        "Refreshing from network...",
                                                         Toast.LENGTH_SHORT
                                                     ).show()
                                                 }
@@ -2356,7 +2447,7 @@ fun MainScreen(
                                             onShowRenameDialog()
                                         }
                                     )
-                                    
+
                                     DropdownMenuItem(
                                         text = { Text("Transfer Tiddlers") },
                                         onClick = {
@@ -2456,7 +2547,7 @@ fun MainScreen(
                                     // Check for favicon and use it if available
                                     val faviconMap by viewModel.faviconMap.collectAsState()
                                     val favicon = faviconMap[wiki.url]
-                                    
+
                                     if (favicon != null) {
                                         // Display the favicon
                                         Image(
@@ -2597,8 +2688,8 @@ fun MainScreen(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { 
-                        showDeleteConfirmDialog = false 
+                    TextButton(onClick = {
+                        showDeleteConfirmDialog = false
                     }) {
                         Text("Cancel")
                     }
@@ -2619,7 +2710,7 @@ fun MainScreen(
         if (showSettings) {
             SettingsDialog(
                 isDarkMode = isDarkMode,
-                onDarkModeChange = { newMode -> 
+                onDarkModeChange = { newMode ->
                     viewModel.setDarkMode(newMode)
                 },
                 onManageQuickTags = {
@@ -2751,7 +2842,7 @@ fun AddWikiDialog(
                         Text("Select Local TiddlyWiki File")
                     }
                 }
-                
+
                 // Add button to create a single-file wiki
                 OutlinedButton(
                     onClick = onCreateSingleFileWiki,
@@ -2939,15 +3030,15 @@ fun TagManagementDialog(
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 Text(
                     text = "Existing Tags:",
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
-                
+
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -3123,7 +3214,7 @@ fun SettingsDialog(
                         }
                     )
                 }
-                
+
                 // Background Mode Toggle
                 Row(
                     modifier = Modifier
@@ -3147,7 +3238,7 @@ fun SettingsDialog(
                         }
                     )
                 }
-                
+
                 // Manage Quick Tags Button
                 OutlinedButton(
                     onClick = onManageQuickTags,

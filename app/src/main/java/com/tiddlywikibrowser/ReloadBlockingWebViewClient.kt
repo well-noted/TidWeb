@@ -530,6 +530,113 @@ class ReloadBlockingWebViewClient(
                                 );
                             }
                         });
+                        
+                        // Add special handling for video elements to support background playback
+                        if (media.tagName.toLowerCase() === 'video') {
+                            // Make sure video elements can play in background like audio
+                            media.setAttribute('playsinline', 'true');
+                            
+                            // Enable background video playback
+                            if (!media.hasAttribute('webkit-playsinline')) {
+                                media.setAttribute('webkit-playsinline', 'true');
+                            }
+                            
+                            // Critical for background playback on Android WebView
+                            media.setAttribute('x-webkit-airplay', 'allow');
+                            
+                            // Set critical flags for Android WebView
+                            if (!media.hasAttribute('crossorigin')) {
+                                media.setAttribute('crossorigin', 'anonymous');
+                            }
+                            
+                            // Ensure controls are enabled for better user experience
+                            media.controls = true;
+                            
+                            // Disable picture-in-picture auto-exit when backgrounded
+                            if ('disablePictureInPicture' in media) {
+                                media.disablePictureInPicture = false;
+                            }
+                            
+                            // Critical enhancement to prevent system from automatically pausing video
+                            if (!media.__videoBackgroundPlaybackEnhanced) {
+                                media.__videoBackgroundPlaybackEnhanced = true;
+                                
+                                // Flag to track when video should be playing
+                                media.__shouldBePlaying = !media.paused && !media.ended;
+                                
+                                // Listen for pause events that might be caused by the system
+                                const originalPause = media.pause;
+                                media.pause = function() {
+                                    console.log('[Video] Pause called');
+                                    // If we're in background and this video should be playing,
+                                    // try to prevent the pause
+                                    if (document.visibilityState === 'hidden' && media.__shouldBePlaying) {
+                                        console.log('[Video] Preventing system pause');
+                                        // Don't actually pause - just pretend we did
+                                        return undefined;
+                                    }
+                                    
+                                    // If this is a deliberate pause, update our tracking flag
+                                    if (document.visibilityState === 'visible') {
+                                        media.__shouldBePlaying = false;
+                                    }
+                                    
+                                    // Call the original pause method
+                                    return originalPause.apply(this, arguments);
+                                };
+                                
+                                // Keep track of when the video should be playing
+                                media.addEventListener('play', function() {
+                                    media.__shouldBePlaying = true;
+                                    console.log('[Video] Play event - setting shouldBePlaying=true');
+                                });
+                                
+                                media.addEventListener('ended', function() {
+                                    media.__shouldBePlaying = false;
+                                    console.log('[Video] Ended event - setting shouldBePlaying=false');
+                                });
+                                
+                                // Track video playback events for media session
+                                media.addEventListener('play', function() {
+                                    if (window.MediaInterface) {
+                                        window.MediaInterface.onMediaEvent(
+                                            'play',
+                                            media.id || 'video-' + Math.random().toString(36).substring(2, 9),
+                                            media.currentTime || 0,
+                                            media.duration || 0,
+                                            media.src || '',
+                                            media.getAttribute('title') || 'TiddlyWiki Video'
+                                        );
+                                    }
+                                });
+                                
+                                media.addEventListener('pause', function() {
+                                    if (window.MediaInterface) {
+                                        window.MediaInterface.onMediaEvent(
+                                            'pause',
+                                            media.id || 'unknown',
+                                            media.currentTime || 0,
+                                            media.duration || 0,
+                                            media.src || '',
+                                            media.getAttribute('title') || 'TiddlyWiki Video'
+                                        );
+                                    }
+                                });
+                                
+                                media.addEventListener('timeupdate', function() {
+                                    if (window.MediaInterface && media.paused === false) {
+                                        window.MediaInterface.onMediaEvent(
+                                            'timeupdate',
+                                            media.id || 'unknown',
+                                            media.currentTime || 0,
+                                            media.duration || 0,
+                                            media.src || '',
+                                            media.getAttribute('title') || 'TiddlyWiki Video'
+                                        );
+                                    }
+                                });
+                            }
+                        }
                     });
                     
                     // Improve link handling
@@ -552,6 +659,133 @@ class ReloadBlockingWebViewClient(
                     console.error('Error applying reload protection:', e);
                     return false;
                 }
+            })();
+        """.trimIndent(), null)
+        
+        // Apply video background playback detection script
+        webView.evaluateJavascript("""
+            (function() {
+                // Skip if already initialized
+                if (window.__videoBackgroundPlaybackInitialized) return true;
+                
+                // Create a MutationObserver to detect new video elements
+                const videoObserver = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+                            for (let i = 0; i < mutation.addedNodes.length; i++) {
+                                const node = mutation.addedNodes[i];
+                                // Check direct node if it's a video
+                                if (node.tagName && node.tagName.toLowerCase() === 'video') {
+                                    enableBackgroundPlayback(node);
+                                }
+                                // Check if the added node contains videos
+                                if (node.querySelectorAll) {
+                                    const videos = node.querySelectorAll('video');
+                                    videos.forEach(enableBackgroundPlayback);
+                                }
+                            }
+                        }
+                    });
+                });
+                
+                // Start observing the document with configured parameters
+                videoObserver.observe(document.documentElement, {
+                    childList: true,
+                    subtree: true
+                });
+                
+                // Process any existing videos
+                document.querySelectorAll('video').forEach(enableBackgroundPlayback);
+                
+                // Function to enable background playback for a video element
+                function enableBackgroundPlayback(videoElement) {
+                    if (!videoElement || videoElement.__backgroundPlaybackEnabled) return;
+                    
+                    // Mark this video as processed
+                    videoElement.__backgroundPlaybackEnabled = true;
+                    
+                    // Enable inline playback
+                    videoElement.setAttribute('playsinline', 'true');
+                    videoElement.setAttribute('webkit-playsinline', 'true');
+                    videoElement.setAttribute('x-webkit-airplay', 'allow');
+                    
+                    // Set critical flags for Android WebView
+                    if (!videoElement.hasAttribute('crossorigin')) {
+                        videoElement.setAttribute('crossorigin', 'anonymous');
+                    }
+                            
+                    // Ensure controls are enabled for better user experience
+                    videoElement.controls = true;
+                    
+                    // Disable picture-in-picture auto-exit
+                    if ('disablePictureInPicture' in videoElement) {
+                        videoElement.disablePictureInPicture = false;
+                    }
+                    
+                    // Add data to identify video for background service
+                    videoElement.setAttribute('data-background-playback', 'enabled');
+                    
+                    // Override pause to prevent system from pausing during background playback
+                    if (!videoElement.__pauseOverridden) {
+                        videoElement.__pauseOverridden = true;
+                        videoElement.__shouldBePlaying = !videoElement.paused && !videoElement.ended;
+                        
+                        const originalPause = videoElement.pause;
+                        videoElement.pause = function() {
+                            // If we're in background and this video should be playing,
+                            // prevent the pause
+                            if (document.visibilityState === 'hidden' && videoElement.__shouldBePlaying) {
+                                console.log('[Background Video] Preventing system pause');
+                                return undefined;
+                            }
+                            
+                            // If this is a deliberate pause, update our tracking flag
+                            if (document.visibilityState === 'visible') {
+                                videoElement.__shouldBePlaying = false;
+                            }
+                            
+                            // Call the original pause method
+                            return originalPause.apply(this, arguments);
+                        };
+                        
+                        // Track play/ended states
+                        videoElement.addEventListener('play', function() {
+                            videoElement.__shouldBePlaying = true;
+                        });
+                        
+                        videoElement.addEventListener('ended', function() {
+                            videoElement.__shouldBePlaying = false;
+                        });
+                        
+                        // Add visibilitychange handler to resume if paused in background
+                        if (!window.__videoVisibilityHandlerAdded) {
+                            window.__videoVisibilityHandlerAdded = true;
+                            
+                            document.addEventListener('visibilitychange', function() {
+                                if (document.visibilityState === 'visible') {
+                                    // When page becomes visible again, resume any videos that should be playing
+                                    document.querySelectorAll('video[data-background-playback="enabled"]').forEach(function(video) {
+                                        if (video.__shouldBePlaying && video.paused) {
+                                            try {
+                                                console.log('[Background Video] Resuming after visibility change');
+                                                video.play().catch(e => console.error('Failed to resume video:', e));
+                                            } catch(e) {
+                                                console.error('[Background Video] Error resuming:', e);
+                                            }
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    }
+                    
+                    // Log for debugging
+                    console.log('[Background Video] Enabled for:', videoElement.src || 'video element');
+                }
+                
+                // Mark as initialized
+                window.__videoBackgroundPlaybackInitialized = true;
+                return true;
             })();
         """.trimIndent(), null)
     }

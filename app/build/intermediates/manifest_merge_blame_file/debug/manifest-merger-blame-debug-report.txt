@@ -223,8 +223,8 @@
 121-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:95:13-35
 122            android:exported="false"
 122-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:96:13-37
-123            android:foregroundServiceType="dataSync" >
-123-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:97:13-53
+123            android:foregroundServiceType="dataSync|mediaPlayback" >
+123-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:97:13-67
 124            <intent-filter>
 124-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:98:13-102:29
 125                <action android:name="com.tiddlywikibrowser.ACTION_REGISTER_WEBVIEW" />
