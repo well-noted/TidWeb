@@ -98,6 +98,11 @@ import kotlin.math.absoluteValue
 import androidx.compose.animation.AnimatedVisibilityScope
 import android.view.WindowManager
 import android.widget.FrameLayout
+import androidx.appcompat.app.AlertDialog
+import android.os.PowerManager
+import android.provider.Settings
+import android.os.PersistableBundle
+import android.view.KeyEvent
 
 // Memory threshold for optimization (50MB)
 private const val MEMORY_THRESHOLD = 50L * 1024L * 1024L
@@ -876,6 +881,9 @@ class MainActivity : ComponentActivity() {
             // Initialize WebView configuration first
             applyWebViewConfiguration()
 
+            // Check if battery optimization should be disabled
+            checkBatteryOptimization()
+
             // Synchronously load critical preferences before initializing services
             // Specifically load background mode state to ensure proper initialization
             loadBackgroundModePreference()
@@ -916,6 +924,48 @@ class MainActivity : ComponentActivity() {
             // Log and recover from initialization errors
             Log.e("MainActivity", "Error during app initialization", e)
             Toast.makeText(this, "Error initializing app. Please try again.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /**
+     * Check if the app is ignoring battery optimization, and request it if not
+     */
+    private fun checkBatteryOptimization() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+                val packageName = packageName
+                
+                if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                    // Show a dialog explaining why we need to disable battery optimization
+                    AlertDialog.Builder(this)
+                        .setTitle("Improve Video Playback")
+                        .setMessage("To ensure smooth video playback in the background, it's recommended to disable battery optimization for this app. Would you like to do this now?")
+                        .setPositiveButton("Yes") { _, _ ->
+                            try {
+                                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                    data = Uri.parse("package:$packageName")
+                                }
+                                startActivity(intent)
+                            } catch (e: Exception) {
+                                Log.e("MainActivity", "Failed to request ignore battery optimization", e)
+                                
+                                // Fallback if direct action fails
+                                try {
+                                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                    startActivity(intent)
+                                    Log.i("MainActivity", "Opened battery settings manually")
+                                } catch (e2: Exception) {
+                                    Log.e("MainActivity", "Failed to open battery settings", e2)
+                                }
+                            }
+                        }
+                        .setNegativeButton("Later", null)
+                        .show()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error checking battery optimization", e)
         }
     }
 
@@ -1526,8 +1576,37 @@ class MainActivity : ComponentActivity() {
                          })();
                      """.trimIndent(), null)
 
-                    // DO NOT explicitly pause or cache the WebView here when background mode is enabled.
-                    // BackgroundWebViewManager handles its lifecycle.
+                    // Force resume videos to ensure they keep playing in background
+                    backgroundWebViewManager.service?.forceResumeVideos()
+                    
+                    // Notify the service directly that app went to background
+                    val serviceIntent = Intent(this, BackgroundWebViewService::class.java).apply {
+                        action = BackgroundWebViewService.ACTION_APP_BACKGROUND
+                    }
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(serviceIntent)
+                        } else {
+                            startService(serviceIntent)
+                        }
+                        Log.d("MainActivity", "Sent app background notification to service")
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Failed to send background notification to service", e)
+                    }
+                    
+                    // Notify the video should keep playing when hidden
+                    webView.evaluateJavascript("""
+                        (function() {
+                            // Mark all playing videos to continue in background
+                            document.querySelectorAll('video').forEach(function(video) {
+                                if (!video.paused && !video.ended) {
+                                    video.__shouldBePlaying = true;
+                                    console.log('[BackgroundVideo] Video should keep playing in background');
+                                }
+                            });
+                            return true;
+                        })();
+                    """.trimIndent(), null)
                 }
             }
         }
@@ -1649,9 +1728,26 @@ class MainActivity : ComponentActivity() {
                 }
             }
         } else if (_isBackgroundEnabled.value) {
-            // If background mode is enabled, log it but do nothing else here.
-            // The BackgroundWebViewManager is responsible for the WebView lifecycle.
-            Log.d("MainActivity", "onStop - Background mode enabled, skipping standard cleanup.")
+            // If background mode is enabled, ensure videos keep playing in background
+            Log.d("MainActivity", "onStop - Background mode enabled, ensuring videos continue in background.")
+            
+            // Force resume any videos that should be playing
+            backgroundWebViewManager.forceResumeVideos()
+            
+            // Also make sure the service is still running with explicit background action
+            try {
+                val serviceIntent = Intent(this, BackgroundWebViewService::class.java).apply {
+                    action = BackgroundWebViewService.ACTION_APP_BACKGROUND
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(serviceIntent)
+                } else {
+                    startService(serviceIntent)
+                }
+                Log.d("MainActivity", "Sent explicit app background notification in onStop")
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error ensuring service is running in onStop", e)
+            }
         }
     }
 

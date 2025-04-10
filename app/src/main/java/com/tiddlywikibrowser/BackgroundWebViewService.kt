@@ -1,13 +1,23 @@
 package com.tiddlywikibrowser
 
 import android.app.*
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.media.AudioAttributes
+import android.media.AudioFormat
+import android.media.AudioManager
+import android.media.AudioTrack
+import android.net.Uri
 import android.os.Binder
 import android.os.Build
+import android.os.Build.VERSION
+import android.os.Build.VERSION_CODES
 import android.os.IBinder
 import android.os.PowerManager
+import android.provider.Settings
 import android.util.Log
 import android.webkit.WebView
 import androidx.core.app.NotificationCompat
@@ -34,6 +44,11 @@ class BackgroundWebViewService : Service() {
     // Keep track of whether we're playing video
     private var hasActiveVideo = false
     
+    private var screenStateReceiver: BroadcastReceiver? = null
+    
+    private var silentAudioTrack: AudioTrack? = null
+    private var batteryOptimizationRequested = false
+    
     // Binder for activity to communicate with service
     inner class LocalBinder : Binder() {
         fun getService(): BackgroundWebViewService = this@BackgroundWebViewService
@@ -45,9 +60,30 @@ class BackgroundWebViewService : Service() {
         super.onCreate()
         createNotificationChannel()
         acquireWakeLock()
+        acquireVideoWakeLock() // Always acquire video wake lock at start
+        
+        // Request ignore battery optimization
+        requestIgnoreBatteryOptimization()
         
         // Configure WebView for background media
         WebView.setWebContentsDebuggingEnabled(true)
+        
+        // Register for lifecycle changes using broadcast receivers
+        try {
+            registerScreenStateReceiver()
+            
+            Log.d(TAG, "BackgroundWebViewService will monitor video state periodically")
+            // Start a more frequent check for video playback status
+            ThreadManager.runOnBackgroundWithDelay(1000) {
+                if (isServiceRunning.get()) {
+                    forceResumeVideos() // Do an initial force-resume
+                    startVideoCheckLoop() // Start periodic checks
+                    startSilentAudio() // Start silent audio to keep CPU active
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to set up video monitoring: ${e.message}")
+        }
         
         Log.d(TAG, "BackgroundWebViewService created")
     }
@@ -74,6 +110,12 @@ class BackgroundWebViewService : Service() {
             
             // Start periodic health check
             startHealthCheck()
+            
+            // Ensure videos are playing if this was triggered by app going to background
+            if (intent?.action == ACTION_APP_BACKGROUND) {
+                Log.d(TAG, "App went to background, ensuring videos continue playing")
+                forceResumeVideos()
+            }
         }
         
         // Handle actions from the intent
@@ -92,6 +134,14 @@ class BackgroundWebViewService : Service() {
                     stopSelf()
                     isServiceRunning.set(false)
                 }
+                ACTION_FORCE_RESUME_VIDEOS -> {
+                    Log.d(TAG, "Received explicit request to force resume videos")
+                    forceResumeVideos()
+                }
+                ACTION_APP_BACKGROUND -> {
+                    Log.d(TAG, "App went to background, ensuring videos continue playing")
+                    forceResumeVideos()
+                }
             }
         }
         
@@ -100,6 +150,12 @@ class BackgroundWebViewService : Service() {
     
     override fun onDestroy() {
         super.onDestroy()
+        // Unregister receivers
+        unregisterScreenStateReceiver()
+        
+        // Stop silent audio
+        stopSilentAudio()
+        
         // Clean up all WebViews
         for (key in activeWebViews.keys()) {
             unregisterWebView(key)
@@ -132,38 +188,34 @@ class BackgroundWebViewService : Service() {
                     mediaPlaybackRequiresUserGesture = false
                     
                     // Critical setting for background video playback
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    if (VERSION.SDK_INT >= VERSION_CODES.LOLLIPOP) {
                         mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                     }
-
-                    // These additional settings help with video playback
-                    allowContentAccess = true
-                    allowFileAccess = true
-                    blockNetworkImage = false
-                    blockNetworkLoads = false
-                    loadsImagesAutomatically = true
                     
-                    // Performance optimization
-                    setRenderPriority(android.webkit.WebSettings.RenderPriority.HIGH)
-                    setEnableSmoothTransition(true)
-                    
-                    // Add caching for better video playback
-                    setCacheMode(android.webkit.WebSettings.LOAD_DEFAULT)
-                    
-                    // Increase buffer size for media playback (if available)
+                    // More explicit setting to ensure background playback works
                     try {
                         javaClass.getMethod("setMediaPlaybackRequiresUserGesture", Boolean::class.java)
                             .invoke(this, false)
-                        
-                        // Some devices have this method for buffer size
+                    } catch (e: Exception) {
+                        // Method not available, ignore
+                    }
+                    
+                    // Set data saver off to prevent throttling
+                    if (VERSION.SDK_INT >= VERSION_CODES.TIRAMISU) {
                         try {
-                            javaClass.getMethod("setMediaPlaybackRequiresBuffering", Boolean::class.java)
-                                .invoke(this, true)
+                            javaClass.getMethod("setDataSaverEnabled", Boolean::class.java)
+                                .invoke(this, false)
                         } catch (e: Exception) {
                             // Method not available, ignore
                         }
+                    }
+                    
+                    // Set process priority
+                    try {
+                        javaClass.getMethod("setProcessPriority", Int::class.java)
+                            .invoke(this, 1) // HIGH
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error setting advanced media settings: ${e.message}")
+                        // Method not available, ignore
                     }
                 }
                 
@@ -175,16 +227,6 @@ class BackgroundWebViewService : Service() {
                 
                 // Ensure WebView is resumed
                 webView.onResume()
-                
-                // Ensure sufficient priority for this WebView
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    try {
-                        webView.javaClass.getMethod("setThreadPriority", Int::class.java)
-                            .invoke(webView, Thread.MAX_PRIORITY)
-                    } catch (e: Exception) {
-                        // Method not available, ignore
-                    }
-                }
                 
                 // Inject periodic health check script
                 webView.evaluateJavascript("""
@@ -216,568 +258,216 @@ class BackgroundWebViewService : Service() {
     }
     
     /**
-     * Configure a WebView for background video playback
+     * Simpler and more direct approach to enable background video playback
      */
     private fun enableBackgroundVideoPlayback(webView: WebView) {
+        // First inject a script to prevent automatic pausing
         webView.evaluateJavascript("""
             (function() {
-                if (window.__backgroundVideoPlaybackInitialized) return true;
+                // First ensure we don't re-initialize if already set up
+                if (window.__backgroundVideoHackApplied) return true;
                 
-                // Keep track of playing videos
-                window.__activeVideos = [];
-                window.__globalVideoRefs = []; // Keep strong references to prevent GC
+                console.log("[BackgroundVideo] Applying critical background video hack");
                 
-                // Debug logging helper
-                function logDebug(msg) {
-                    console.log('[BackgroundVideo] ' + msg);
-                }
+                // HACK: Override the HTMLMediaElement.pause method to prevent auto-pausing
+                const originalPause = HTMLMediaElement.prototype.pause;
+                HTMLMediaElement.prototype.pause = function() {
+                    // If this is a system initiated pause (page hidden), prevent it
+                    if (document.visibilityState === 'hidden' && !this.ended && !this.userPaused) {
+                        console.log('[BackgroundVideo] Prevented pause in background');
+                        return undefined; // Must return undefined to prevent error
+                    }
+                    
+                    // Otherwise, allow the pause
+                    return originalPause.apply(this, arguments);
+                };
                 
-                // Override and patch key browser functions for video playback
-                function patchBrowserAPIs() {
-                    // Prevent automatic pausing of media elements
-                    if (typeof navigator.mediaSession !== 'undefined') {
-                        navigator.mediaSession.setActionHandler('pause', () => {
-                            logDebug('Intercepted mediaSession pause');
-                            // Don't actually pause if we're playing video in background
-                            if (document.visibilityState === 'hidden' && window.__activeVideos.length > 0) {
-                                return false;
+                // Track play events to know which videos should be playing
+                const originalPlay = HTMLMediaElement.prototype.play;
+                HTMLMediaElement.prototype.play = function() {
+                    // Mark that user wants this video to play
+                    this.userPaused = false;
+                    this.__shouldBePlaying = true;
+                    
+                    console.log('[BackgroundVideo] Video play requested');
+                    
+                    // Return the original play
+                    return originalPlay.apply(this, arguments);
+                };
+                
+                // Monitor visibility changes directly
+                document.addEventListener('visibilitychange', function() {
+                    if (document.visibilityState === 'visible') {
+                        console.log('[BackgroundVideo] Page became visible, checking videos');
+                        document.querySelectorAll('video').forEach(function(video) {
+                            // If video should be playing but got paused by the system
+                            if (video.__shouldBePlaying && video.paused && !video.ended && !video.userPaused) {
+                                console.log('[BackgroundVideo] Restarting video after visibility change');
+                                // Try to resume with a slight delay to let the system stabilize
+                                setTimeout(function() {
+                                    try {
+                                        video.play().catch(function(e) {
+                                            console.log('[BackgroundVideo] Error restarting: ' + e);
+                                        });
+                                    } catch(e) {
+                                        console.log('[BackgroundVideo] Exception restarting: ' + e);
+                                    }
+                                }, 50);
+                            }
+                        });
+                    } else {
+                        console.log('[BackgroundVideo] Page hidden, flagging playing videos');
+                        // Mark currently playing videos when page hides
+                        document.querySelectorAll('video').forEach(function(video) {
+                            if (!video.paused && !video.ended) {
+                                video.__shouldBePlaying = true;
+                                console.log('[BackgroundVideo] Video should keep playing in background');
                             }
                         });
                     }
-                    
-                    // Prevent page visibility API from affecting playback
-                    const originalVisibilityState = Object.getOwnPropertyDescriptor(Document.prototype, 'visibilityState');
-                    if (originalVisibilityState && originalVisibilityState.get) {
-                        Object.defineProperty(Document.prototype, 'visibilityState', {
-                            get: function() {
-                                // If videos are playing, pretend we're always visible
-                                if (window.__activeVideos.length > 0 && 
-                                    window.__activeVideos.some(v => v.__shouldBePlaying)) {
-                                    return 'visible';
+                }, false);
+                
+                // Set up a more aggressive monitoring system with multiple strategies
+                setInterval(function() {
+                    if (document.visibilityState === 'hidden') {
+                        document.querySelectorAll('video').forEach(function(video) {
+                            // Check if video should be playing but got paused by the system
+                            if (video.__shouldBePlaying && 
+                                video.paused && !video.ended && !video.userPaused) {
+                                console.log('[BackgroundVideo] Restarting background video (interval check)');
+                                try {
+                                    const playPromise = video.play();
+                                    if (playPromise !== undefined) {
+                                        playPromise.catch(function(e) {
+                                            console.log('[BackgroundVideo] Error restarting: ' + e);
+                                            // If autoplay was prevented, try again with muted
+                                            if (e.name === 'NotAllowedError') {
+                                                console.log('[BackgroundVideo] Retry with muted');
+                                                video.muted = true;
+                                                video.play().catch(function(e2) {
+                                                    console.log('[BackgroundVideo] Even muted failed: ' + e2);
+                                                });
+                                            }
+                                        });
+                                    }
+                                } catch(e) {
+                                    console.log('[BackgroundVideo] Exception during play: ' + e);
                                 }
-                                return originalVisibilityState.get.call(this);
                             }
                         });
                     }
-                    
-                    // Prevent requestAnimationFrame throttling in background
-                    const originalRAF = window.requestAnimationFrame;
-                    window.requestAnimationFrame = function(callback) {
-                        if (document.visibilityState === 'hidden' && window.__activeVideos.length > 0) {
-                            // Use setTimeout as fallback with similar timing
-                            return setTimeout(function() {
-                                callback(performance.now());
-                            }, 16); // ~60fps
-                        }
-                        return originalRAF(callback);
-                    };
-                }
+                }, 500);  // Check more frequently
                 
-                // Try to patch browser APIs
-                try {
-                    patchBrowserAPIs();
-                } catch(e) {
-                    console.error('[BackgroundVideo] Failed to patch browser APIs:', e);
-                }
-                
-                // Observer to watch for video elements
-                function setupVideoObserver() {
-                    // Create a mutation observer to detect when new videos are added
-                    const observer = new MutationObserver(function(mutations) {
-                        let videoAdded = false;
-                        mutations.forEach(function(mutation) {
-                            mutation.addedNodes.forEach(function(node) {
-                                if (node.nodeName === 'VIDEO' || 
-                                    (node.getElementsByTagName && node.getElementsByTagName('video').length > 0)) {
-                                    videoAdded = true;
+                // Listen for native pause clicks
+                document.addEventListener('click', function(e) {
+                    if (e.target && e.target.tagName === 'VIDEO') {
+                        // If user clicked on video while playing, they might want to pause
+                        if (!e.target.paused) {
+                            console.log('[BackgroundVideo] User may be pausing video');
+                            // Mark as user-paused after a short delay
+                            setTimeout(function() {
+                                if (e.target.paused) {
+                                    e.target.userPaused = true;
+                                    e.target.__shouldBePlaying = false;
+                                    console.log('[BackgroundVideo] Confirmed user pause');
                                 }
-                            });
-                        });
-                        
-                        if (videoAdded) {
-                            setupAllVideos();
+                            }, 100);
+                        } else {
+                            // User might be restarting
+                            console.log('[BackgroundVideo] User may be unpausing video');
+                            setTimeout(function() {
+                                if (!e.target.paused) {
+                                    e.target.userPaused = false;
+                                    e.target.__shouldBePlaying = true;
+                                    console.log('[BackgroundVideo] Confirmed user unpaused');
+                                }
+                            }, 100);
                         }
-                    });
-                    
-                    // Start observing the document with the configured parameters
-                    observer.observe(document.documentElement, { 
-                        childList: true,
-                        subtree: true
-                    });
-                }
+                    }
+                }, true);
                 
-                // Function to optimize video performance
-                function optimizeVideoPerformance(video) {
-                    // Set video buffer sizes
-                    if (video.bufferSize !== undefined) {
-                        video.bufferSize = 8388608; // 8MB buffer
+                // Detect when videos naturally end
+                document.addEventListener('ended', function(e) {
+                    if (e.target && e.target.tagName === 'VIDEO') {
+                        e.target.__shouldBePlaying = false;
+                        console.log('[BackgroundVideo] Video ended naturally');
                     }
-                    
-                    // Prevent stuttering by preloading the video
-                    video.preload = "auto";
-                    
-                    // Video quality hint
-                    if (typeof video.getVideoPlaybackQuality === 'function') {
-                        try {
-                            video.preservesPitch = false; // Save resources if we're just playing
-                        } catch (e) {
-                            // Not supported
-                        }
-                    }
-                    
-                    // Disable unneeded features
-                    video.disableRemotePlayback = true;
-                    
-                    // On some browsers/WebViews these are supported
-                    try {
-                        // Non-standard attributes for better performance
-                        if (typeof video.fastSeek === 'function') {
-                            video.__hasFastSeek = true;
-                        }
-                        if (video.mozHasAudio !== undefined) {
-                            // Mozilla specific optimization
-                            video.mozFrameBufferLength = 4; // larger buffer
-                        }
-                    } catch (e) {
-                        // Not supported
-                    }
-                    
-                    // Keep a global reference to prevent garbage collection
-                    window.__globalVideoRefs.push(video);
-                }
+                }, true);
                 
-                // Function to properly configure a video element for background playback
-                function setupVideoElement(video) {
-                    if (video.__backgroundPlaybackSetup) return;
+                // Mark as applied to prevent multiple initialization
+                window.__backgroundVideoHackApplied = true;
+                
+                return true;
+            })();
+        """.trimIndent(), null)
+        
+        // Continue with regular setup
+        webView.evaluateJavascript("""
+            (function() {
+                // Skip if already initialized
+                if (window.__backgroundVideoFullSetup) return true;
+                
+                console.log("[BackgroundVideo] Setting up full background video support");
+                
+                // Force all videos to have required attributes
+                function setupVideo(video) {
+                    if (video.__setupComplete) return;
                     
-                    logDebug('Setting up video for background playback');
-                    
-                    // Set critical attributes for background playback
+                    // Set critical attributes
                     video.setAttribute('playsinline', 'true');
                     video.setAttribute('webkit-playsinline', 'true');
                     video.setAttribute('x-webkit-airplay', 'allow');
                     
-                    // Improve buffering and reduce stuttering
-                    video.setAttribute('autobuffer', 'true');
-                    video.setAttribute('buffered', 'buffered');
-                    
-                    // These help with various browser/WebView implementations
-                    video.setAttribute('disablePictureInPicture', 'true');
-                    video.setAttribute('controlsList', 'nodownload nofullscreen noremoteplayback');
-                    
-                    // Force hardware acceleration
+                    // Hardware acceleration
                     video.style.transform = 'translateZ(0)';
                     
-                    // Check if video has a source
-                    const hasSource = video.src || 
-                                     (video.querySelector('source') !== null) ||
-                                     (video.srcObject !== null);
-                                     
-                    if (hasSource) {
-                        logDebug('Video has a source, optimizing playback');
-                        optimizeVideoPerformance(video);
-                    }
+                    // Special attributes for fullscreen and background support
+                    video.setAttribute('data-background-enabled', 'true');
                     
-                    // CRITICAL: Ensure video stays in view even when scrolled away
-                    if (!video.__keepVisibleInterval) {
-                        video.__keepVisibleInterval = setInterval(function() {
-                            if (video.__shouldBePlaying && !video.paused) {
-                                // Force element to remain in a valid state for playback
-                                if (video.offsetWidth === 0 || video.offsetHeight === 0) {
-                                    // Set minimum dimensions to keep it in the layout engine
-                                    video.style.position = 'fixed';
-                                    video.style.top = '-5px';
-                                    video.style.left = '-5px';
-                                    video.style.width = '10px';
-                                    video.style.height = '10px';
-                                    video.style.opacity = '0.01';
-                                    video.style.pointerEvents = 'none';
-                                    video.style.zIndex = '999999';
-                                    
-                                    // Keep this size for a moment to ensure rendering occurs
-                                    video.__isInForcedVisibleState = true;
-                                    
-                                    // Reset after ensuring continuous playback
-                                    setTimeout(function() {
-                                        if (!video.__shouldBePlaying) return;
-                                        
-                                        video.style.position = '';
-                                        video.style.top = '';
-                                        video.style.left = '';
-                                        video.style.width = '';
-                                        video.style.height = '';
-                                        video.style.opacity = '';
-                                        video.style.pointerEvents = '';
-                                        video.style.zIndex = '';
-                                        video.__isInForcedVisibleState = false;
-                                    }, 200);
-                                }
-                            }
-                        }, 1000);
-                    }
+                    // Add stronger CSS to enforce hardware acceleration and prevent hiding
+                    const videoElementId = 'video-' + Math.floor(Math.random() * 100000);
+                    video.id = videoElementId;
                     
-                    // Add a buffering monitor to prevent stuttering
-                    if (!video.__bufferMonitor) {
-                        video.__bufferMonitor = setInterval(function() {
-                            if (video.__shouldBePlaying && !video.paused) {
-                                // Check buffered ranges
-                                let bufferedAhead = 0;
-                                if (video.buffered && video.buffered.length > 0) {
-                                    for (let i = 0; i < video.buffered.length; i++) {
-                                        if (video.buffered.start(i) <= video.currentTime && 
-                                            video.buffered.end(i) > video.currentTime) {
-                                            bufferedAhead = video.buffered.end(i) - video.currentTime;
-                                            break;
-                                        }
-                                    }
-                                }
-                                
-                                // If we have less than 2 seconds buffered ahead, try to improve buffering
-                                if (bufferedAhead < 2 && !video.__isBuffering) {
-                                    logDebug('Low buffer detected (' + bufferedAhead.toFixed(1) + 's), optimizing');
-                                    video.__isBuffering = true;
-                                    
-                                    // Temporarily pause to allow buffer to fill
-                                    const wasPlaying = !video.paused;
-                                    if (wasPlaying) {
-                                        // Use the original pause to avoid our override
-                                        video.__originalPause();
-                                    }
-                                    
-                                    // After a short delay, resume playback with more buffer
-                                    setTimeout(function() {
-                                        if (video.__shouldBePlaying && wasPlaying) {
-                                            // If we were playing, resume
-                                            video.play().catch(e => {
-                                                logDebug('Error resuming after buffer: ' + e);
-                                            });
-                                        }
-                                        video.__isBuffering = false;
-                                    }, 500);
-                                }
-                            }
-                        }, 2000);
-                    }
+                    // Create a style tag to add critical CSS
+                    const style = document.createElement('style');
+                    style.innerHTML = '#' + videoElementId + ' { will-change: transform; transform: translateZ(0); backface-visibility: hidden; }';
+                    document.head.appendChild(style);
                     
-                    // Store the original pause method for buffer management
-                    if (!video.__originalPause) {
-                        video.__originalPause = video.pause;
-                    }
+                    // Mark as set up
+                    video.__setupComplete = true;
+                    video.__shouldBePlaying = !video.paused && !video.ended;
                     
-                    // Track when video is actually playing
-                    video.addEventListener('playing', function() {
-                        video.__isPlaying = true;
+                    // Notify Android when video starts playing
+                    video.addEventListener('play', function() {
                         video.__shouldBePlaying = true;
-                        notifyNativeAboutPlaybackState(true);
                         
-                        logDebug('Video playing event triggered');
-                        
-                        // Add to active videos list if not already there
-                        if (!window.__activeVideos.includes(video)) {
-                            window.__activeVideos.push(video);
-                        }
-                    });
-                    
-                    // Capture and handle pause events
-                    video.addEventListener('pause', function(e) {
-                        // Only mark as not playing if this isn't a temporary buffer pause
-                        if (!video.__isBuffering) {
-                            video.__isPlaying = false;
-                        } else {
-                            logDebug('Ignoring pause during buffering');
-                            return;
-                        }
-                        
-                        // If video should be playing but was paused by system, resume it
-                        if (video.__shouldBePlaying) {
-                            logDebug('Video was paused but should be playing, resuming');
-                            
-                            // Small delay before resuming to avoid rapid pause/play cycles
-                            setTimeout(function() {
-                                if (video.__shouldBePlaying && !video.__isBuffering) {
-                                    resumeVideoPlay(video);
-                                }
-                            }, 50);
-                        }
-                    });
-                    
-                    // Monitor playback for stuttering
-                    let lastTime = 0;
-                    let stuckCounter = 0;
-                    
-                    video.addEventListener('timeupdate', function() {
-                        if (video.__shouldBePlaying && !video.paused) {
-                            // Check if playback time is advancing
-                            if (Math.abs(video.currentTime - lastTime) < 0.05) {
-                                stuckCounter++;
-                                
-                                // If stuck for multiple consecutive checks, try to unstick
-                                if (stuckCounter >= 3 && !video.__isBuffering) {
-                                    logDebug('Playback appears stuck, attempting to unstick');
-                                    
-                                    // Toggle a small seek to unstick
-                                    const currentTime = video.currentTime;
-                                    if (video.__hasFastSeek) {
-                                        try {
-                                            // Try to use fast seek if available
-                                            video.fastSeek(currentTime + 0.1);
-                                        } catch (e) {
-                                            video.currentTime = currentTime + 0.1;
-                                        }
-                                    } else {
-                                        video.currentTime = currentTime + 0.1;
-                                    }
-                                    
-                                    stuckCounter = 0;
-                                }
-                            } else {
-                                // Reset counter if time is advancing normally
-                                stuckCounter = 0;
+                        if (window.MediaInterface) {
+                            try {
+                                window.MediaInterface.onMediaStateChange(
+                                    video.getAttribute('title') || 'TiddlyWiki Video',
+                                    'TiddlyWiki',
+                                    Math.floor(video.duration * 1000 || 0),
+                                    Math.floor(video.currentTime * 1000 || 0),
+                                    true
+                                );
+                            } catch(e) {
+                                console.error('[BackgroundVideo] MediaInterface error:', e);
                             }
-                            
-                            lastTime = video.currentTime;
                         }
                     });
                     
-                    // When user explicitly pauses
-                    video.addEventListener('userPause', function() {
-                        video.__shouldBePlaying = false;
-                        
-                        // Remove from active videos
-                        const index = window.__activeVideos.indexOf(video);
-                        if (index > -1) {
-                            window.__activeVideos.splice(index, 1);
-                        }
-                        
-                        if (window.__activeVideos.length === 0) {
-                            notifyNativeAboutPlaybackState(false);
-                        }
-                    });
-                    
-                    // When video ends
+                    // Notify when video is done
                     video.addEventListener('ended', function() {
                         video.__shouldBePlaying = false;
-                        video.__isPlaying = false;
                         
-                        // Remove from active videos
-                        const index = window.__activeVideos.indexOf(video);
-                        if (index > -1) {
-                            window.__activeVideos.splice(index, 1);
-                        }
-                        
-                        if (window.__activeVideos.length === 0) {
-                            notifyNativeAboutPlaybackState(false);
-                        }
-                    });
-                    
-                    // Override the pause method to detect when system pauses
-                    video.pause = function() {
-                        // Don't intercept during buffering management
-                        if (video.__isBuffering) {
-                            return video.__originalPause.apply(this, arguments);
-                        }
-                        
-                        // Detect if this is a system-initiated pause vs. user-initiated
-                        const isUserAction = isUserInitiated();
-                        
-                        if (!isUserAction && video.__shouldBePlaying) {
-                            logDebug('Intercepted system pause call');
-                            // Prevent system pause by returning without calling original
-                            return;
-                        }
-                        
-                        // If this is a user pause, mark it
-                        if (isUserAction) {
-                            video.__shouldBePlaying = false;
-                            video.dispatchEvent(new Event('userPause'));
-                        }
-                        
-                        // Call original
-                        return video.__originalPause.apply(this, arguments);
-                    };
-                    
-                    // Mark as setup
-                    video.__backgroundPlaybackSetup = true;
-                }
-                
-                // Helper function to detect if an action is user-initiated
-                function isUserInitiated() {
-                    // This is a heuristic - most system operations happen during hidden state
-                    return document.visibilityState === 'visible' || 
-                           (typeof document.hasFocus === 'function' && document.hasFocus());
-                }
-                
-                // Function to setup all video elements on the page
-                function setupAllVideos() {
-                    document.querySelectorAll('video').forEach(setupVideoElement);
-                }
-                
-                // Function to attempt resuming video playback with multiple retries
-                function resumeVideoPlay(video, attempts = 5) {
-                    if (!attempts || !video.__shouldBePlaying) return;
-                    
-                    logDebug('Attempting to resume (' + attempts + ' attempts left)');
-                    
-                    try {
-                        // Don't attempt resume during buffering management
-                        if (video.__isBuffering) {
-                            logDebug('Skipping resume during active buffering');
-                            return;
-                        }
-                    
-                        // Make sure video is visible to the system before playing
-                        if (!video.__isInForcedVisibleState) {
-                            video.style.position = 'fixed';
-                            video.style.top = '-5px';
-                            video.style.left = '-5px';
-                            video.style.width = '10px';
-                            video.style.height = '10px';
-                            video.style.opacity = '0.01';
-                            video.style.zIndex = '999999';
-                            video.__isInForcedVisibleState = true;
-                        }
-                        
-                        // First, make sure we have adequate buffer
-                        let hasBuffer = false;
-                        if (video.buffered && video.buffered.length > 0) {
-                            for (let i = 0; i < video.buffered.length; i++) {
-                                if (video.buffered.start(i) <= video.currentTime && 
-                                    video.buffered.end(i) > video.currentTime + 1) {
-                                    hasBuffer = true;
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        // If we don't have buffer, wait briefly before trying play
-                        if (!hasBuffer && video.readyState < 3) {
-                            logDebug('Waiting for buffer before resuming');
-                            setTimeout(() => resumeVideoPlay(video, attempts), 200);
-                            return;
-                        }
-                        
-                        const playPromise = video.play();
-                        
-                        if (playPromise !== undefined) {
-                            playPromise.then(() => {
-                                logDebug('Successfully resumed playback');
-                                video.__isPlaying = true;
-                                
-                                // Reset the style after successful playback starts
-                                setTimeout(() => {
-                                    if (video.__isInForcedVisibleState) {
-                                        video.style.position = '';
-                                        video.style.top = '';
-                                        video.style.left = '';
-                                        video.style.width = '';
-                                        video.style.height = '';
-                                        video.style.opacity = '';
-                                        video.style.zIndex = '';
-                                        video.__isInForcedVisibleState = false;
-                                    }
-                                }, 200);
-                            }).catch(err => {
-                                logDebug('Play failed: ' + err);
-                                
-                                // Reset style
-                                if (video.__isInForcedVisibleState) {
-                                    video.style.position = '';
-                                    video.style.top = '';
-                                    video.style.left = '';
-                                    video.style.width = '';
-                                    video.style.height = '';
-                                    video.style.opacity = '';
-                                    video.style.zIndex = '';
-                                    video.__isInForcedVisibleState = false;
-                                }
-                                
-                                if (attempts > 1 && video.__shouldBePlaying) {
-                                    // Try again after a delay with exponential backoff
-                                    setTimeout(() => resumeVideoPlay(video, attempts - 1), 300 * (6-attempts));
-                                }
-                            });
-                        }
-                    } catch (e) {
-                        logDebug('Exception during play: ' + e);
-                        
-                        // Reset style
-                        if (video.__isInForcedVisibleState) {
-                            video.style.position = '';
-                            video.style.top = '';
-                            video.style.left = '';
-                            video.style.width = '';
-                            video.style.height = '';
-                            video.style.opacity = '';
-                            video.style.zIndex = '';
-                            video.__isInForcedVisibleState = false;
-                        }
-                        
-                        if (attempts > 1 && video.__shouldBePlaying) {
-                            setTimeout(() => resumeVideoPlay(video, attempts - 1), 300 * (6-attempts));
-                        }
-                    }
-                }
-                
-                // Function to handle page visibility changes
-                function handleVisibilityChange() {
-                    if (document.visibilityState === 'hidden') {
-                        // Page is now hidden, maintain playing videos
-                        window.__activeVideos.forEach(video => {
-                            if (video.__isPlaying) {
-                                // Make sure video keeps playing in background
-                                console.log('[BackgroundVideo] Page hidden, ensuring playback continues');
-                                video.__shouldBePlaying = true;
-                                
-                                // Force continuation
-                                resumeVideoPlay(video);
-                            }
+                        // Only notify if no other videos are playing
+                        let otherPlaying = false;
+                        document.querySelectorAll('video').forEach(function(v) {
+                            if (v !== video && !v.paused && !v.ended) otherPlaying = true;
                         });
                         
-                        // Set a recurring check while page is hidden
-                        if (!window.__backgroundVideoInterval) {
-                            window.__backgroundVideoInterval = setInterval(() => {
-                                window.__activeVideos.forEach(video => {
-                                    if (video.__shouldBePlaying && !video.__isPlaying) {
-                                        resumeVideoPlay(video);
-                                    }
-                                });
-                            }, 1000);
-                        }
-                    } else if (document.visibilityState === 'visible') {
-                        // Page is visible again
-                        if (window.__backgroundVideoInterval) {
-                            clearInterval(window.__backgroundVideoInterval);
-                            window.__backgroundVideoInterval = null;
-                        }
-                        
-                        // Resume any videos that should be playing
-                        window.__activeVideos.forEach(video => {
-                            if (video.__shouldBePlaying && !video.__isPlaying) {
-                                resumeVideoPlay(video);
-                            }
-                        });
-                    }
-                }
-                
-                // Function to notify native code about video playback state
-                function notifyNativeAboutPlaybackState(isPlaying) {
-                    if (window.MediaInterface) {
-                        try {
-                            if (isPlaying) {
-                                // Find the first playing video to get its metadata
-                                const activeVideo = window.__activeVideos.find(v => v.__isPlaying) || 
-                                                  window.__activeVideos[0];
-                                
-                                if (activeVideo) {
-                                    window.MediaInterface.onMediaStateChange(
-                                        activeVideo.getAttribute('title') || 'TiddlyWiki Video',
-                                        'TiddlyWiki Video',
-                                        Math.floor(activeVideo.duration * 1000 || 0),
-                                        Math.floor(activeVideo.currentTime * 1000 || 0),
-                                        true
-                                    );
-                                }
-                            } else {
+                        if (!otherPlaying && window.MediaInterface) {
+                            try {
                                 window.MediaInterface.onMediaStateChange(
                                     'TiddlyWiki Video',
                                     'TiddlyWiki',
@@ -785,64 +475,86 @@ class BackgroundWebViewService : Service() {
                                     0,
                                     false
                                 );
+                            } catch(e) {
+                                console.error('[BackgroundVideo] MediaInterface error:', e);
                             }
-                        } catch (e) {
-                            console.error('[BackgroundVideo] Failed to notify native:', e);
+                        }
+                    });
+                }
+                
+                // Set up all existing videos
+                document.querySelectorAll('video').forEach(setupVideo);
+                
+                // Watch for new videos
+                new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        mutation.addedNodes.forEach(function(node) {
+                            if (node.tagName === 'VIDEO') {
+                                setupVideo(node);
+                            } else if (node.querySelectorAll) {
+                                node.querySelectorAll('video').forEach(setupVideo);
+                            }
+                        });
+                    });
+                }).observe(document, {childList: true, subtree: true});
+                
+                // Periodic check for video playing status
+                setInterval(function() {
+                    let hasPlayingVideo = false;
+                    document.querySelectorAll('video').forEach(function(video) {
+                        // Apply setup to any new videos
+                        if (!video.__setupComplete) {
+                            setupVideo(video);
+                        }
+                        
+                        if (!video.paused && !video.ended) {
+                            hasPlayingVideo = true;
+                        }
+                    });
+                    
+                    // Update Android about playback state
+                    if (hasPlayingVideo && window.MediaInterface) {
+                        const playingVideo = Array.from(document.querySelectorAll('video'))
+                            .find(v => !v.paused && !v.ended);
+                            
+                        if (playingVideo) {
+                            try {
+                                window.MediaInterface.onMediaStateChange(
+                                    playingVideo.getAttribute('title') || 'TiddlyWiki Video',
+                                    'TiddlyWiki',
+                                    Math.floor(playingVideo.duration * 1000 || 0),
+                                    Math.floor(playingVideo.currentTime * 1000 || 0),
+                                    true
+                                );
+                            } catch(e) {
+                                console.error('[BackgroundVideo] MediaInterface error:', e);
+                            }
                         }
                     }
-                }
+                }, 2000);
                 
-                // Periodic check for active videos
-                function periodicVideoCheck() {
-                    // Clean up any ended or removed videos from active list
-                    window.__activeVideos = window.__activeVideos.filter(v => {
-                        return document.body.contains(v) && !v.ended;
-                    });
-                    
-                    // Check all current videos
-                    document.querySelectorAll('video').forEach(video => {
-                        // Setup if not already
-                        setupVideoElement(video);
-                        
-                        // Check if playing
-                        if (!video.paused && !video.ended) {
-                            video.__isPlaying = true;
-                            video.__shouldBePlaying = true;
-                            
-                            // Add to active videos if not there
-                            if (!window.__activeVideos.includes(video)) {
-                                window.__activeVideos.push(video);
+                // Add a helper function to force resume all videos that should be playing
+                window.forceResumeBackgroundVideos = function() {
+                    document.querySelectorAll('video').forEach(function(video) {
+                        if (video.__shouldBePlaying && video.paused && !video.ended) {
+                            console.log('[BackgroundVideo] Forcing resume of video');
+                            try {
+                                video.play().catch(e => console.log('[BackgroundVideo] Resume error:', e));
+                            } catch(e) {
+                                console.log('[BackgroundVideo] Resume exception:', e);
                             }
                         }
                     });
-                    
-                    // Notify native if we have active videos
-                    notifyNativeAboutPlaybackState(window.__activeVideos.length > 0);
-                    
-                    return window.__activeVideos.length > 0;
-                }
+                    return true;
+                };
                 
-                // Initialize tracking array
-                window.__activeVideos = [];
+                // Mark as fully set up
+                window.__backgroundVideoFullSetup = true;
                 
-                // Override Page Visibility API for video playback
-                document.addEventListener('visibilitychange', handleVisibilityChange);
-                
-                // Run initial setup
-                setupAllVideos();
-                setupVideoObserver();
-                
-                // More frequent checks during active video playback
-                setInterval(periodicVideoCheck, 2000);
-                
-                // Mark as initialized
-                window.__backgroundVideoPlaybackInitialized = true;
-                
-                // Do an initial check
-                return periodicVideoCheck();
+                return true;
             })();
         """.trimIndent()) { result ->
-            // If we found active videos during initialization, update state
+            // If setup was successful
             if (result.contains("true")) {
                 hasActiveVideo = true
                 acquireVideoWakeLock()
@@ -922,42 +634,14 @@ class BackgroundWebViewService : Service() {
                 try {
                     webView.evaluateJavascript("""
                         (function() {
-                            // Return if no tracking array or it's empty
-                            if (!window.__activeVideos || window.__activeVideos.length === 0) {
-                                // Do a fresh check just to be sure
-                                let foundVideo = false;
-                                document.querySelectorAll('video').forEach(function(video) {
-                                    if (!video.paused && !video.ended) {
-                                        foundVideo = true;
-                                        
-                                        // Try to set up the video if not already set up
-                                        if (typeof setupVideoElement === 'function' && !video.__backgroundPlaybackSetup) {
-                                            setupVideoElement(video);
-                                        }
-                                    }
-                                });
-                                return foundVideo;
-                            }
-                            
-                            // Check if we have any active videos from our tracking
-                            let hasActiveVideo = false;
-                            window.__activeVideos.forEach(function(video) {
-                                if (video.__isPlaying || (!video.paused && !video.ended)) {
-                                    hasActiveVideo = true;
-                                    
-                                    // Make sure video is actually playing
-                                    if (video.paused && video.__shouldBePlaying) {
-                                        console.log('[BackgroundVideo] Video check found paused video, resuming');
-                                        try {
-                                            video.play().catch(e => console.error('[BackgroundVideo] Resume error:', e));
-                                        } catch(e) {
-                                            console.error('[BackgroundVideo] Exception during resume:', e);
-                                        }
-                                    }
+                            // Check if any videos are currently playing
+                            let hasPlayingVideo = false;
+                            document.querySelectorAll('video').forEach(function(video) {
+                                if (!video.paused && !video.ended) {
+                                    hasPlayingVideo = true;
                                 }
                             });
-                            
-                            return hasActiveVideo;
+                            return hasPlayingVideo;
                         })();
                     """.trimIndent()) { result ->
                         try {
@@ -983,6 +667,143 @@ class BackgroundWebViewService : Service() {
                 hasActiveVideo = false
                 releaseVideoWakeLock()
                 updateNotification()
+            }
+        }
+    }
+    
+    /**
+     * Force resume videos that should be playing. 
+     * Call this when app goes to background to ensure videos keep playing
+     */
+    fun forceResumeVideos() {
+        if (activeWebViews.isEmpty()) {
+            return
+        }
+        
+        Log.d(TAG, "Forcing resume of any videos that should be playing")
+        
+        // Ensure we have the necessary wake locks
+        acquireWakeLock()
+        acquireVideoWakeLock()
+        
+        // Ensure silent audio is playing
+        if (silentAudioTrack == null || silentAudioTrack?.state != AudioTrack.STATE_INITIALIZED) {
+            startSilentAudio()
+        }
+        
+        // Check each WebView and force resume any videos
+        for ((_, webView) in activeWebViews) {
+            ThreadManager.runOnMain {
+                try {
+                    // Ensure the WebView is completely resumed
+                    webView.onResume()
+                    
+                    // Try a more aggressive approach with direct WebView configuration
+                    try {
+                        webView.settings.javaClass.getDeclaredMethod("setMediaPlaybackRequiresUserGesture", Boolean::class.java)
+                            .invoke(webView.settings, false)
+                    } catch (e: Exception) {
+                        // Ignore if method not available
+                    }
+                    
+                    // Call the helper function we added in the JavaScript
+                    webView.evaluateJavascript("window.forceResumeBackgroundVideos ? window.forceResumeBackgroundVideos() : false;", { result ->
+                        if (result.contains("true")) {
+                            Log.d(TAG, "Successfully forced video resumption")
+                            hasActiveVideo = true
+                            acquireVideoWakeLock()
+                            updateNotification()
+                        }
+                    })
+                    
+                    // Also try to directly play any videos marked as should be playing
+                    webView.evaluateJavascript("""
+                        (function() {
+                            let resumed = false;
+                            document.querySelectorAll('video').forEach(function(video) {
+                                // Extra aggressive forcing
+                                if (video.paused) {
+                                    // First mark that it should be playing
+                                    video.__shouldBePlaying = true;
+                                    video.userPaused = false;
+                                    
+                                    console.log('[BackgroundService] Force resuming video');
+                                    try {
+                                        // Add temporary event listeners to catch any errors
+                                        let errorHandler = function(e) {
+                                            console.log('[BackgroundService] Video error during force resume:', e);
+                                            // Try once more with muted if it's an autoplay error
+                                            if (e.name === 'NotAllowedError') {
+                                                video.muted = true;
+                                                video.play().catch(e2 => console.log('[BackgroundService] Even muted failed:', e2));
+                                            }
+                                            video.removeEventListener('error', errorHandler);
+                                        };
+                                        video.addEventListener('error', errorHandler, {once: true});
+                                        
+                                        // Force video to play
+                                        video.loop = true; // Add loop to prevent ending
+                                        video.controls = true; // Show controls for user interaction
+                                        video.currentTime = video.currentTime; // Force time update
+                                        
+                                        // Play with high priority
+                                        const playPromise = video.play();
+                                        if (playPromise !== undefined) {
+                                            playPromise.then(() => {
+                                                console.log('[BackgroundService] Successfully resumed video');
+                                                resumed = true;
+                                                
+                                                // Dispatch events to trigger browser activity
+                                                video.dispatchEvent(new Event('timeupdate'));
+                                                video.dispatchEvent(new Event('playing'));
+                                            }).catch(e => {
+                                                console.log('[BackgroundService] Error resuming:', e);
+                                                // Try once more with muted if autoplay was prevented
+                                                if (e.name === 'NotAllowedError') {
+                                                    video.muted = true;
+                                                    video.play().catch(e2 => {
+                                                        console.log('[BackgroundService] Even muted failed:', e2);
+                                                    });
+                                                }
+                                            });
+                                        }
+                                    } catch(e) {
+                                        console.log('[BackgroundService] Exception during force play:', e);
+                                    }
+                                } else {
+                                    // Already playing, make sure it stays that way
+                                    video.__shouldBePlaying = true;
+                                    video.userPaused = false;
+                                    resumed = true;
+                                }
+                            });
+                            return resumed;
+                        })();
+                    """.trimIndent()) { result ->
+                        if (result.contains("true")) {
+                            Log.d(TAG, "Successfully resumed at least one video")
+                            hasActiveVideo = true
+                            acquireVideoWakeLock()
+                            updateNotification()
+                        }
+                    }
+                    
+                    // Add a force run to restart any browser internal processes
+                    webView.evaluateJavascript("""
+                        (function() {
+                            // Try to trigger browser activity by forcing layout and style recalculation
+                            if (document.body) {
+                                document.body.style.zoom = 0.99;
+                                setTimeout(function() {
+                                    document.body.style.zoom = 1;
+                                }, 10);
+                            }
+                            return true;
+                        })();
+                    """.trimIndent(), null)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error forcing video resumption: ${e.message}")
+                }
             }
         }
     }
@@ -1050,8 +871,9 @@ class BackgroundWebViewService : Service() {
                 WAKELOCK_TAG
             ).apply {
                 setReferenceCounted(false)
-                acquire(10*60*1000L /*10 minutes*/)
+                acquire() // Acquire indefinitely - we'll manage release manually
             }
+            Log.d(TAG, "Acquired main wake lock indefinitely")
         }
     }
     
@@ -1059,6 +881,7 @@ class BackgroundWebViewService : Service() {
         wakeLock?.let {
             if (it.isHeld) {
                 it.release()
+                Log.d(TAG, "Released main wake lock")
             }
             wakeLock = null
         }
@@ -1074,12 +897,17 @@ class BackgroundWebViewService : Service() {
                 )
                 videoWakeLock?.apply {
                     setReferenceCounted(false)
-                    acquire(3*60*60*1000L) // Hold for up to 3 hours max
+                    acquire() // Acquire indefinitely - we'll manage release manually
                 }
-                Log.d(TAG, "Video wake lock acquired")
+                Log.d(TAG, "Video wake lock acquired indefinitely")
                 
                 // Start a more aggressive check when video is playing
                 startVideoCheckLoop()
+                
+                // Start silent audio if we don't have it running
+                if (silentAudioTrack == null) {
+                    startSilentAudio()
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to acquire video wakelock: ${e.message}")
             }
@@ -1136,6 +964,11 @@ class BackgroundWebViewService : Service() {
                                 // Try to recover the WebView
                                 recoverWebView(key, webView)
                             }
+                            
+                            // Always check for videos that might need resuming
+                            if (hasActiveVideo) {
+                                forceResumeVideos()
+                            }
                         } catch (e: Exception) {
                             Log.e(TAG, "Error checking WebView health: ${e.message}")
                         }
@@ -1172,6 +1005,9 @@ class BackgroundWebViewService : Service() {
                 // Ensure WebView is resumed
                 webView.onResume()
                 
+                // Force resume any videos that should be playing
+                forceResumeVideos()
+                
                 Log.d(TAG, "Successfully recovered WebView: $key")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to recover WebView: ${e.message}")
@@ -1182,10 +1018,210 @@ class BackgroundWebViewService : Service() {
         }
     }
     
+    private fun registerScreenStateReceiver() {
+        // Unregister any existing receiver first
+        unregisterScreenStateReceiver()
+        
+        // Create a new receiver to detect screen state changes
+        screenStateReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                when (intent.action) {
+                    Intent.ACTION_SCREEN_OFF -> {
+                        Log.d(TAG, "Screen turned OFF, ensuring video playback can continue")
+                        // Force wake lock when screen turns off
+                        acquireWakeLock()
+                        acquireVideoWakeLock()
+                        // Delayed force resume to ensure it happens after the system settles
+                        ThreadManager.runOnBackgroundWithDelay(1000) {
+                            forceResumeVideos()
+                        }
+                    }
+                    Intent.ACTION_SCREEN_ON -> {
+                        Log.d(TAG, "Screen turned ON, verifying video playback")
+                        // Check video state after screen turns on
+                        ThreadManager.runOnBackgroundWithDelay(500) {
+                            checkForActiveVideo()
+                            forceResumeVideos()
+                        }
+                    }
+                    Intent.ACTION_USER_PRESENT -> {
+                        Log.d(TAG, "User present, verifying video playback")
+                        // User unlocked the device, check video state
+                        ThreadManager.runOnBackgroundWithDelay(500) {
+                            checkForActiveVideo()
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Register the receiver
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_USER_PRESENT)
+        }
+        
+        registerReceiver(screenStateReceiver, filter)
+        Log.d(TAG, "Registered screen state receiver")
+    }
+    
+    private fun unregisterScreenStateReceiver() {
+        screenStateReceiver?.let {
+            try {
+                unregisterReceiver(it)
+                Log.d(TAG, "Unregistered screen state receiver")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error unregistering screen state receiver: ${e.message}")
+            }
+        }
+        screenStateReceiver = null
+    }
+    
+    /**
+     * Request that the app be whitelisted from battery optimizations
+     * This helps keep background processes running at full speed
+     */
+    private fun requestIgnoreBatteryOptimization() {
+        if (batteryOptimizationRequested) return
+        
+        try {
+            if (VERSION.SDK_INT >= VERSION_CODES.M) {
+                val packageName = packageName
+                val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+                
+                if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                    // We can't directly request this from a service, but we can show a notification
+                    // that the user can click to go to the battery optimization settings
+                    val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:$packageName")
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    
+                    val pendingIntent = PendingIntent.getActivity(
+                        this,
+                        0,
+                        intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    
+                    val notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+                        .setContentTitle("Improve Background Playback")
+                        .setContentText("Tap to disable battery optimization for smoother video playback")
+                        .setSmallIcon(R.drawable.ic_notification)
+                        .setContentIntent(pendingIntent)
+                        .setAutoCancel(true)
+                        .build()
+                    
+                    notificationManager.notify(1002, notification)
+                    Log.d(TAG, "Displayed notification to request ignoring battery optimization")
+                } else {
+                    Log.d(TAG, "App is already ignoring battery optimizations")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to request ignoring battery optimization: ${e.message}")
+        }
+        
+        batteryOptimizationRequested = true
+    }
+    
+    /**
+     * Start playing a silent audio track to help keep the CPU active
+     * This is a common technique to prevent Android from throttling background processes
+     */
+    private fun startSilentAudio() {
+        stopSilentAudio() // Stop any existing track first
+        
+        try {
+            // Create a silent audio track
+            val bufferSize = AudioTrack.getMinBufferSize(
+                8000, 
+                AudioFormat.CHANNEL_OUT_MONO,
+                AudioFormat.ENCODING_PCM_16BIT
+            )
+            
+            if (bufferSize <= 0) {
+                Log.e(TAG, "Invalid buffer size for silent audio")
+                return
+            }
+            
+            // Create silence - all zeros
+            val silentBuffer = ByteArray(bufferSize)
+            
+            // Create and start the AudioTrack
+            if (VERSION.SDK_INT >= VERSION_CODES.M) {
+                val audioAttributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
+                    .build()
+                
+                val audioFormat = AudioFormat.Builder()
+                    .setSampleRate(8000)
+                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                    .build()
+                
+                silentAudioTrack = AudioTrack.Builder()
+                    .setAudioAttributes(audioAttributes)
+                    .setAudioFormat(audioFormat)
+                    .setBufferSizeInBytes(bufferSize)
+                    .setTransferMode(AudioTrack.MODE_STREAM)
+                    .build()
+            } else {
+                @Suppress("DEPRECATION")
+                silentAudioTrack = AudioTrack(
+                    AudioManager.STREAM_MUSIC,
+                    8000,
+                    AudioFormat.CHANNEL_OUT_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT,
+                    bufferSize,
+                    AudioTrack.MODE_STREAM
+                )
+            }
+            
+            silentAudioTrack?.play()
+            
+            // Start a thread that keeps writing silence to the AudioTrack
+            ThreadManager.runOnBackground {
+                try {
+                    while (isServiceRunning.get() && silentAudioTrack != null) {
+                        silentAudioTrack?.write(silentBuffer, 0, silentBuffer.size)
+                        Thread.sleep(500) // Write every 500ms
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in silent audio thread: ${e.message}")
+                }
+            }
+            
+            Log.d(TAG, "Started silent audio track")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start silent audio: ${e.message}")
+        }
+    }
+    
+    /**
+     * Stop the silent audio track
+     */
+    private fun stopSilentAudio() {
+        try {
+            silentAudioTrack?.stop()
+            silentAudioTrack?.release()
+            silentAudioTrack = null
+            Log.d(TAG, "Stopped silent audio track")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping silent audio: ${e.message}")
+        }
+    }
+    
     companion object {
         const val ACTION_REGISTER_WEBVIEW = "com.tiddlywikibrowser.action.REGISTER_WEBVIEW"
         const val ACTION_UNREGISTER_WEBVIEW = "com.tiddlywikibrowser.action.UNREGISTER_WEBVIEW"
         const val ACTION_STOP_SERVICE = "com.tiddlywikibrowser.action.STOP_SERVICE"
+        const val ACTION_FORCE_RESUME_VIDEOS = "com.tiddlywikibrowser.action.FORCE_RESUME_VIDEOS"
+        const val ACTION_APP_BACKGROUND = "com.tiddlywikibrowser.action.APP_BACKGROUND"
         const val EXTRA_WEBVIEW_KEY = "webview_key"
     }
 }

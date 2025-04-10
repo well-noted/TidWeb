@@ -18,7 +18,8 @@ class BackgroundWebViewManager(private val context: Context) {
     private val TAG = "BackgroundWebViewManager"
     
     // Service connection
-    private var backgroundService: BackgroundWebViewService? = null
+    var service: BackgroundWebViewService? = null
+        private set
     private var isBound = false
     
     // State flow to track if background processing is enabled
@@ -29,7 +30,7 @@ class BackgroundWebViewManager(private val context: Context) {
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(className: ComponentName, service: IBinder) {
             val binder = service as BackgroundWebViewService.LocalBinder
-            backgroundService = binder.getService()
+            this@BackgroundWebViewManager.service = binder.getService()
             isBound = true
             Log.d(TAG, "Connected to BackgroundWebViewService")
             
@@ -41,7 +42,7 @@ class BackgroundWebViewManager(private val context: Context) {
         }
         
         override fun onServiceDisconnected(className: ComponentName) {
-            backgroundService = null
+            this@BackgroundWebViewManager.service = null
             isBound = false
             _isBackgroundEnabled.value = false
             Log.d(TAG, "Disconnected from BackgroundWebViewService")
@@ -100,38 +101,68 @@ class BackgroundWebViewManager(private val context: Context) {
      * Register a WebView to be kept running in the background
      */
     fun registerWebView(key: String, webView: WebView) {
-        if (!isBound || backgroundService == null) {
+        if (!isBound || service == null) {
             Log.d(TAG, "Service not bound, cannot register WebView")
             return
         }
         
-        backgroundService?.registerWebView(key, webView)
+        service?.registerWebView(key, webView)
     }
     
     /**
      * Unregister a WebView from background processing
      */
     fun unregisterWebView(key: String) {
-        if (!isBound || backgroundService == null) {
+        if (!isBound || service == null) {
             Log.d(TAG, "Service not bound, cannot unregister WebView")
             return
         }
         
-        backgroundService?.unregisterWebView(key)
+        service?.unregisterWebView(key)
     }
     
     /**
      * Get a WebView that's being kept alive in the background
      */
     fun getWebView(key: String): WebView? {
-        return backgroundService?.getWebView(key)
+        return service?.getWebView(key)
     }
     
     /**
      * Check if a WebView is registered with the background service
      */
     fun hasWebView(key: String): Boolean {
-        return backgroundService?.hasWebView(key) ?: false
+        return service?.hasWebView(key) ?: false
+    }
+    
+    /**
+     * Force resume videos that should be playing in background
+     * Call this when the app goes to background to ensure
+     * videos continue playing
+     */
+    fun forceResumeVideos() {
+        // Try direct service call first if bound
+        if (isBound && service != null) {
+            Log.d(TAG, "Requesting service to force resume videos via bound service")
+            service?.forceResumeVideos()
+        } else {
+            Log.d(TAG, "Service not bound, sending intent to force resume videos")
+        }
+        
+        // Always send the intent as well for redundancy
+        try {
+            val serviceIntent = Intent(context, BackgroundWebViewService::class.java).apply {
+                action = BackgroundWebViewService.ACTION_FORCE_RESUME_VIDEOS
+            }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                context.startService(serviceIntent)
+            }
+            Log.d(TAG, "Sent force resume videos intent to service")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending force resume intent: ${e.message}")
+        }
     }
     
     /**
@@ -144,7 +175,7 @@ class BackgroundWebViewManager(private val context: Context) {
         val viewModel = mainActivity?.viewModel ?: return
         val currentWiki = viewModel.currentWiki.value
         
-        if (currentWiki != null && isBound && backgroundService != null) {
+        if (currentWiki != null && isBound && service != null) {
             val key = currentWiki.idFromUrl ?: currentWiki.url
             val webView = viewModel.getOrCreateWebView(currentWiki, context)
             
