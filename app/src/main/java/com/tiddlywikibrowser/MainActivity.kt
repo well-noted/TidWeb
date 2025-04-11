@@ -882,7 +882,7 @@ class MainActivity : ComponentActivity() {
             applyWebViewConfiguration()
 
             // Check if battery optimization should be disabled
-            checkBatteryOptimization()
+//            checkBatteryOptimization()
 
             // Synchronously load critical preferences before initializing services
             // Specifically load background mode state to ensure proper initialization
@@ -930,44 +930,44 @@ class MainActivity : ComponentActivity() {
     /**
      * Check if the app is ignoring battery optimization, and request it if not
      */
-    private fun checkBatteryOptimization() {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-                val packageName = packageName
-                
-                if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                    // Show a dialog explaining why we need to disable battery optimization
-                    AlertDialog.Builder(this)
-                        .setTitle("Improve Video Playback")
-                        .setMessage("To ensure smooth video playback in the background, it's recommended to disable battery optimization for this app. Would you like to do this now?")
-                        .setPositiveButton("Yes") { _, _ ->
-                            try {
-                                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                    data = Uri.parse("package:$packageName")
-                                }
-                                startActivity(intent)
-                            } catch (e: Exception) {
-                                Log.e("MainActivity", "Failed to request ignore battery optimization", e)
-                                
-                                // Fallback if direct action fails
-                                try {
-                                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                                    startActivity(intent)
-                                    Log.i("MainActivity", "Opened battery settings manually")
-                                } catch (e2: Exception) {
-                                    Log.e("MainActivity", "Failed to open battery settings", e2)
-                                }
-                            }
-                        }
-                        .setNegativeButton("Later", null)
-                        .show()
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Error checking battery optimization", e)
-        }
-    }
+//    private fun checkBatteryOptimization() {
+//        try {
+//            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+//                val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+//                val packageName = packageName
+//
+//                if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+//                    // Show a dialog explaining why we need to disable battery optimization
+//                    AlertDialog.Builder(this)
+//                        .setTitle("Improve Video Playback")
+//                        .setMessage("To ensure smooth video playback in the background, it's recommended to disable battery optimization for this app. Would you like to do this now?")
+//                        .setPositiveButton("Yes") { _, _ ->
+//                            try {
+//                                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+//                                    data = Uri.parse("package:$packageName")
+//                                }
+//                                startActivity(intent)
+//                            } catch (e: Exception) {
+//                                Log.e("MainActivity", "Failed to request ignore battery optimization", e)
+//
+//                                // Fallback if direct action fails
+//                                try {
+//                                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+//                                    startActivity(intent)
+//                                    Log.i("MainActivity", "Opened battery settings manually")
+//                                } catch (e2: Exception) {
+//                                    Log.e("MainActivity", "Failed to open battery settings", e2)
+//                                }
+//                            }
+//                        }
+//                        .setNegativeButton("Later", null)
+//                        .show()
+//                }
+//            }
+//        } catch (e: Exception) {
+//            Log.e("MainActivity", "Error checking battery optimization", e)
+//        }
+//    }
 
     /**
      * Synchronously load the background mode preference
