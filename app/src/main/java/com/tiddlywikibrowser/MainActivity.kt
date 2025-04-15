@@ -740,6 +740,85 @@ class MainActivity : ComponentActivity() {
                 e.printStackTrace()
             }
 
+            // Inject custom select popup for all modes
+            webView.post {
+                webView.evaluateJavascript("""
+                    (function() {
+                        if (window.__tidwebSelectPopupInjected) return;
+                        window.__tidwebSelectPopupInjected = true;
+                        function createSelectPopup(select) {
+                            let oldPopup = document.getElementById('tidweb-select-popup');
+                            if (oldPopup) oldPopup.parentNode.removeChild(oldPopup);
+                            let overlay = document.createElement('div');
+                            overlay.id = 'tidweb-select-popup';
+                            overlay.style.position = 'fixed';
+                            overlay.style.left = '0';
+                            overlay.style.top = '0';
+                            overlay.style.width = '100vw';
+                            overlay.style.height = '100vh';
+                            overlay.style.background = 'rgba(0,0,0,0.4)';
+                            overlay.style.zIndex = '99999';
+                            overlay.style.display = 'flex';
+                            overlay.style.alignItems = 'center';
+                            overlay.style.justifyContent = 'center';
+                            let modal = document.createElement('div');
+                            modal.style.background = '#74992e';
+                            modal.style.borderRadius = '8px';
+                            modal.style.minWidth = '220px';
+                            modal.style.maxWidth = '90vw';
+                            modal.style.maxHeight = '70vh';
+                            modal.style.overflowY = 'auto';
+                            modal.style.boxShadow = '0 2px 16px rgba(0,0,0,0.25)';
+                            modal.style.padding = '12px 0';
+                            Array.from(select.options).forEach(function(opt, idx) {
+                                let btn = document.createElement('button');
+                                btn.textContent = opt.text;
+                                btn.style.display = 'block';
+                                btn.style.width = '100%';
+                                btn.style.padding = '12px 18px';
+                                btn.style.background = idx === select.selectedIndex ? '#e0e7ff' : 'transparent';
+                                btn.style.border = 'none';
+                                btn.style.textAlign = 'left';
+                                btn.style.fontSize = '16px';
+                                btn.style.cursor = 'pointer';
+                                btn.style.outline = 'none';
+                                btn.onmouseover = function() { btn.style.background = '#f0f4ff'; };
+                                btn.onmouseout = function() { btn.style.background = idx === select.selectedIndex ? '#e0e7ff' : 'transparent'; };
+                                btn.onclick = function(e) {
+                                    select.selectedIndex = idx;
+                                    select.value = opt.value;
+                                    select.dispatchEvent(new Event('change', {bubbles:true}));
+                                    document.body.removeChild(overlay);
+                                };
+                                modal.appendChild(btn);
+                            });
+                            let cancel = document.createElement('button');
+                            cancel.textContent = 'Cancel';
+                            cancel.style.display = 'block';
+                            cancel.style.width = '100%';
+                            cancel.style.padding = '12px 18px';
+                            cancel.style.background = '#f3f3f3';
+                            cancel.style.border = 'none';
+                            cancel.style.textAlign = 'center';
+                            cancel.style.fontSize = '16px';
+                            cancel.style.marginTop = '8px';
+                            cancel.onclick = function() {
+                                document.body.removeChild(overlay);
+                            };
+                            modal.appendChild(cancel);
+                            overlay.appendChild(modal);
+                            document.body.appendChild(overlay);
+                        }
+                        document.addEventListener('click', function(e) {
+                            if (e.target && e.target.tagName === 'SELECT') {
+                                e.preventDefault();
+                                createSelectPopup(e.target);
+                            }
+                        }, true);
+                    })();
+                """, null)
+            }
+
             return webView
         }
 
