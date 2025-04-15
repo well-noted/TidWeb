@@ -776,7 +776,7 @@ class MainActivity : ComponentActivity() {
                                 btn.style.display = 'block';
                                 btn.style.width = '100%';
                                 btn.style.padding = '12px 18px';
-                                btn.style.background = idx === select.selectedIndex ? '#e0e7ff' : 'transparent';
+                                btn.style.background = idx === select.selectedIndex ? '#0076bd' : 'transparent';
                                 btn.style.border = 'none';
                                 btn.style.textAlign = 'left';
                                 btn.style.fontSize = '16px';
