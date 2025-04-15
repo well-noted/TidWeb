@@ -797,7 +797,7 @@ class MainActivity : ComponentActivity() {
                             cancel.style.display = 'block';
                             cancel.style.width = '100%';
                             cancel.style.padding = '12px 18px';
-                            cancel.style.background = '#f3f3f3';
+                            cancel.style.background = '#ef4a53';
                             cancel.style.border = 'none';
                             cancel.style.textAlign = 'center';
                             cancel.style.fontSize = '16px';
