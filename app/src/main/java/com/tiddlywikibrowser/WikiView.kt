@@ -39,20 +39,7 @@ import android.webkit.WebSettings
 
 @Composable
 fun LoadingIndicator(isVisible: Boolean) {
-    AnimatedVisibility(
-        visible = isVisible,
-        enter = fadeIn(),
-        exit = fadeOut()
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.7f)),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator()
-        }
-    }
+    // Spinner removed - no UI shown
 }
 
 
@@ -495,10 +482,7 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                 modifier = Modifier.fillMaxSize()
             )
             
-            // Show loading overlay
-            if (isActive) {
-                LoadingIndicator(isLoading)
-            }
+            // Spinner removed: no loading indicator
         }
     }
 }

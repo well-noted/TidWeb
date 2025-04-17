@@ -172,6 +172,8 @@ class ReloadBlockingWebViewClient(
 
     override fun onPageFinished(view: WebView?, url: String?) {
         Log.d(TAG, "onPageFinished: $url")
+        // Immediately hide the loading spinner when the page signals load complete
+        onLoadingStateChanged(false)
 
         if (view == null || url == null || url == "about:blank") {
             super.onPageFinished(view, url)

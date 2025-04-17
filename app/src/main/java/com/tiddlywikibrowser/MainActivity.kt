@@ -952,6 +952,19 @@ class MainActivity : ComponentActivity() {
     // Keep track of background mode preference
     private val _isBackgroundEnabled = MutableStateFlow(false)
     val isBackgroundEnabled: StateFlow<Boolean> = _isBackgroundEnabled
+    
+    // Request permission for notifications on Android 13+ (API 33+)
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val permission = Manifest.permission.POST_NOTIFICATIONS
+            
+            // Check if permission is already granted
+            if (checkSelfPermission(permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                // Request the permission
+                requestPermissions(arrayOf(permission), 100)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -959,6 +972,9 @@ class MainActivity : ComponentActivity() {
         try {
             // Initialize WebView configuration first
             applyWebViewConfiguration()
+            
+            // Request notification permission for Android 13+
+            requestNotificationPermission()
 
             // Check if battery optimization should be disabled
 //            checkBatteryOptimization()
