@@ -44,6 +44,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     private val binder = LocalBinder()
 
     override fun onCreate() {
+        android.util.Log.d("MediaPlaybackService", "MediaPlaybackService: onCreate ENTRY")
         super.onCreate()
         createNotificationChannel()
         
@@ -68,16 +69,25 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         synchronized(this) {
             mediaSession = session
             sessionToken = session.sessionToken
-            
-            // Update notification with current session state
-            session.controller.metadata?.let { metadata ->
-                updateNotification(
-                    session,
-                    metadata,
-                    session.controller.playbackState,
-                    null
-                )
-            }
+
+            // Always update the notification to MediaStyle once the session is set.
+            // Use current metadata/state if available, otherwise sensible defaults.
+            val currentMeta = session.controller.metadata
+            val currentState = session.controller.playbackState
+
+            // Prepare placeholder metadata if real metadata isn't available yet
+            val effectiveMetadata = currentMeta ?: MediaMetadataCompat.Builder()
+                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, "Waiting for media") // Placeholder
+                .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, "TiddlyWiki")       // Placeholder
+                .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, 0)
+                .build()
+
+            updateNotification(
+                session,
+                effectiveMetadata, // Use effective metadata
+                currentState,      // currentState can be null initially, updateNotification handles it
+                null
+            )
         }
     }
 
@@ -191,6 +201,15 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             // Get explicit metadata titles or use defaults
             val title = metadata?.getString(MediaMetadataCompat.METADATA_KEY_TITLE) ?: "Playing media"
             val artist = metadata?.getString(MediaMetadataCompat.METADATA_KEY_ARTIST) ?: "TiddlyWiki"
+            val metaDuration = metadata?.getLong(MediaMetadataCompat.METADATA_KEY_DURATION)
+            val playbackStateInfo = state?.state
+            val currentPositionInfo = state?.position
+
+            android.util.Log.d("MediaPlaybackService", 
+                "updateNotification CALL: Input Metadata Title='${metadata?.getString(MediaMetadataCompat.METADATA_KEY_TITLE)}', " +
+                "Input Artist='${metadata?.getString(MediaMetadataCompat.METADATA_KEY_ARTIST)}', " +
+                "Input Duration='$metaDuration', Input State='$playbackStateInfo', Input Position='$currentPositionInfo'\n" +
+                "Notification BUILT WITH: Effective Title='$title', Artist='$artist'")
             
             val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
                 .setStyle(MediaStyle()

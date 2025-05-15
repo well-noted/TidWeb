@@ -629,7 +629,38 @@ class MainActivity : ComponentActivity() {
             }
 
             // Add JavaScript interface for media handling
-            class MediaInterface(private val context: Context) {
+            class MediaInterface(private val localMediaInterfaceContext: Context) { 
+                @JavascriptInterface
+                fun onMediaStateChange(title: String?, artist: String?, duration: Long, position: Long, isPlaying: Boolean) {
+                    Log.d("MediaInterface", "onMediaStateChange received (JS thread): title='$title', artist='$artist', duration='$duration', position='$position', isPlaying='$isPlaying'")
+                    
+                    ThreadManager.runOnMain {
+                        Log.d("MediaInterface", "onMediaStateChange: Now on main thread. Context type: ${localMediaInterfaceContext.javaClass.name}")
+                        val msm = MediaSessionManager.getInstance(localMediaInterfaceContext) // Use singleton
+                        msm.updateMetadata(title, artist, duration)
+                        msm.updatePlaybackState(isPlaying, position)
+                        Log.d("MediaInterface", "onMediaStateChange: Calls to MediaSessionManager singleton completed.")
+                    }
+                }
+
+                @JavascriptInterface
+                fun updateMediaMetadata(title: String?, artist: String?, album: String?, artworkUrl: String?, duration: Long) {
+                    Log.d("MediaInterface", "updateMediaMetadata received: title='$title', artist='$artist', album='$album', duration='$duration'")
+                    ThreadManager.runOnMain {
+                         val msm = MediaSessionManager.getInstance(localMediaInterfaceContext) // Use singleton
+                         msm.updateMetadata(title, artist, duration, null) // Assuming null for bitmap for now
+                    }
+                }
+
+                @JavascriptInterface
+                fun updatePlaybackState(isPlaying: Boolean, position: Long) {
+                    Log.d("MediaInterface", "updatePlaybackState received: isPlaying='$isPlaying', position='$position'")
+                     ThreadManager.runOnMain {
+                        val msm = MediaSessionManager.getInstance(localMediaInterfaceContext) // Use singleton
+                        msm.updatePlaybackState(isPlaying, position)
+                    }
+                }
+
                 @JavascriptInterface
                 fun onMediaEvent(
                     event: String,
@@ -639,90 +670,38 @@ class MainActivity : ComponentActivity() {
                     src: String?,
                     title: String?
                 ) {
+                    Log.d("MediaInterface", "onMediaEvent received: event='$event', id='$elementId', src='$src', title='$title', currentTime='$currentTime', duration='$duration'")
                     ThreadManager.runOnMain {
-                        try {
-                            (context as? MainActivity)?.let { activity ->
-                                when (event) {
-                                    "play" -> {
-                                        if (src != null) activity.exoPlayerManager.playMedia(src)
-                                        activity.mediaSessionManager.updatePlaybackState(true, (currentTime * 1000).toLong())
-                                        activity.mediaSessionManager.updateMetadata(
-                                            title = title ?: "TiddlyWiki Audio",
-                                            artist = "TiddlyWiki",
-                                            duration = (duration * 1000).toLong()
-                                        )
-                                    }
-                                    "pause" -> {
-                                        activity.mediaSessionManager.updatePlaybackState(false, (currentTime * 1000).toLong())
-                                    }
-                                    "timeupdate" -> {
-                                        activity.mediaSessionManager.updatePlaybackState(true, (currentTime * 1000).toLong())
-                                    }
-                                    "ended" -> {
-                                        activity.mediaSessionManager.updatePlaybackState(false, (duration * 1000).toLong())
-                                    }
-                                    "loadedmetadata" -> {
-                                        activity.mediaSessionManager.updateMetadata(
-                                            title = title ?: "TiddlyWiki Audio",
-                                            artist = "TiddlyWiki",
-                                            duration = (duration * 1000).toLong()
-                                        )
-                                    }
-                                    else -> {} // Added missing else branch
-                                }
-                            }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
-                }
+                        val effectiveTitle = if (title.isNullOrBlank()) "TiddlyWiki Audio" else title
+                        // Ensure localMediaInterfaceContext is passed, which should be ApplicationContext here
+                        val msm = MediaSessionManager.getInstance(localMediaInterfaceContext) // Use singleton
 
-                @JavascriptInterface
-                fun onMediaStateChange(title: String?, artist: String?, duration: Long, position: Long, isPlaying: Boolean) {
-                    ThreadManager.runOnMain {
-                        try {
-                            (context as? MainActivity)?.let { activity ->
-                                activity.mediaSessionManager.updateMetadata(title, artist, duration)
-                                activity.mediaSessionManager.updatePlaybackState(isPlaying, position)
+                        when (event.lowercase()) {
+                            "play", "playing" -> {
+                                // If src is available and you have ExoPlayer specific logic based on src, it would go here.
+                                // (context as? MainActivity)?.exoPlayerManager.playMedia(src) was removed as MediaInterface shouldn't cast context to MainActivity.
+                                msm.updateMetadata(effectiveTitle, "TiddlyWiki", (duration * 1000).toLong())
+                                msm.updatePlaybackState(true, (currentTime * 1000).toLong())
                             }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
-                }
-
-                @JavascriptInterface
-                fun updateMediaMetadata(title: String, artist: String, durationMs: Long) {
-                    ThreadManager.runOnMain {
-                        try {
-                            (context as? MainActivity)?.let { activity ->
-                                activity.mediaSessionManager.updateMetadata(
-                                    title = title,
-                                    artist = artist,
-                                    duration = durationMs
-                                )
+                            "pause" -> {
+                                msm.updatePlaybackState(false, (currentTime * 1000).toLong())
                             }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
-                }
-
-                @JavascriptInterface
-                fun updatePlaybackState(isPlaying: Boolean, positionMs: Long) {
-                    ThreadManager.runOnMain {
-                        try {
-                            (context as? MainActivity)?.let { activity ->
-                                activity.mediaSessionManager.updatePlaybackState(isPlaying, positionMs)
+                            "ended" -> {
+                                msm.updatePlaybackState(false, (duration * 1000).toLong())
                             }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
+                            "timeupdate" -> {
+                                msm.updatePlaybackState(true, (currentTime * 1000).toLong()) // Assuming playing if time is updating
+                            }
+                            "loadedmetadata" -> {
+                                 msm.updateMetadata(effectiveTitle, "TiddlyWiki", (duration * 1000).toLong())
+                            }
                         }
                     }
                 }
             }
 
             try {
+                android.util.Log.d("MainActivity", "createWebView: Adding JS Interfaces. Context type for MediaInterface: ${context.javaClass.name}")
                 webView.addJavascriptInterface(ScrollInterface(context.applicationContext), "ScrollInterface")
                 webView.addJavascriptInterface(MediaInterface(context.applicationContext), "Android")
                 webView.addJavascriptInterface(MediaInterface(context.applicationContext), "MediaInterface")
@@ -968,6 +947,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d("MainActivity", "MainActivity onCreate: Initializing MediaSessionManager singleton.")
+        mediaSessionManager = MediaSessionManager.getInstance(this) // Correct: Use singleton
+        exoPlayerManager = ExoPlayerManager(this) // Correct: Constructor takes only Context
+        backgroundWebViewManager = BackgroundWebViewManager(this)
 
         try {
             // Initialize WebView configuration first
@@ -976,21 +959,8 @@ class MainActivity : ComponentActivity() {
             // Request notification permission for Android 13+
             requestNotificationPermission()
 
-            // Check if battery optimization should be disabled
-//            checkBatteryOptimization()
-
             // Synchronously load critical preferences before initializing services
-            // Specifically load background mode state to ensure proper initialization
             loadBackgroundModePreference()
-
-            // Initialize the media session manager
-            mediaSessionManager = MediaSessionManager(this)
-
-            // Initialize the ExoPlayer manager after mediaSessionManager
-            exoPlayerManager = ExoPlayerManager(this)
-
-            // Initialize the background WebView manager
-            backgroundWebViewManager = BackgroundWebViewManager(this)
 
             // Load remaining preferences
             loadPreferences()
@@ -1021,48 +991,6 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Error initializing app. Please try again.", Toast.LENGTH_LONG).show()
         }
     }
-
-    /**
-     * Check if the app is ignoring battery optimization, and request it if not
-     */
-//    private fun checkBatteryOptimization() {
-//        try {
-//            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-//                val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-//                val packageName = packageName
-//
-//                if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
-//                    // Show a dialog explaining why we need to disable battery optimization
-//                    AlertDialog.Builder(this)
-//                        .setTitle("Improve Video Playback")
-//                        .setMessage("To ensure smooth video playback in the background, it's recommended to disable battery optimization for this app. Would you like to do this now?")
-//                        .setPositiveButton("Yes") { _, _ ->
-//                            try {
-//                                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-//                                    data = Uri.parse("package:$packageName")
-//                                }
-//                                startActivity(intent)
-//                            } catch (e: Exception) {
-//                                Log.e("MainActivity", "Failed to request ignore battery optimization", e)
-//
-//                                // Fallback if direct action fails
-//                                try {
-//                                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-//                                    startActivity(intent)
-//                                    Log.i("MainActivity", "Opened battery settings manually")
-//                                } catch (e2: Exception) {
-//                                    Log.e("MainActivity", "Failed to open battery settings", e2)
-//                                }
-//                            }
-//                        }
-//                        .setNegativeButton("Later", null)
-//                        .show()
-//                }
-//            }
-//        } catch (e: Exception) {
-//            Log.e("MainActivity", "Error checking battery optimization", e)
-//        }
-//    }
 
     /**
      * Synchronously load the background mode preference

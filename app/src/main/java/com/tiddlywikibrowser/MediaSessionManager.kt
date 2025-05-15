@@ -18,7 +18,7 @@ import android.util.Log
 
 private const val TAG = "MediaSessionManager"
 
-class MediaSessionManager(private val context: Context) {
+class MediaSessionManager private constructor(private val context: Context) {
     private var mediaSession: MediaSessionCompat? = null
     private var audioManager: AudioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var audioFocusRequest: AudioFocusRequest? = null
@@ -32,27 +32,23 @@ class MediaSessionManager(private val context: Context) {
     private var wasPlayingBeforeFocusLoss = false
     private var lastPlayTimestamp: Long = 0
     private var isServiceBound = false
+    private var currentPlaybackState: PlaybackStateCompat? = null
+    private var webView: WebViewProvider? = null
+    private var sessionToken: MediaSessionCompat.Token? = null
+
+    private val stateChangeLock = Object()
+    private var gainCallbackHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var pendingGainCallback: Runnable? = null
+    private var pendingLossTransientCallback: Runnable? = null
+
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             val binder = service as? MediaPlaybackService.LocalBinder
             playbackService = binder?.service
             isServiceBound = true
             Log.d(TAG, "Service connected")
-
-            // Now that service is connected, update it with our media session
-            mediaSession?.let { session ->
-                playbackService?.setMediaSession(session)
-
-                // Also update the notification with current state
-                if (hasActiveMedia && currentMetadata != null) {
-                    val state = session.controller.playbackState
-                    playbackService?.updateNotification(
-                        session,
-                        currentMetadata,
-                        state,
-                        currentBitmap
-                    )
-                }
+            mediaSession?.let {
+                session -> playbackService?.setMediaSession(session)
             }
         }
 
@@ -63,12 +59,19 @@ class MediaSessionManager(private val context: Context) {
         }
     }
 
-    private val stateChangeLock = Object()
-    private var gainCallbackHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    private var pendingGainCallback: Runnable? = null
-    private var pendingLossTransientCallback: Runnable? = null
+    companion object {
+        @Volatile
+        private var INSTANCE: MediaSessionManager? = null
+
+        fun getInstance(context: Context): MediaSessionManager {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: MediaSessionManager(context.applicationContext).also { INSTANCE = it }
+            }
+        }
+    }
 
     init {
+        android.util.Log.d(TAG, "MediaSessionManager: init block started.")
         Log.d(TAG, "Initializing MediaSessionManager")
         try {
             setupMediaSession()
@@ -77,6 +80,7 @@ class MediaSessionManager(private val context: Context) {
             Log.e(TAG, "Error initializing MediaSessionManager", e)
             // Don't rethrow - we want to avoid crashing the app
         }
+        android.util.Log.d(TAG, "MediaSessionManager: init block FINISHED. Instance hashCode: ${this.hashCode()}")
     }
 
     private fun setupMediaSession() {
@@ -227,36 +231,34 @@ class MediaSessionManager(private val context: Context) {
             Log.e(TAG, "Error in setupMediaSession", e)
             // Don't rethrow - we want the manager to still be instantiated
         }
+        sessionToken = mediaSession?.sessionToken
+        Log.d(TAG, "MediaSession created. IsActive: ${mediaSession?.isActive}")
     }
 
     private fun startPlaybackService() {
         Log.d(TAG, "Starting and binding to playback service")
         
-        // If we're already bound to a service, update it instead of starting new
-        if (playbackService != null) {
-            mediaSession?.let { session ->
-                playbackService?.setMediaSession(session)
-                return
-            }
+        if (isServiceBound && playbackService != null) {
+            Log.d(TAG, "Service already bound, not re-initializing session on service.")
+            return
         }
 
         val serviceIntent = Intent(context, MediaPlaybackService::class.java)
         serviceIntent.action = "INIT_MEDIA_SERVICE"
 
         try {
-            // Start as foreground service for Android O and later
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(serviceIntent)
             } else {
                 context.startService(serviceIntent)
             }
-
-            // Bind to the service
-            context.bindService(
+            val didBind = context.bindService(
                 serviceIntent,
                 serviceConnection,
                 Context.BIND_AUTO_CREATE
             )
+            android.util.Log.d(TAG, "MediaSessionManager: context.bindService called. Result: $didBind")
+
         } catch (e: Exception) {
             Log.e(TAG, "Error starting/binding service", e)
             // Try to recover by releasing and recreating media session
@@ -353,6 +355,7 @@ class MediaSessionManager(private val context: Context) {
     private fun updatePlaybackState() {
         synchronized(stateChangeLock) {
             val state = if (isPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
+            android.util.Log.d(TAG, "MediaSessionManager.internalUpdatePlaybackState: state=$state, isPlaying=$isPlaying. PlaybackService is ${if (playbackService == null) "NULL" else "NOT NULL"}")
             Log.d(TAG, "Updating playback state: ${if (isPlaying) "PLAYING" else "PAUSED"}")
             
             val stateBuilder = PlaybackStateCompat.Builder()
@@ -408,6 +411,7 @@ class MediaSessionManager(private val context: Context) {
 
     private fun updateNotificationIfNeeded() {
         synchronized(stateChangeLock) {
+            android.util.Log.d(TAG, "updateNotificationIfNeeded called. PlaybackService is ${if (playbackService == null) "NULL" else "NOT NULL"}")
             if (hasActiveMedia) {
                 val metadata = currentMetadata ?: mediaSession?.controller?.metadata
                 val state = mediaSession?.controller?.playbackState
@@ -427,7 +431,9 @@ class MediaSessionManager(private val context: Context) {
     }
 
     fun updateMetadata(title: String?, artist: String?, duration: Long?, bitmap: Bitmap? = null) {
+        android.util.Log.d(TAG, "MediaSessionManager: updateMetadata ENTRY. Title: $title")
         synchronized(stateChangeLock) {
+            android.util.Log.d(TAG, "updateMetadata called. Title: $title, Duration: $duration. PlaybackService is ${if (playbackService == null) "NULL" else "NOT NULL"}")
             val hadMetadata = hasActiveMedia
             hasActiveMedia = title != null && duration != null && duration > 0
             currentBitmap = bitmap
@@ -483,6 +489,7 @@ class MediaSessionManager(private val context: Context) {
     }
 
     fun updatePlaybackState(playing: Boolean, position: Long) {
+        android.util.Log.d(TAG, "MediaSessionManager: updatePlaybackState ENTRY. isPlaying: $playing, position: $position")
         synchronized(stateChangeLock) {
             if (!hasActiveMedia && playing) {
                 // If media is playing but we don't have metadata yet, make it active
@@ -529,11 +536,15 @@ class MediaSessionManager(private val context: Context) {
         mediaSession = null
         abandonAudioFocus()
         playbackService?.stopForeground()
-        try {
-            context.unbindService(serviceConnection)
-        } catch (e: Exception) {
-            e.printStackTrace()
+        if (isServiceBound) {
+            try {
+                context.unbindService(serviceConnection)
+                isServiceBound = false
+            } catch (e: Exception) {
+                Log.w(TAG, "Error unbinding service", e)
+            }
         }
+        playbackService = null
     }
 
     private fun evaluateWebViewJavascript(script: String) {
@@ -583,8 +594,6 @@ class MediaSessionManager(private val context: Context) {
         }
     }
 
-
-
     /**
      * Check if the service is already bound
      */
@@ -619,5 +628,115 @@ class MediaSessionManager(private val context: Context) {
      */
     fun startMediaService() {
         startPlaybackService()
+    }
+
+    // Interface for WebView to provide current media state
+    interface WebViewProvider {
+        fun getCurrentMediaState(callback: (title: String?, artist: String?, duration: Long?, position: Long?, isPlaying: Boolean?) -> Unit)
+    }
+
+    fun setWebViewProvider(provider: WebViewProvider?) {
+        this.webView = provider
+        if (provider != null) {
+            // Optionally fetch initial state when WebView is set
+            // fetchMediaStateFromWebView() 
+        }
+    }
+
+    // Potentially called by MediaSessionCallback actions
+    private fun fetchMediaStateFromWebView() {
+        webView?.getCurrentMediaState { title, artist, duration, position, isPlaying ->
+            ThreadManager.runOnMain { // Ensure UI thread for updates if they touch UI directly
+                var changed = false
+                if (title != null || artist != null || duration != null) {
+                    updateMetadata(title, artist, duration)
+                    changed = true
+                }
+                if (isPlaying != null && position != null) {
+                    updatePlaybackState(isPlaying, position)
+                    changed = true
+                }
+                if (changed) {
+                    // updateNotificationIfNeeded() // Metadata and PlaybackState updates already call this
+                }
+            }
+        }
+    }
+    
+    fun getSessionToken(): MediaSessionCompat.Token? {
+        return sessionToken
+    }
+
+    // MediaSessionCallback: Defines how the media session responds to controller commands
+    private inner class MediaSessionCallback : MediaSessionCompat.Callback() {
+        override fun onPlay() {
+            Log.d(TAG, "MediaSessionCallback: onPlay called")
+            if (!audioManager.isMusicActive && !isPlaying) { // Check if something is already playing
+                // Start playback - this might involve telling the WebView to play
+                // For now, just update state and notification
+                // This should ideally trigger playback in the actual player (e.g., WebView)
+                // webView?.play() or similar command
+            }
+            isPlaying = true
+            updatePlaybackState() // Update MediaSession's state
+            // updateNotificationIfNeeded() // Already called by updatePlaybackState
+            // The service should be started if not already
+            startPlaybackService() // Ensure service is running
+        }
+
+        override fun onPause() {
+            Log.d(TAG, "MediaSessionCallback: onPause called")
+            isPlaying = false
+            updatePlaybackState()
+            // updateNotificationIfNeeded() // Already called by updatePlaybackState
+        }
+
+        override fun onStop() {
+            Log.d(TAG, "MediaSessionCallback: onStop called")
+            isPlaying = false
+            currentPosition = 0
+            updatePlaybackState()
+            // updateNotificationIfNeeded() // Already called by updatePlaybackState
+            // Consider stopping the service if nothing is playing and it's not needed
+            // if (playbackService != null && !isPlaying) {
+            //     playbackService?.stopSelf()
+            // }
+            hasActiveMedia = false // No active media after stop
+            // Clear notification by sending empty/default state if desired, or rely on service stopping
+            // For now, let the service manage its lifecycle.
+            // A full stop might also involve releasing the media player in the WebView.
+        }
+
+        override fun onSeekTo(pos: Long) {
+            Log.d(TAG, "MediaSessionCallback: onSeekTo called with pos: $pos")
+            currentPosition = pos
+            updatePlaybackState() // Update state with new position
+            // updateNotificationIfNeeded() // Already called by updatePlaybackState
+            // This should also seek the actual player: webView?.seekTo(pos)
+        }
+
+        // Handle skip actions. These might involve fetching new media info from WebView or a playlist.
+        override fun onSkipToNext() {
+            Log.d(TAG, "MediaSessionCallback: onSkipToNext called")
+            // webView?.skipToNext()
+            // Fetch new media state after skip
+            // fetchMediaStateFromWebView()
+        }
+
+        override fun onSkipToPrevious() {
+            Log.d(TAG, "MediaSessionCallback: onSkipToPrevious called")
+            // webView?.skipToPrevious()
+            // Fetch new media state after skip
+            // fetchMediaStateFromWebView()
+        }
+
+        // Handle MediaButton events here if not using a separate MediaButtonReceiver
+        // override fun onMediaButtonEvent(mediaButtonEvent: Intent?): Boolean {
+        //     Log.d(TAG, "MediaSessionCallback: onMediaButtonEvent received")
+        //     // Handle specific media button intents (e.g., ACTION_MEDIA_BUTTON)
+        //     // This is usually handled by MediaButtonReceiver.handleIntent or by the system directly
+        //     // if FLAG_HANDLES_MEDIA_BUTTONS is set and a MediaButtonReceiver is declared in manifest.
+        //     return super.onMediaButtonEvent(mediaButtonEvent)
+        // }
     }
 }

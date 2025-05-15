@@ -349,11 +349,14 @@ class WikiViewModel(private val context: Context) : ViewModel() {
     // WebView creation with optimized settings
     fun getOrCreateWebView(wiki: WikiInstance, context: Context): WebView {
         val key = wiki.idFromUrl ?: wiki.url
+        android.util.Log.d("WikiViewModel", "getOrCreateWebView: PARAMETER context type: ${context.javaClass.name}")
+        android.util.Log.d("WikiViewModel", "getOrCreateWebView: VIEWMODEL this.context type: ${this.context.javaClass.name}")
         
         return WebViewCache.getCachedWebView(key) ?: createNewWebView(wiki, context)
     }
 
     private fun createNewWebView(wiki: WikiInstance, context: Context): WebView {
+        android.util.Log.d("WikiViewModel", "createNewWebView: context type BEFORE MainActivity.createWebView: ${context.javaClass.name}")
         return MainActivity.createWebView(context).apply {
             setTag(R.string.prevent_reload_tag, false)
             

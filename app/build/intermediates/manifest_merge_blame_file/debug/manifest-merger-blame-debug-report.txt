@@ -69,272 +69,275 @@
 38-->[androidx.core:core:1.12.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\508f4f285c70bd05e94ccd64f3e25d3a\transformed\core-1.12.0\AndroidManifest.xml:26:22-94
 39
 40    <application
-40-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:24:5-115:19
-41        android:allowBackup="true"
-41-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:25:9-35
-42        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
-42-->[androidx.core:core:1.12.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\508f4f285c70bd05e94ccd64f3e25d3a\transformed\core-1.12.0\AndroidManifest.xml:28:18-86
-43        android:debuggable="true"
-44        android:extractNativeLibs="false"
-45        android:hardwareAccelerated="true"
-45-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:33:9-43
-46        android:icon="@mipmap/ic_launcher"
-46-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:26:9-43
-47        android:label="@string/app_name"
-47-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:27:9-41
-48        android:largeHeap="true"
-48-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:34:9-33
-49        android:persistent="true"
-49-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:35:9-34
-50        android:requestLegacyExternalStorage="true"
-50-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:31:9-52
-51        android:roundIcon="@mipmap/ic_launcher_round"
-51-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:28:9-54
-52        android:supportsRtl="true"
-52-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:29:9-35
-53        android:theme="@style/Theme.TiddlyWikiBrowser"
-53-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:32:9-55
-54        android:usesCleartextTraffic="true" >
-54-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:30:9-44
-55        <activity
-55-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:37:9-67:20
-56            android:name="com.tiddlywikibrowser.MainActivity"
-56-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:38:13-41
-57            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
-57-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:40:13-87
-58            android:documentLaunchMode="intoExisting"
-58-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:46:13-54
-59            android:exported="true"
-59-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:39:13-36
-60            android:hardwareAccelerated="true"
-60-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:43:13-47
-61            android:keepScreenOn="true"
-61-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:44:13-40
-62            android:launchMode="singleTask"
-62-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:41:13-44
-63            android:theme="@style/Theme.TiddlyWikiBrowser"
-63-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:42:13-59
-64            android:windowSoftInputMode="adjustPan" >
-64-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:45:13-52
-65            <intent-filter>
-65-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:47:13-50:29
-66                <action android:name="android.intent.action.MAIN" />
-66-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:48:17-69
-66-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:48:25-66
-67
-68                <category android:name="android.intent.category.LAUNCHER" />
-68-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:49:17-77
-68-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:49:27-74
-69            </intent-filter>
-70            <intent-filter>
-70-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:51:13-55:29
-71                <action android:name="android.intent.action.VIEW" />
-71-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:52:17-69
-71-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:52:25-66
-72
-73                <category android:name="android.intent.category.DEFAULT" />
-73-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:53:17-76
-73-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:53:27-73
-74                <category android:name="android.intent.category.BROWSABLE" />
-74-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:54:17-78
-74-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:54:27-75
-75            </intent-filter>
-76            <!-- Intent filter for receiving shared content -->
-77            <intent-filter>
-77-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:57:13-61:29
-78                <action android:name="android.intent.action.SEND" />
-78-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:58:17-69
-78-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:58:25-66
-79
-80                <category android:name="android.intent.category.DEFAULT" />
-80-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:53:17-76
-80-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:53:27-73
+40-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:24:5-116:19
+41        android:name="com.tiddlywikibrowser.MainApplication"
+41-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:25:9-40
+42        android:allowBackup="true"
+42-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:26:9-35
+43        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+43-->[androidx.core:core:1.12.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\508f4f285c70bd05e94ccd64f3e25d3a\transformed\core-1.12.0\AndroidManifest.xml:28:18-86
+44        android:debuggable="true"
+45        android:extractNativeLibs="false"
+46        android:hardwareAccelerated="true"
+46-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:34:9-43
+47        android:icon="@mipmap/ic_launcher"
+47-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:27:9-43
+48        android:label="@string/app_name"
+48-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:28:9-41
+49        android:largeHeap="true"
+49-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:35:9-33
+50        android:persistent="true"
+50-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:36:9-34
+51        android:requestLegacyExternalStorage="true"
+51-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:32:9-52
+52        android:roundIcon="@mipmap/ic_launcher_round"
+52-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:29:9-54
+53        android:supportsRtl="true"
+53-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:30:9-35
+54        android:testOnly="true"
+55        android:theme="@style/Theme.TiddlyWikiBrowser"
+55-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:33:9-55
+56        android:usesCleartextTraffic="true" >
+56-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:31:9-44
+57        <activity
+57-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:38:9-68:20
+58            android:name="com.tiddlywikibrowser.MainActivity"
+58-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:39:13-41
+59            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+59-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:41:13-87
+60            android:documentLaunchMode="intoExisting"
+60-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:47:13-54
+61            android:exported="true"
+61-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:40:13-36
+62            android:hardwareAccelerated="true"
+62-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:44:13-47
+63            android:keepScreenOn="true"
+63-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:45:13-40
+64            android:launchMode="singleTask"
+64-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:42:13-44
+65            android:theme="@style/Theme.TiddlyWikiBrowser"
+65-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:43:13-59
+66            android:windowSoftInputMode="adjustPan" >
+66-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:46:13-52
+67            <intent-filter>
+67-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:48:13-51:29
+68                <action android:name="android.intent.action.MAIN" />
+68-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:49:17-69
+68-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:49:25-66
+69
+70                <category android:name="android.intent.category.LAUNCHER" />
+70-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:50:17-77
+70-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:50:27-74
+71            </intent-filter>
+72            <intent-filter>
+72-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:52:13-56:29
+73                <action android:name="android.intent.action.VIEW" />
+73-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:53:17-69
+73-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:53:25-66
+74
+75                <category android:name="android.intent.category.DEFAULT" />
+75-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:54:17-76
+75-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:54:27-73
+76                <category android:name="android.intent.category.BROWSABLE" />
+76-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:55:17-78
+76-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:55:27-75
+77            </intent-filter>
+78            <!-- Intent filter for receiving shared content -->
+79            <intent-filter>
+79-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:58:13-62:29
+80                <action android:name="android.intent.action.SEND" />
+80-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:59:17-69
+80-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:59:25-66
 81
-82                <data android:mimeType="text/plain" />
-82-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:60:17-55
-82-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:60:23-52
-83            </intent-filter>
-84            <intent-filter>
-84-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:62:13-66:29
-85                <action android:name="android.intent.action.SEND_MULTIPLE" />
-85-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:63:17-78
-85-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:63:25-75
-86
-87                <category android:name="android.intent.category.DEFAULT" />
-87-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:53:17-76
-87-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:53:27-73
+82                <category android:name="android.intent.category.DEFAULT" />
+82-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:54:17-76
+82-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:54:27-73
+83
+84                <data android:mimeType="text/plain" />
+84-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:61:17-55
+84-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:61:23-52
+85            </intent-filter>
+86            <intent-filter>
+86-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:63:13-67:29
+87                <action android:name="android.intent.action.SEND_MULTIPLE" />
+87-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:64:17-78
+87-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:64:25-75
 88
-89                <data android:mimeType="text/plain" />
-89-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:60:17-55
-89-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:60:23-52
-90            </intent-filter>
-91        </activity>
-92
-93        <!-- Receiver for media button events -->
-94        <receiver
-94-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:70:9-75:20
-95            android:name="androidx.media.session.MediaButtonReceiver"
-95-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:70:19-76
-96            android:exported="true" >
-96-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:71:13-36
-97            <intent-filter>
-97-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:72:13-74:29
-98                <action android:name="android.intent.action.MEDIA_BUTTON" />
-98-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:73:17-77
-98-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:73:25-74
-99            </intent-filter>
-100        </receiver>
-101
-102        <activity
-102-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:77:9-82:50
-103            android:name="com.tiddlywikibrowser.SettingsActivity"
-103-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:78:13-45
-104            android:hardwareAccelerated="true"
-104-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:82:13-47
-105            android:label="@string/settings"
+89                <category android:name="android.intent.category.DEFAULT" />
+89-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:54:17-76
+89-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:54:27-73
+90
+91                <data android:mimeType="text/plain" />
+91-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:61:17-55
+91-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:61:23-52
+92            </intent-filter>
+93        </activity>
+94
+95        <!-- Receiver for media button events -->
+96        <receiver
+96-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:71:9-76:20
+97            android:name="androidx.media.session.MediaButtonReceiver"
+97-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:71:19-76
+98            android:exported="true" >
+98-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:72:13-36
+99            <intent-filter>
+99-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:73:13-75:29
+100                <action android:name="android.intent.action.MEDIA_BUTTON" />
+100-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:74:17-77
+100-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:74:25-74
+101            </intent-filter>
+102        </receiver>
+103
+104        <activity
+104-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:78:9-83:50
+105            android:name="com.tiddlywikibrowser.SettingsActivity"
 105-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:79:13-45
-106            android:theme="@style/Theme.TiddlyWikiBrowser"
-106-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:80:13-59
-107            android:windowSoftInputMode="adjustResize" />
-107-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:81:13-55
-108
-109        <service
-109-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:84:9-90:19
-110            android:name="com.tiddlywikibrowser.MediaPlaybackService"
-110-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:84:18-54
-111            android:exported="false"
-111-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:85:13-37
-112            android:foregroundServiceType="mediaPlayback" >
-112-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:86:13-58
-113            <intent-filter>
-113-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:87:13-89:29
-114                <action android:name="android.media.browse.MediaBrowserService" />
-114-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:88:17-83
-114-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:88:25-80
-115            </intent-filter>
-116        </service>
-117
-118        <!-- Background WebView service to keep WebViews running when app is in background -->
-119        <service
-119-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:93:9-103:19
-120            android:name="com.tiddlywikibrowser.BackgroundWebViewService"
-120-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:94:13-53
-121            android:enabled="true"
-121-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:95:13-35
-122            android:exported="false"
-122-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:96:13-37
-123            android:foregroundServiceType="dataSync|mediaPlayback" >
-123-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:97:13-67
-124            <intent-filter>
-124-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:98:13-102:29
-125                <action android:name="com.tiddlywikibrowser.ACTION_REGISTER_WEBVIEW" />
-125-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:99:17-88
-125-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:99:25-85
-126                <action android:name="com.tiddlywikibrowser.ACTION_UNREGISTER_WEBVIEW" />
-126-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:100:17-90
-126-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:100:25-87
-127                <action android:name="com.tiddlywikibrowser.ACTION_STOP_SERVICE" />
-127-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:101:17-84
-127-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:101:25-81
-128            </intent-filter>
-129        </service>
-130
-131        <!-- FileProvider for sharing and accessing downloaded files -->
-132        <provider
-133            android:name="androidx.core.content.FileProvider"
-133-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:107:13-62
-134            android:authorities="com.tiddlywikibrowser.fileprovider"
-134-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:108:13-64
-135            android:exported="false"
-135-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:109:13-37
-136            android:grantUriPermissions="true" >
-136-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:110:13-47
-137            <meta-data
-137-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:111:13-113:54
-138                android:name="android.support.FILE_PROVIDER_PATHS"
-138-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:112:17-67
-139                android:resource="@xml/file_paths" />
-139-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:113:17-51
-140        </provider>
-141
-142        <activity
-142-->[androidx.compose.ui:ui-tooling-android:1.5.4] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\2c755a32ec6e8214dd316a63991d8359\transformed\jetified-ui-tooling-release\AndroidManifest.xml:23:9-25:39
-143            android:name="androidx.compose.ui.tooling.PreviewActivity"
-143-->[androidx.compose.ui:ui-tooling-android:1.5.4] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\2c755a32ec6e8214dd316a63991d8359\transformed\jetified-ui-tooling-release\AndroidManifest.xml:24:13-71
-144            android:exported="true" />
-144-->[androidx.compose.ui:ui-tooling-android:1.5.4] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\2c755a32ec6e8214dd316a63991d8359\transformed\jetified-ui-tooling-release\AndroidManifest.xml:25:13-36
-145        <activity
-145-->[androidx.compose.ui:ui-test-manifest:1.5.4] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\285a7af40a0fe9d6b67d50fa2610734a\transformed\jetified-ui-test-manifest-1.5.4\AndroidManifest.xml:23:9-25:39
-146            android:name="androidx.activity.ComponentActivity"
-146-->[androidx.compose.ui:ui-test-manifest:1.5.4] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\285a7af40a0fe9d6b67d50fa2610734a\transformed\jetified-ui-test-manifest-1.5.4\AndroidManifest.xml:24:13-63
-147            android:exported="true" />
-147-->[androidx.compose.ui:ui-test-manifest:1.5.4] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\285a7af40a0fe9d6b67d50fa2610734a\transformed\jetified-ui-test-manifest-1.5.4\AndroidManifest.xml:25:13-36
-148
-149        <provider
-149-->[androidx.emoji2:emoji2:1.4.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\ee82babc93872ad99f0813e4b0915ac4\transformed\jetified-emoji2-1.4.0\AndroidManifest.xml:24:9-32:20
-150            android:name="androidx.startup.InitializationProvider"
-150-->[androidx.emoji2:emoji2:1.4.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\ee82babc93872ad99f0813e4b0915ac4\transformed\jetified-emoji2-1.4.0\AndroidManifest.xml:25:13-67
-151            android:authorities="com.tiddlywikibrowser.androidx-startup"
-151-->[androidx.emoji2:emoji2:1.4.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\ee82babc93872ad99f0813e4b0915ac4\transformed\jetified-emoji2-1.4.0\AndroidManifest.xml:26:13-68
-152            android:exported="false" >
-152-->[androidx.emoji2:emoji2:1.4.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\ee82babc93872ad99f0813e4b0915ac4\transformed\jetified-emoji2-1.4.0\AndroidManifest.xml:27:13-37
-153            <meta-data
-153-->[androidx.emoji2:emoji2:1.4.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\ee82babc93872ad99f0813e4b0915ac4\transformed\jetified-emoji2-1.4.0\AndroidManifest.xml:29:13-31:52
-154                android:name="androidx.emoji2.text.EmojiCompatInitializer"
-154-->[androidx.emoji2:emoji2:1.4.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\ee82babc93872ad99f0813e4b0915ac4\transformed\jetified-emoji2-1.4.0\AndroidManifest.xml:30:17-75
-155                android:value="androidx.startup" />
-155-->[androidx.emoji2:emoji2:1.4.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\ee82babc93872ad99f0813e4b0915ac4\transformed\jetified-emoji2-1.4.0\AndroidManifest.xml:31:17-49
-156            <meta-data
-156-->[androidx.lifecycle:lifecycle-process:2.6.2] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c841f9be723dda6bd38e1e9c0ef21f48\transformed\jetified-lifecycle-process-2.6.2\AndroidManifest.xml:29:13-31:52
-157                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
-157-->[androidx.lifecycle:lifecycle-process:2.6.2] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c841f9be723dda6bd38e1e9c0ef21f48\transformed\jetified-lifecycle-process-2.6.2\AndroidManifest.xml:30:17-78
-158                android:value="androidx.startup" />
-158-->[androidx.lifecycle:lifecycle-process:2.6.2] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c841f9be723dda6bd38e1e9c0ef21f48\transformed\jetified-lifecycle-process-2.6.2\AndroidManifest.xml:31:17-49
-159            <meta-data
-159-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:29:13-31:52
-160                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
-160-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:30:17-85
-161                android:value="androidx.startup" />
-161-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:31:17-49
-162        </provider>
-163
-164        <receiver
-164-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:34:9-52:20
-165            android:name="androidx.profileinstaller.ProfileInstallReceiver"
-165-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:35:13-76
-166            android:directBootAware="false"
-166-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:36:13-44
-167            android:enabled="true"
-167-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:37:13-35
-168            android:exported="true"
-168-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:38:13-36
-169            android:permission="android.permission.DUMP" >
-169-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:39:13-57
-170            <intent-filter>
-170-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:40:13-42:29
-171                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
-171-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:41:17-91
-171-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:41:25-88
-172            </intent-filter>
-173            <intent-filter>
-173-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:43:13-45:29
-174                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
-174-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:44:17-85
-174-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:44:25-82
-175            </intent-filter>
-176            <intent-filter>
-176-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:46:13-48:29
-177                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
-177-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:47:17-88
-177-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:47:25-85
-178            </intent-filter>
-179            <intent-filter>
-179-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:49:13-51:29
-180                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
-180-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:50:17-95
-180-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:50:25-92
-181            </intent-filter>
-182        </receiver>
-183    </application>
-184
-185</manifest>
+106            android:hardwareAccelerated="true"
+106-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:83:13-47
+107            android:label="@string/settings"
+107-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:80:13-45
+108            android:theme="@style/Theme.TiddlyWikiBrowser"
+108-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:81:13-59
+109            android:windowSoftInputMode="adjustResize" />
+109-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:82:13-55
+110
+111        <service
+111-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:85:9-91:19
+112            android:name="com.tiddlywikibrowser.MediaPlaybackService"
+112-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:85:18-54
+113            android:exported="false"
+113-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:86:13-37
+114            android:foregroundServiceType="mediaPlayback" >
+114-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:87:13-58
+115            <intent-filter>
+115-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:88:13-90:29
+116                <action android:name="android.media.browse.MediaBrowserService" />
+116-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:89:17-83
+116-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:89:25-80
+117            </intent-filter>
+118        </service>
+119
+120        <!-- Background WebView service to keep WebViews running when app is in background -->
+121        <service
+121-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:94:9-104:19
+122            android:name="com.tiddlywikibrowser.BackgroundWebViewService"
+122-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:95:13-53
+123            android:enabled="true"
+123-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:96:13-35
+124            android:exported="false"
+124-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:97:13-37
+125            android:foregroundServiceType="dataSync|mediaPlayback" >
+125-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:98:13-67
+126            <intent-filter>
+126-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:99:13-103:29
+127                <action android:name="com.tiddlywikibrowser.ACTION_REGISTER_WEBVIEW" />
+127-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:100:17-88
+127-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:100:25-85
+128                <action android:name="com.tiddlywikibrowser.ACTION_UNREGISTER_WEBVIEW" />
+128-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:101:17-90
+128-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:101:25-87
+129                <action android:name="com.tiddlywikibrowser.ACTION_STOP_SERVICE" />
+129-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:102:17-84
+129-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:102:25-81
+130            </intent-filter>
+131        </service>
+132
+133        <!-- FileProvider for sharing and accessing downloaded files -->
+134        <provider
+135            android:name="androidx.core.content.FileProvider"
+135-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:108:13-62
+136            android:authorities="com.tiddlywikibrowser.fileprovider"
+136-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:109:13-64
+137            android:exported="false"
+137-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:110:13-37
+138            android:grantUriPermissions="true" >
+138-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:111:13-47
+139            <meta-data
+139-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:112:13-114:54
+140                android:name="android.support.FILE_PROVIDER_PATHS"
+140-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:113:17-67
+141                android:resource="@xml/file_paths" />
+141-->C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:114:17-51
+142        </provider>
+143
+144        <activity
+144-->[androidx.compose.ui:ui-tooling-android:1.5.4] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\2c755a32ec6e8214dd316a63991d8359\transformed\jetified-ui-tooling-release\AndroidManifest.xml:23:9-25:39
+145            android:name="androidx.compose.ui.tooling.PreviewActivity"
+145-->[androidx.compose.ui:ui-tooling-android:1.5.4] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\2c755a32ec6e8214dd316a63991d8359\transformed\jetified-ui-tooling-release\AndroidManifest.xml:24:13-71
+146            android:exported="true" />
+146-->[androidx.compose.ui:ui-tooling-android:1.5.4] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\2c755a32ec6e8214dd316a63991d8359\transformed\jetified-ui-tooling-release\AndroidManifest.xml:25:13-36
+147        <activity
+147-->[androidx.compose.ui:ui-test-manifest:1.5.4] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\285a7af40a0fe9d6b67d50fa2610734a\transformed\jetified-ui-test-manifest-1.5.4\AndroidManifest.xml:23:9-25:39
+148            android:name="androidx.activity.ComponentActivity"
+148-->[androidx.compose.ui:ui-test-manifest:1.5.4] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\285a7af40a0fe9d6b67d50fa2610734a\transformed\jetified-ui-test-manifest-1.5.4\AndroidManifest.xml:24:13-63
+149            android:exported="true" />
+149-->[androidx.compose.ui:ui-test-manifest:1.5.4] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\285a7af40a0fe9d6b67d50fa2610734a\transformed\jetified-ui-test-manifest-1.5.4\AndroidManifest.xml:25:13-36
+150
+151        <provider
+151-->[androidx.emoji2:emoji2:1.4.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\ee82babc93872ad99f0813e4b0915ac4\transformed\jetified-emoji2-1.4.0\AndroidManifest.xml:24:9-32:20
+152            android:name="androidx.startup.InitializationProvider"
+152-->[androidx.emoji2:emoji2:1.4.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\ee82babc93872ad99f0813e4b0915ac4\transformed\jetified-emoji2-1.4.0\AndroidManifest.xml:25:13-67
+153            android:authorities="com.tiddlywikibrowser.androidx-startup"
+153-->[androidx.emoji2:emoji2:1.4.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\ee82babc93872ad99f0813e4b0915ac4\transformed\jetified-emoji2-1.4.0\AndroidManifest.xml:26:13-68
+154            android:exported="false" >
+154-->[androidx.emoji2:emoji2:1.4.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\ee82babc93872ad99f0813e4b0915ac4\transformed\jetified-emoji2-1.4.0\AndroidManifest.xml:27:13-37
+155            <meta-data
+155-->[androidx.emoji2:emoji2:1.4.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\ee82babc93872ad99f0813e4b0915ac4\transformed\jetified-emoji2-1.4.0\AndroidManifest.xml:29:13-31:52
+156                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+156-->[androidx.emoji2:emoji2:1.4.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\ee82babc93872ad99f0813e4b0915ac4\transformed\jetified-emoji2-1.4.0\AndroidManifest.xml:30:17-75
+157                android:value="androidx.startup" />
+157-->[androidx.emoji2:emoji2:1.4.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\ee82babc93872ad99f0813e4b0915ac4\transformed\jetified-emoji2-1.4.0\AndroidManifest.xml:31:17-49
+158            <meta-data
+158-->[androidx.lifecycle:lifecycle-process:2.6.2] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c841f9be723dda6bd38e1e9c0ef21f48\transformed\jetified-lifecycle-process-2.6.2\AndroidManifest.xml:29:13-31:52
+159                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+159-->[androidx.lifecycle:lifecycle-process:2.6.2] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c841f9be723dda6bd38e1e9c0ef21f48\transformed\jetified-lifecycle-process-2.6.2\AndroidManifest.xml:30:17-78
+160                android:value="androidx.startup" />
+160-->[androidx.lifecycle:lifecycle-process:2.6.2] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c841f9be723dda6bd38e1e9c0ef21f48\transformed\jetified-lifecycle-process-2.6.2\AndroidManifest.xml:31:17-49
+161            <meta-data
+161-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:29:13-31:52
+162                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+162-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:30:17-85
+163                android:value="androidx.startup" />
+163-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:31:17-49
+164        </provider>
+165
+166        <receiver
+166-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:34:9-52:20
+167            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+167-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:35:13-76
+168            android:directBootAware="false"
+168-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:36:13-44
+169            android:enabled="true"
+169-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:37:13-35
+170            android:exported="true"
+170-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:38:13-36
+171            android:permission="android.permission.DUMP" >
+171-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:39:13-57
+172            <intent-filter>
+172-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:40:13-42:29
+173                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+173-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:41:17-91
+173-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:41:25-88
+174            </intent-filter>
+175            <intent-filter>
+175-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:43:13-45:29
+176                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+176-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:44:17-85
+176-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:44:25-82
+177            </intent-filter>
+178            <intent-filter>
+178-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:46:13-48:29
+179                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+179-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:47:17-88
+179-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:47:25-85
+180            </intent-filter>
+181            <intent-filter>
+181-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:49:13-51:29
+182                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+182-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:50:17-95
+182-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:50:25-92
+183            </intent-filter>
+184        </receiver>
+185    </application>
+186
+187</manifest>

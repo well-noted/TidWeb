@@ -38,6 +38,7 @@
     <uses-permission android:name="com.tiddlywikibrowser.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
 
     <application
+        android:name="com.tiddlywikibrowser.MainApplication"
         android:allowBackup="true"
         android:appComponentFactory="androidx.core.app.CoreComponentFactory"
         android:debuggable="true"
@@ -50,6 +51,7 @@
         android:requestLegacyExternalStorage="true"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:testOnly="true"
         android:theme="@style/Theme.TiddlyWikiBrowser"
         android:usesCleartextTraffic="true" >
         <activity
