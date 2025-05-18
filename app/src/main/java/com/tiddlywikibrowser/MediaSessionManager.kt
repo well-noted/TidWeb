@@ -17,6 +17,7 @@ import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import android.support.v4.media.MediaMetadataCompat
 import android.util.Log
+import android.view.KeyEvent
 
 private const val TAG = "MediaSessionManager"
 
@@ -128,8 +129,7 @@ class MediaSessionManager private constructor(private val context: Context) {
                 Log.d(TAG, "Media button receiver set with pending intent")
             }
 
-            mediaSession?.isActive = false // Explicitly set to inactive initially
-
+            // Media session is active by default
             // Force update the service with this session
             playbackService?.setMediaSession(mediaSession!!)
         } catch (e: Exception) {
@@ -206,6 +206,7 @@ class MediaSessionManager private constructor(private val context: Context) {
                 // Another app took focus permanently, pause playback
                 wasPlayingBeforeFocusLoss = isPlaying
                 if (isPlaying) {
+                    Log.d(TAG, "AUDIOFOCUS_LOSS: Attempting to pause via transportControls.pause() due to permanent focus loss.")
                     mediaSession?.controller?.transportControls?.pause()
                 }
             }
@@ -220,6 +221,7 @@ class MediaSessionManager private constructor(private val context: Context) {
                 // If media is playing, set up a delayed pause to avoid immediate stop/start cycles
                 if (isPlaying) {
                     pendingLossTransientCallback = Runnable {
+                        Log.d(TAG, "AUDIOFOCUS_LOSS_TRANSIENT: Attempting to pause via transportControls.pause() due to transient focus loss (delayed).")
                         mediaSession?.controller?.transportControls?.pause()
                         pendingLossTransientCallback = null
                     }.also {
@@ -676,65 +678,94 @@ class MediaSessionManager private constructor(private val context: Context) {
         }
         
         override fun onPlay() {
-            logd("▶️ onPlay() called")
-            logd("🔄 Syncing current state from WebView")
-            fetchMediaStateFromWebView()
-            
-            logd("🔊 Requesting audio focus")
-            if (requestAudioFocus()) {
-                logd("✅ Audio focus granted")
-                synchronized(stateChangeLock) {
-                    lastUserActionTimestamp = System.currentTimeMillis()
-                    wasPlayingBeforeFocusLoss = true
-                    this@MediaSessionManager.isPlaying = true
-                    logd("🔄 State updated: isPlaying=true, wasPlayingBeforeFocusLoss=true")
-                }
-                
-                logd("🎵 Executing play JavaScript")
-                val playScript = """
-                    (function() {
-                        try {
-                            console.log('[MediaControls] 🔍 Searching for media elements...');
-                            const media = document.querySelector('video, audio');
-                            if (!media) {
-                                console.log('[MediaControls] ❌ No media elements found');
-                                return false;
-                            }
-                            
-                            console.log('[MediaControls] 🎵 Found media: ' + 
-                                'tagName: ' + media.tagName + ', ' +
-                                'currentTime: ' + media.currentTime + ', ' +
-                                'duration: ' + media.duration + ', ' +
-                                'paused: ' + media.paused + ', ' +
-                                'readyState: ' + media.readyState
-                            );
-                            
-                            console.log('[MediaControls] ▶️ Attempting to play...');
-                            const playPromise = media.play();
-                            
-                            if (playPromise !== undefined) {
-                                playPromise.then(() => {
-                                    console.log('[MediaControls] ✅ Play successful');
-                                }).catch(error => {
-                                    console.error('[MediaControls] ❌ Play error:', error);
-                                });
-                            }
-                            return true;
-                        } catch (e) {
-                            console.error('[MediaControls] ❌ Error in play script:', e);
-                            return false;
-                        }
-                    })();
-                """.trimIndent()
-                
-                // Execute the JavaScript
-                evaluateWebViewJavascript(playScript)
-                
-                // Update the playback state
-                updatePlaybackState(true, currentPosition)
-            } else {
-                Log.e(TAG, "Failed to get audio focus")
+            logd("▶️ onPlay() called - Entry point")
+            // Log the entire stack trace to see who called onPlay
+            Log.d(LOG_TAG, "Stack trace:", Exception("Play called from"))
+            // Log current state
+            logd("Current thread: ${Thread.currentThread().name}")
+            logd("Current media session: $mediaSession")
+            logd("Current playback state: $currentPlaybackState")
+            logd("WebViewProvider is ${if (webViewProvider != null) "not null" else "null"}")
+
+            val currentTime = System.currentTimeMillis()
+            if (currentTime - lastUserActionTimestamp < USER_ACTION_DEBOUNCE_MS) {
+                logd("⚠️ Debouncing onPlay() call, last action at $lastUserActionTimestamp")
+                return
             }
+            lastUserActionTimestamp = currentTime
+
+            if (webViewProvider == null) {
+                loge("❌ WebViewProvider is null in onPlay")
+                return
+            }
+
+            // Request audio focus before playing
+            if (!requestAudioFocus()) {
+                loge("❌ Failed to gain audio focus in onPlay")
+                // Optionally, update state to paused if focus is not granted
+                // updatePlaybackState(false, currentPosition)
+                // syncMediaSessionAndService()
+                return
+            }
+            
+            synchronized(stateChangeLock) {
+                isPlaying = true
+                lastPlayTimestamp = System.currentTimeMillis() // Record the time play was initiated
+                logd("✅ Local state updated - isPlaying: true")
+            }
+
+            logd("🔄 Updated local state, proceeding with play action")
+
+            val playScript = """
+                (function() {
+                    console.log('[$JS_TAG] ▶️ Play requested');
+                    try {
+                        const media = document.querySelector('video, audio');
+                        if (!media) {
+                            console.log('[$JS_TAG] ❌ No media element found to play');
+                            return 'no_media';
+                        }
+                        
+                        console.log('[$JS_TAG] Playing media. Current state: ' +
+                            'tagName: ' + media.tagName + ', ' +
+                            'currentTime: ' + media.currentTime + ', ' +
+                            'duration: ' + media.duration + ', ' +
+                            'paused: ' + media.paused + ', ' +
+                            'readyState: ' + media.readyState
+                        );
+                        
+                        const playPromise = media.play();
+                        if (playPromise !== undefined) {
+                            playPromise.then(() => {
+                                console.log('[$JS_TAG] ✅ Play promise resolved');
+                            }).catch(e => {
+                                console.error('[$JS_TAG] ❌ Play promise rejected:', e);
+                            });
+                        }
+                        return 'success';
+                    } catch (e) {
+                        console.error('[$JS_TAG] ❌ Play error:', e);
+                        return 'error: ' + e.message;
+                    }
+                })();
+            """.trimIndent()
+
+            logd("📜 Executing play script")
+            evaluateWebViewJavascript(playScript)
+
+            // Update the playback state immediately
+            logd("🔄 Updating playback state to PLAYING")
+            updatePlaybackState(true, currentPosition)
+            
+            // Sync the state
+            logd("🔄 Syncing media session and service after play")
+            syncMediaSessionAndService()
+            
+            // Schedule another sync to ensure state is consistent
+            Handler(Looper.getMainLooper()).postDelayed({
+                logd("🔄 Executing final sync after play")
+                syncMediaSessionAndService()
+            }, 100)
         }
 
         override fun onPause() {
@@ -743,7 +774,7 @@ class MediaSessionManager private constructor(private val context: Context) {
             Log.d(LOG_TAG, "Current media session: $mediaSession")
             Log.d(LOG_TAG, "Current playback state: $currentPlaybackState")
             Log.d(LOG_TAG, "WebViewProvider is ${if (webViewProvider != null) "not null" else "null"}")
-            
+
             // Log the entire stack trace to see who called onPause
             Log.d(LOG_TAG, "Stack trace:", Exception("Pause called from"))
             
@@ -763,67 +794,57 @@ class MediaSessionManager private constructor(private val context: Context) {
             
             Log.d(LOG_TAG, "🔄 Updated local state, proceeding with pause action")
 
-            try {
-                // Execute pause JavaScript with error handling
-                val pauseScript = """
-                    (function() {
-                        console.log('[$JS_TAG] ⏸️ Pause requested');
-                        try {
-                            const media = document.querySelector('video, audio');
-                            if (!media) {
-                                console.log('[$JS_TAG] ❌ No media element found to pause');
-                                return 'no_media';
-                            }
-                            
-                            console.log('[$JS_TAG] Pausing media. Current state: ' +
-                                'tagName: ' + media.tagName + ', ' +
-                                'currentTime: ' + media.currentTime + ', ' +
-                                'duration: ' + media.duration + ', ' +
-                                'paused: ' + media.paused + ', ' +
-                                'readyState: ' + media.readyState
-                            );
-                            
-                            media.pause();
-                            console.log('[$JS_TAG] ✅ Pause successful');
-                            return 'success';
-                        } catch (e) {
-                            console.error('[$JS_TAG] ❌ Pause error:', e);
-                            return 'error: ' + e.message;
+            // Execute pause JavaScript with error handling
+            val pauseScript = """
+                (function() {
+                    console.log('[$JS_TAG] ⏸️ Pause requested');
+                    try {
+                        const media = document.querySelector('video, audio');
+                        if (!media) {
+                            console.log('[$JS_TAG] ❌ No media element found to pause');
+                            return 'no_media';
                         }
-                    })();
-                """.trimIndent()
-                
-                Log.d(LOG_TAG, "📜 Executing pause script")
-                Log.d(LOG_TAG, "JavaScript to execute: $pauseScript")
-                
-                // Execute the JavaScript using the same method as other media controls
-                evaluateWebViewJavascript(pauseScript)
-                
-                // Update the playback state on the main thread
-                Handler(Looper.getMainLooper()).post {
-                    Log.d(LOG_TAG, "🔄 Updating playback state to PAUSED")
-                    updatePlaybackState(false, currentPosition)
-                    
-                    // Sync the state
-                    Log.d(LOG_TAG, "🔄 Syncing media session and service after pause")
-                    syncMediaSessionAndService()
-                    
-                    // Schedule another sync to ensure state is consistent
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        Log.d(LOG_TAG, "🔄 Executing final sync after pause")
-                        syncMediaSessionAndService()
                         
-                        // Log final state
-                        Log.d(LOG_TAG, "✅ Pause operation completed")
-                        Log.d(LOG_TAG, "Final state - isPlaying: $isPlaying, position: $currentPosition")
-                    }, 100)
-                }
+                        console.log('[$JS_TAG] Pausing media. Current state: ' +
+                            'tagName: ' + media.tagName + ', ' +
+                            'currentTime: ' + media.currentTime + ', ' +
+                            'duration: ' + media.duration + ', ' +
+                            'paused: ' + media.paused + ', ' +
+                            'readyState: ' + media.readyState
+                        );
+                        
+                        media.pause();
+                        console.log('[$JS_TAG] ✅ Pause successful');
+                        return 'success';
+                    } catch (e) {
+                        console.error('[$JS_TAG] ❌ Pause error:', e);
+                        return 'error: ' + e.message;
+                    }
+                })();
+            """.trimIndent()
+            
+            Log.d(LOG_TAG, "📜 Executing pause script")
+            
+            // Execute the JavaScript and handle the result
+            evaluateWebViewJavascript(pauseScript)
+            
+            // Update the playback state immediately
+            Log.d(LOG_TAG, "🔄 Updating playback state to PAUSED")
+            updatePlaybackState(false, currentPosition)
+            
+            // Sync the state
+            Log.d(LOG_TAG, "🔄 Syncing media session and service after pause")
+            syncMediaSessionAndService()
+            
+            // Schedule another sync to ensure state is consistent
+            Handler(Looper.getMainLooper()).postDelayed({
+                Log.d(LOG_TAG, "🔄 Executing final sync after pause")
+                syncMediaSessionAndService()
                 
-            } catch (e: Exception) {
-                Log.e(LOG_TAG, "Error executing pause JavaScript", e)
-                // Even if there was an error, we should still update the playback state
-                updatePlaybackState(false, currentPosition)
-            }
+                // Log final state
+                Log.d(LOG_TAG, "✅ Pause operation completed")
+                Log.d(LOG_TAG, "Final state - isPlaying: $isPlaying, position: $currentPosition")
+            }, 100)
         }
 
         override fun onStop() {
@@ -997,12 +1018,26 @@ class MediaSessionManager private constructor(private val context: Context) {
         }
 
         // Handle MediaButton events here if not using a separate MediaButtonReceiver
-        // override fun onMediaButtonEvent(mediaButtonEvent: Intent?): Boolean {
-        //     Log.d(TAG, "MediaSessionCallback: onMediaButtonEvent received")
-        //     // Handle specific media button intents (e.g., ACTION_MEDIA_BUTTON)
-        //     // This is usually handled by MediaButtonReceiver.handleIntent or by the system directly
-        //     // if FLAG_HANDLES_MEDIA_BUTTONS is set and a MediaButtonReceiver is declared in manifest.
-        //     return super.onMediaButtonEvent(mediaButtonEvent)
-        // }
+        override fun onMediaButtonEvent(mediaButtonEvent: Intent?): Boolean {
+            Log.d(LOG_TAG, "MediaSessionCallback.onMediaButtonEvent received intent: $mediaButtonEvent")
+            var eventHandled = false
+            mediaButtonEvent?.let { intent ->
+                val keyEvent = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT)
+                keyEvent?.let {
+                    Log.d(LOG_TAG, "Key event in onMediaButtonEvent: keyCode=${it.keyCode}, action=${it.action}")
+                    if (it.keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE && it.action == KeyEvent.ACTION_DOWN) {
+                        Log.d(LOG_TAG, "--> Specific PAUSE KeyCode (ACTION_DOWN) received in onMediaButtonEvent <--")
+                        this.onPause() // Directly call onPause for this test
+                        eventHandled = true // We've handled it
+                    }
+                    // You could add similar direct calls for onPlay, onSkipToNext etc. if needed for further diagnostics
+                }
+            }
+            if (eventHandled) {
+                return true // Indicate we handled the event
+            }
+            // If not handled by our direct logic, call super
+            return super.onMediaButtonEvent(mediaButtonEvent)
+        }
     }
 }
