@@ -640,22 +640,28 @@ class MediaSessionManager private constructor(private val context: Context) {
         override fun onPlay() {
             Log.d(TAG, "MediaSessionCallback: onPlay called")
             if (requestAudioFocus()) {
-                synchronized(stateChangeLock) { // Ensure atomic update of timestamp and isPlaying
+                synchronized(stateChangeLock) {
                     lastUserActionTimestamp = System.currentTimeMillis()
                     wasPlayingBeforeFocusLoss = true
-                    this@MediaSessionManager.isPlaying = true // Authoritative state update
-                    Log.d(TAG, "MediaSessionCallback.onPlay: Set this.isPlaying=true. Evaluating JS.")
+                    this@MediaSessionManager.isPlaying = true
+                    Log.d(TAG, "MediaSessionCallback.onPlay: Set this.isPlaying=true")
                 }
-                evaluateWebViewJavascript("document.querySelector('video, audio')?.play();")
-                syncMediaSessionAndService() // Sync with the new authoritative state
+                evaluateWebViewJavascript("""
+                    (function() {
+                        const media = document.querySelector('video, audio');
+                        if (media) {
+                            media.play().catch(e => console.log('Play error:', e));
+                            return true;
+                        }
+                        return false;
+                    })();
+                """.trimIndent())
+                syncMediaSessionAndService()
             } else {
-                Log.w(TAG, "MediaSessionCallback: Could not gain audio focus for onPlay")
-                // Even if focus fails, reflect that the attempt to play means we are not paused.
-                // However, if it can't play, it should ideally revert to paused.
-                // For now, let's assume if focus fails, it doesn't play.
+                Log.w(TAG, "Could not gain audio focus for onPlay")
                 synchronized(stateChangeLock) {
-                    lastUserActionTimestamp = System.currentTimeMillis() // Still a user action
-                    this@MediaSessionManager.isPlaying = false // Reflect that play didn't proceed
+                    lastUserActionTimestamp = System.currentTimeMillis()
+                    this@MediaSessionManager.isPlaying = false
                 }
                 syncMediaSessionAndService()
             }
@@ -663,14 +669,23 @@ class MediaSessionManager private constructor(private val context: Context) {
 
         override fun onPause() {
             Log.d(TAG, "MediaSessionCallback: onPause called")
-            synchronized(stateChangeLock) { // Ensure atomic update of timestamp and isPlaying
+            synchronized(stateChangeLock) {
                 lastUserActionTimestamp = System.currentTimeMillis()
                 wasPlayingBeforeFocusLoss = false
-                this@MediaSessionManager.isPlaying = false // Authoritative state update
-                Log.d(TAG, "MediaSessionCallback.onPause: Set this.isPlaying=false. Evaluating JS.")
+                this@MediaSessionManager.isPlaying = false
+                Log.d(TAG, "MediaSessionCallback.onPause: Set this.isPlaying=false")
             }
-            evaluateWebViewJavascript("document.querySelector('video, audio')?.pause();")
-            syncMediaSessionAndService() // Sync with the new authoritative state
+            evaluateWebViewJavascript("""
+                (function() {
+                    const media = document.querySelector('video, audio');
+                    if (media) {
+                        media.pause();
+                        return true;
+                    }
+                    return false;
+                })();
+            """.trimIndent())
+            syncMediaSessionAndService()
         }
 
         override fun onStop() {
@@ -678,11 +693,21 @@ class MediaSessionManager private constructor(private val context: Context) {
             synchronized(stateChangeLock) {
                 lastUserActionTimestamp = System.currentTimeMillis()
                 wasPlayingBeforeFocusLoss = false
-                this@MediaSessionManager.isPlaying = false // Authoritative state update
-                this@MediaSessionManager.currentPosition = 0L // Reset position on stop
-                Log.d(TAG, "MediaSessionCallback.onStop: Set this.isPlaying=false, position=0. Evaluating JS.")
+                this@MediaSessionManager.isPlaying = false
+                this@MediaSessionManager.currentPosition = 0L
+                Log.d(TAG, "MediaSessionCallback.onStop: Set this.isPlaying=false, position=0")
             }
-            evaluateWebViewJavascript("var media = document.querySelector('video, audio'); if (media) { media.pause(); media.currentTime = 0; }")
+            evaluateWebViewJavascript("""
+                (function() {
+                    const media = document.querySelector('video, audio');
+                    if (media) {
+                        media.pause();
+                        media.currentTime = 0;
+                        return true;
+                    }
+                    return false;
+                })();
+            """.trimIndent())
             syncMediaSessionAndService()
             abandonAudioFocus()
         }
@@ -691,28 +716,62 @@ class MediaSessionManager private constructor(private val context: Context) {
             Log.d(TAG, "MediaSessionCallback: onSeekTo called with position: $pos")
             synchronized(stateChangeLock) {
                 lastUserActionTimestamp = System.currentTimeMillis()
-                this@MediaSessionManager.currentPosition = pos // Update position
-                // isPlaying state remains unchanged by a seek action
-                Log.d(TAG, "MediaSessionCallback.onSeekTo: Set position=$pos. Evaluating JS. isPlaying=${this@MediaSessionManager.isPlaying}")
+                this@MediaSessionManager.currentPosition = pos
+                Log.d(TAG, "MediaSessionCallback.onSeekTo: Set position=$pos")
             }
             val positionInSeconds = pos / 1000.0
-            evaluateWebViewJavascript("var mediaElement = document.querySelector('video, audio'); if (mediaElement) { mediaElement.currentTime = $positionInSeconds; }")
+            evaluateWebViewJavascript("""
+                (function() {
+                    const media = document.querySelector('video, audio');
+                    if (media) {
+                        media.currentTime = $positionInSeconds;
+                        return true;
+                    }
+                    return false;
+                })();
+            """.trimIndent())
             syncMediaSessionAndService()
         }
 
-        // Handle skip actions. These might involve fetching new media info from WebView or a playlist.
         override fun onSkipToNext() {
             Log.d(TAG, "MediaSessionCallback: onSkipToNext called")
-            // webView?.skipToNext()
-            // Fetch new media state after skip
-            // fetchMediaStateFromWebView()
+            evaluateWebViewJavascript("""
+                (function() {
+                    if (typeof window.skipForward === 'function') {
+                        window.skipForward();
+                        return true;
+                    } else {
+                        const media = document.querySelector('video, audio');
+                        if (media) {
+                            media.currentTime = Math.min(media.duration, media.currentTime + 15);
+                            media.dispatchEvent(new Event('timeupdate'));
+                            return true;
+                        }
+                    }
+                    return false;
+                })();
+            """.trimIndent())
+            // Update the current position
+            synchronized(stateChangeLock) {
+                currentPosition = (currentPosition + 15000).coerceAtMost(mediaSession?.controller?.metadata?.getLong(MediaMetadataCompat.METADATA_KEY_DURATION) ?: Long.MAX_VALUE)
+            }
+            syncMediaSessionAndService()
         }
 
         override fun onSkipToPrevious() {
             Log.d(TAG, "MediaSessionCallback: onSkipToPrevious called")
-            // webView?.skipToPrevious()
-            // Fetch new media state after skip
-            // fetchMediaStateFromWebView()
+            evaluateWebViewJavascript("""
+                var media = document.querySelector('video, audio');
+                if (media) {
+                    media.currentTime = Math.max(0, media.currentTime - 15);
+                    media.dispatchEvent(new Event('timeupdate'));
+                }
+            """.trimIndent())
+            // Update the current position
+            synchronized(stateChangeLock) {
+                currentPosition = (currentPosition - 15000).coerceAtLeast(0)
+            }
+            syncMediaSessionAndService()
         }
 
         // Handle MediaButton events here if not using a separate MediaButtonReceiver
