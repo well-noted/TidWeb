@@ -537,15 +537,73 @@ class MediaSessionManager private constructor(private val context: Context) {
         playbackService = null
     }
 
+    // Logging helper methods
+    private fun logd(message: String) {
+        Log.d(TAG, message)
+    }
+
+    private fun loge(message: String, e: Exception? = null) {
+        if (e != null) {
+            Log.e(TAG, message, e)
+        } else {
+            Log.e(TAG, message)
+        }
+    }
+
+    private fun detectMediaPlayerType() {
+        val detectionScript = """
+            (function() {
+                try {
+                    // Check for standard HTML5 media
+                    const standardMedia = document.querySelector('video, audio');
+                    if (standardMedia) {
+                        return JSON.stringify({
+                            type: 'standard',
+                            tag: standardMedia.tagName,
+                            src: standardMedia.src || '',
+                            controls: standardMedia.controls
+                        });
+                    }
+                    
+                    // Check for TiddlyWiki's custom media players
+                    const tiddlyWikiPlayer = document.querySelector('.tc-media-player, .tc-player, [data-tw-media]');
+                    if (tiddlyWikiPlayer) {
+                        return JSON.stringify({
+                            type: 'tiddlywiki',
+                            className: tiddlyWikiPlayer.className,
+                            hasPlayButton: !!document.querySelector('.tc-player-play, .play-button'),
+                            hasPauseButton: !!document.querySelector('.tc-player-pause, .pause-button')
+                        });
+                    }
+                    
+                    return JSON.stringify({ type: 'none', message: 'No media player detected' });
+                } catch (e) {
+                    return JSON.stringify({ type: 'error', message: e.toString() });
+                }
+            })();
+        """.trimIndent()
+        
+        Log.d(TAG, "🔍 Detecting media player type...")
+        evaluateWebViewJavascript(detectionScript)
+    }
+
     private fun evaluateWebViewJavascript(script: String) {
-        Log.d(TAG, "Executing script: $script")
+        Log.d(TAG, "📜 Executing JavaScript in WebView")
         try {
-            // Use webViewProvider instead of context casting
-            webViewProvider?.executeJavascript(script) { result ->
-                Log.d(TAG, "Script result: $result")
+            val provider = webViewProvider ?: run {
+                Log.e(TAG, "❌ Cannot execute JavaScript: WebViewProvider is null")
+                return
+            }
+            
+            provider.executeJavascript(script) { result ->
+                if (result?.contains("error", ignoreCase = true) == true) {
+                    Log.e(TAG, "❌ JavaScript error: $result")
+                } else {
+                    Log.d(TAG, "📜 Script execution result: $result")
+                }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error executing script", e)
+            Log.e(TAG, "❌ Error executing JavaScript", e)
         }
     }
 
@@ -719,31 +777,52 @@ class MediaSessionManager private constructor(private val context: Context) {
 
             logd("🔄 Updated local state, proceeding with play action")
 
+            // First, detect the type of media player
+            detectMediaPlayerType()
+            
             val playScript = """
                 (function() {
-                    console.log('[$JS_TAG] ▶️ Play requested');
+                    console.log('[MediaControl] Play requested');
                     try {
-                        const media = document.querySelector('video, audio');
+                        // Try multiple selector approaches
+                        const media = document.querySelector('video, audio, .tc-media-player');
+                        
                         if (!media) {
-                            console.log('[$JS_TAG] ❌ No media element found to play');
+                            console.log('[MediaControl] No media element found');
                             return 'no_media';
                         }
                         
-                        console.log('[$JS_TAG] Playing media. Current state: ' +
-                            'tagName: ' + media.tagName + ', ' +
-                            'currentTime: ' + media.currentTime + ', ' +
-                            'duration: ' + media.duration + ', ' +
-                            'paused: ' + media.paused + ', ' +
-                            'readyState: ' + media.readyState
-                        );
+                        console.log('[MediaControl] Media element found:', media.tagName);
                         
-                        const playPromise = media.play();
-                        if (playPromise !== undefined) {
-                            playPromise.then(() => {
-                                console.log('[$JS_TAG] ✅ Play promise resolved');
-                            }).catch(e => {
-                                console.error('[$JS_TAG] ❌ Play promise rejected:', e);
-                            });
+                        // Handle different types of media players
+                        if (media.tagName === 'VIDEO' || media.tagName === 'AUDIO') {
+                            // Standard HTML5 media
+                            if (media.paused) {
+                                console.log('[MediaControl] Standard media - attempting to play');
+                                const playPromise = media.play();
+                                
+                                if (playPromise !== undefined) {
+                                    playPromise.catch(e => {
+                                        console.error('[MediaControl] Play error:', e);
+                                        return 'error: ' + e.message;
+                                    });
+                                }
+                                return 'play_attempted';
+                            }
+                            return 'already_playing';
+                        } else {
+                            // Possibly a TiddlyWiki custom player
+                            console.log('[MediaControl] Non-standard media player detected');
+                            
+                            // Try to find play button if it's a custom player
+                            const playButton = document.querySelector('.tc-player-play, .play-button');
+                            if (playButton) {
+                                console.log('[MediaControl] Found play button, clicking');
+                                playButton.click();
+                                return 'play_button_clicked';
+                            }
+                            
+                            return 'unknown_player_type';
                         }
                         return 'success';
                     } catch (e) {
@@ -801,23 +880,52 @@ class MediaSessionManager private constructor(private val context: Context) {
 
             val pauseScript = """
                 (function() {
-                    console.log('[$JS_TAG] ⏸️ Pause requested');
+                    console.log('[MediaControl] Pause requested');
                     try {
-                        const media = document.querySelector('video, audio');
+                        // Try multiple selector approaches
+                        const media = document.querySelector('video, audio, .tc-media-player');
+                        
                         if (!media) {
-                            console.log('[$JS_TAG] ❌ No media element found to pause');
+                            console.log('[MediaControl] No media element found');
                             return 'no_media';
                         }
-                        if (!media.paused) {
-                            media.pause();
-                            console.log('[$JS_TAG] ✅ Media paused');
+                        
+                        console.log('[MediaControl] Media element found:', media.tagName);
+                        
+                        // Handle different types of media players
+                        if (media.tagName === 'VIDEO' || media.tagName === 'AUDIO') {
+                            // Standard HTML5 media
+                            if (!media.paused) {
+                                console.log('[MediaControl] Standard media - pausing');
+                                media.pause();
+                                return 'paused';
+                            }
+                            return 'already_paused';
                         } else {
-                            console.log('[$JS_TAG] ℹ️ Media already paused');
+                            // Possibly a TiddlyWiki custom player
+                            console.log('[MediaControl] Non-standard media player detected');
+                            
+                            // Try to find pause button if it's a custom player
+                            const pauseButton = document.querySelector('.tc-player-pause, .pause-button');
+                            if (pauseButton) {
+                                console.log('[MediaControl] Found pause button, clicking');
+                                pauseButton.click();
+                                return 'pause_button_clicked';
+                            }
+                            
+                            // If no pause button, try toggling the play button
+                            const playButton = document.querySelector('.tc-player-play, .play-button');
+                            if (playButton && !playButton.classList.contains('hidden')) {
+                                console.log('[MediaControl] Toggling play button to pause');
+                                playButton.click();
+                                return 'toggle_play_button_clicked';
+                            }
+                            
+                            return 'unknown_player_type';
                         }
-                        return 'success';
                     } catch (e) {
-                        console.error('[$JS_TAG] ❌ Pause error:', e);
-                        return 'error: ' + e.message;
+                        console.error('[MediaControl] Pause error:', e);
+                        return 'error: ' + e.toString();
                     }
                 })();
             """.trimIndent()

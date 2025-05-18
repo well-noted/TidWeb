@@ -1719,21 +1719,42 @@ class MainActivity : ComponentActivity() {
             override fun getCurrentMediaState(callback: (title: String?, artist: String?, duration: Long?, position: Long?, isPlaying: Boolean?) -> Unit) {
                 getCurrentWebView()?.evaluateJavascript("(" + Companion.mediaMonitorScript + ")()") { result ->
                     // Process the result from mediaMonitorScript to extract media state
-                    // This is a placeholder, you'll need to parse the 'result' JSON string
                     try {
-                        val json = result?.let { JSONObject(it.removeSurrounding("\"")) } // Remove quotes if present
-                        if (json != null && json.optBoolean("exists", false)) {
+                        // Check if result is null, empty, or not a JSON string
+                        if (result.isNullOrEmpty() || result == "null" || result == "undefined") {
+                            Log.d("MainActivity", "No valid media state returned from JS")
+                            callback(null, null, null, null, null)
+                            return@evaluateJavascript
+                        }
+                        
+                        // Handle string escaping and remove quotes if present
+                        val jsonString = result.trim()
+                            .let { if (it.startsWith("\"") && it.endsWith("\"")) it.substring(1, it.length - 1) else it }
+                            .replace("\\\\", "\\")
+                            .replace("\\n", "")
+                        
+                        // Check if the content is a valid JSON
+                        if (!jsonString.startsWith("{")) {
+                            Log.d("MainActivity", "Invalid JSON format: $jsonString")
+                            callback(null, null, null, null, null)
+                            return@evaluateJavascript
+                        }
+                        
+                        val json = JSONObject(jsonString)
+                        if (json.optBoolean("exists", false)) {
                             val title = json.optString("title", getCurrentWebView()?.title ?: "TiddlyWiki Media")
                             val artist = json.optString("artist", "Unknown Artist")
                             val duration = json.optLong("duration", 0)
                             val position = json.optLong("position", 0)
                             val isPlaying = json.optBoolean("playing", false)
+                            Log.d("MainActivity", "Media state: title=$title, duration=$duration, playing=$isPlaying")
                             callback(title, artist, duration, position, isPlaying)
                         } else {
+                            Log.d("MainActivity", "No active media found in JSON response")
                             callback(null, null, null, null, null)
                         }
                     } catch (e: Exception) {
-                        Log.e("MainActivity", "Error parsing media state from JS", e)
+                        Log.e("MainActivity", "Error parsing media state from JS: ${result}", e)
                         callback(null, null, null, null, null)
                     }
                 }
