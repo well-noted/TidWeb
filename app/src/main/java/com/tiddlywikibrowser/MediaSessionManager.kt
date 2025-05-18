@@ -33,8 +33,11 @@ class MediaSessionManager private constructor(private val context: Context) {
     private var lastPlayTimestamp: Long = 0
     private var isServiceBound = false
     private var currentPlaybackState: PlaybackStateCompat? = null
-    private var webView: WebViewProvider? = null
+    private var webViewProvider: WebViewProvider? = null // Add webViewProvider variable
     private var sessionToken: MediaSessionCompat.Token? = null
+
+    private var lastUserActionTimestamp: Long = 0
+    private val USER_ACTION_DEBOUNCE_MS: Long = 500 // 0.5 seconds, moved from const val
 
     private val stateChangeLock = Object()
     private var gainCallbackHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -99,120 +102,7 @@ class MediaSessionManager private constructor(private val context: Context) {
 
             val componentName = ComponentName(context, MediaPlaybackService::class.java)
             mediaSession = MediaSessionCompat(context, "TiddlyWikiMediaSession", componentName, pendingIntent).apply {
-                setCallback(object : MediaSessionCompat.Callback() {
-                    override fun onPlay() {
-                        Log.d(TAG, "MediaSession.onPlay()")
-                        synchronized(stateChangeLock) {
-                            if (!hasActiveMedia) {
-                                Log.d(TAG, "No active media to play")
-                                return
-                            }
-
-                            wasPlayingBeforeFocusLoss = false
-                            lastPlayTimestamp = System.currentTimeMillis()
-
-                            if (requestAudioFocus()) {
-                                // Start service before playing
-                                startPlaybackService()
-                                
-                                // Delay playback to allow audio focus to settle
-                                gainCallbackHandler.postDelayed({
-                                    synchronized(stateChangeLock) {
-                                        isPlaying = true
-                                        Log.d(TAG, "Playing media")
-                                        // Tell the ExoPlayer to play via the MainActivity callback
-                                        (context as? MainActivity)?.exoPlayerManager?.getOrCreatePlayer()?.play()
-                                        // Also try to play any HTML5 audio/video elements directly
-                                        evaluateWebViewJavascript("document.querySelector('audio,video')?.play()")
-                                        updatePlaybackState()
-                                    }
-                                }, 100) // Reduced delay for better responsiveness
-                            }
-                        }
-                    }
-
-                    override fun onPause() {
-                        Log.d(TAG, "MediaSession.onPause()")
-                        synchronized(stateChangeLock) {
-                            if (!isPlaying) {
-                                Log.d(TAG, "Media already paused")
-                                return
-                            }
-
-                            isPlaying = false
-                            // Pause the ExoPlayer via the MainActivity callback
-                            (context as? MainActivity)?.exoPlayerManager?.getOrCreatePlayer()?.pause()
-                            // Also try to pause any HTML5 audio/video elements directly
-                            evaluateWebViewJavascript("document.querySelector('audio,video')?.pause()")
-                            updatePlaybackState()
-                            abandonAudioFocus()
-                        }
-                    }
-
-                    override fun onSeekTo(pos: Long) {
-                        Log.d(TAG, "MediaSession.onSeekTo($pos)")
-                        currentPosition = pos
-                        // Seek the ExoPlayer via the MainActivity callback
-                        (context as? MainActivity)?.exoPlayerManager?.getOrCreatePlayer()?.seekTo(pos)
-                        // Also try to seek HTML5 audio/video elements directly
-                        evaluateWebViewJavascript("document.querySelector('audio,video').currentTime = ${pos / 1000.0}")
-                        updatePlaybackState()
-                    }
-
-                    override fun onSkipToNext() {
-                        Log.d(TAG, "MediaSession.onSkipToNext()")
-                        // Skip forward 15 seconds
-                        val newPos = currentPosition + 15000
-                        // Seek the ExoPlayer via the MainActivity callback
-                        (context as? MainActivity)?.exoPlayerManager?.getOrCreatePlayer()?.seekTo(newPos)
-                        // Also try to seek HTML5 audio/video elements directly
-                        evaluateWebViewJavascript("document.querySelector('audio,video').currentTime += 15")
-                        currentPosition = newPos
-                        updatePlaybackState()
-                    }
-
-                    override fun onSkipToPrevious() {
-                        Log.d(TAG, "MediaSession.onSkipToPrevious()")
-                        // Skip backward 15 seconds
-                        val newPos = (currentPosition - 15000).coerceAtLeast(0)
-                        // Seek the ExoPlayer via the MainActivity callback
-                        (context as? MainActivity)?.exoPlayerManager?.getOrCreatePlayer()?.seekTo(newPos)
-                        // Also try to seek HTML5 audio/video elements directly
-                        evaluateWebViewJavascript("document.querySelector('audio,video').currentTime -= 15")
-                        currentPosition = newPos
-                        updatePlaybackState()
-                    }
-
-                    override fun onStop() {
-                        Log.d(TAG, "MediaSession.onStop()")
-                        synchronized(stateChangeLock) {
-                            isPlaying = false
-                            currentPosition = 0
-                            abandonAudioFocus()
-
-                            // Stop the ExoPlayer via the MainActivity callback
-                            (context as? MainActivity)?.exoPlayerManager?.getOrCreatePlayer()?.stop()
-                            // Also try to stop any HTML5 audio/video elements directly
-                            evaluateWebViewJavascript("""
-                                const media = document.querySelector('audio,video');
-                                if (media) {
-                                    media.pause();
-                                    media.currentTime = 0;
-                                }
-                            """)
-                            updatePlaybackState()
-                        }
-                    }
-
-                    override fun onCustomAction(action: String?, extras: Bundle?) {
-                        Log.d(TAG, "MediaSession.onCustomAction($action)")
-                        when (action) {
-                            "SKIP_FORWARD" -> onSkipToNext()
-                            "SKIP_BACKWARD" -> onSkipToPrevious()
-                            else -> super.onCustomAction(action, extras)
-                        }
-                    }
-                })
+                setCallback(MediaSessionCallback())
 
                 // Set flags for media session
                 setFlags(MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS or
@@ -224,6 +114,8 @@ class MediaSessionManager private constructor(private val context: Context) {
                 // Set media button receiver explicitly
                 setMediaButtonReceiver(pendingIntent)
             }
+
+            mediaSession?.isActive = false // Explicitly set to inactive initially
 
             // Force update the service with this session
             playbackService?.setMediaSession(mediaSession!!)
@@ -368,7 +260,8 @@ class MediaSessionManager private constructor(private val context: Context) {
                             PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
                             PlaybackStateCompat.ACTION_STOP
                 )
-                .setState(state, currentPosition, if (isPlaying) 1f else 0f)
+            Log.d(TAG, "MediaSessionManager.internalUpdatePlaybackState - Setting state: $state, Position: $currentPosition, IsPlaying: $isPlaying")
+            stateBuilder.setState(state, currentPosition, if (isPlaying) 1f else 0f)
 
             // Add custom actions for 15s forward/backward
             stateBuilder.addCustomAction(
@@ -390,8 +283,14 @@ class MediaSessionManager private constructor(private val context: Context) {
             val playbackState = stateBuilder.build()
             mediaSession?.apply {
                 setPlaybackState(playbackState)
-                // Make sure to keep the session active while we have media
-                isActive = hasActiveMedia
+                // isActive state is now primarily managed by updateMetadata and the public updatePlaybackState
+                // However, ensure it reflects hasActiveMedia if playing, or just hasActiveMedia if paused.
+                if (this@MediaSessionManager.isPlaying) {
+                    isActive = true // If playing, session must be active
+                } else {
+                    isActive = hasActiveMedia // If paused, active only if we have media
+                }
+                Log.d(TAG, "MediaSessionManager.internalUpdatePlaybackState - mediaSession.setPlaybackState CALLED with: State: ${playbackState.state}, Position: ${playbackState.position}, Session Active: ${isActive}")
             }
 
             // Ensure service is updated with new state
@@ -425,35 +324,33 @@ class MediaSessionManager private constructor(private val context: Context) {
                     startPlaybackService()
                 }
             } else {
-                playbackService?.stopForeground()
+                playbackService?.stopForeground(true) // Pass boolean argument
             }
         }
     }
 
     fun updateMetadata(title: String?, artist: String?, duration: Long?, bitmap: Bitmap? = null) {
-        android.util.Log.d(TAG, "MediaSessionManager: updateMetadata ENTRY. Title: $title")
+        android.util.Log.d(TAG, "MediaSessionManager: updateMetadata ENTRY. Title: '$title', Artist: '$artist', Duration: $duration")
         synchronized(stateChangeLock) {
-            android.util.Log.d(TAG, "updateMetadata called. Title: $title, Duration: $duration. PlaybackService is ${if (playbackService == null) "NULL" else "NOT NULL"}")
-            val hadMetadata = hasActiveMedia
+            android.util.Log.d(TAG, "updateMetadata (synchronized) BEGIN - Title: ${title ?: "null"}, Duration: ${duration ?: "null"}. PlaybackService is ${if (playbackService == null) "NULL" else "NOT NULL"}")
+            val oldHasActiveMedia = hasActiveMedia // Store old state
             hasActiveMedia = title != null && duration != null && duration > 0
             currentBitmap = bitmap
             
-            // Determine if this is video content based on the title or other information
             val isVideo = title?.contains("video", ignoreCase = true) == true || 
                           title?.contains("TiddlyWiki Video", ignoreCase = true) == true
             
-            // Create a variable to hold media type information
             val isVideoContent = isVideo
 
-            if (title != null) {
-                val metadata = MediaMetadataCompat.Builder()
+            if (title != null) { // Only proceed with metadata update if title is present
+                Log.d(TAG, "updateMetadata: Title is not null. Building metadata. hasActiveMedia: $hasActiveMedia")
+                val metadataObject = MediaMetadataCompat.Builder()
                     .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title)
                     .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, artist ?: "")
                     .apply {
                         duration?.let { putLong(MediaMetadataCompat.METADATA_KEY_DURATION, it) }
                         bitmap?.let { putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, it) }
                         
-                        // Add additional metadata for videos
                         if (isVideoContent) {
                             putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, "Video: $title")
                             putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, "Playing in background")
@@ -461,69 +358,144 @@ class MediaSessionManager private constructor(private val context: Context) {
                     }
                     .build()
 
-                mediaSession?.setMetadata(metadata)
-                currentMetadata = metadata
+                mediaSession?.setMetadata(metadataObject)
+                currentMetadata = metadataObject
+                Log.d(TAG, "MediaSessionManager.updateMetadata - mediaSession.setMetadata CALLED with: Title: ${metadataObject.getString(MediaMetadataCompat.METADATA_KEY_TITLE)}, Duration: ${metadataObject.getLong(MediaMetadataCompat.METADATA_KEY_DURATION)}")
 
+                Log.d(TAG, "updateMetadata: Attempting to update notification via playbackService. PlaybackService is ${if (playbackService == null) "NULL" else "NOT NULL"}")
                 playbackService?.let { service ->
                     mediaSession?.let { session ->
+                        Log.d(TAG, "updateMetadata: Calling service.updateNotification with Meta Title: ${metadataObject.getString(MediaMetadataCompat.METADATA_KEY_TITLE)}, Duration: ${metadataObject.getLong(MediaMetadataCompat.METADATA_KEY_DURATION)}")
                         service.updateNotification(
                             session,
-                            metadata,
-                            session.controller.playbackState,
+                            metadataObject,
+                            session.controller.playbackState, // Pass current state
                             bitmap
                         )
-                    }
-                }
-
-                // Make sure the session is active when we have metadata
-                mediaSession?.isActive = hasActiveMedia
+                        Log.d(TAG, "updateMetadata: Returned from service.updateNotification")
+                    } ?: Log.d(TAG, "updateMetadata: playbackService was NOT null, but mediaSession WAS NULL inside 'let' block.")
+                } ?: Log.d(TAG, "updateMetadata: playbackService WAS NULL.")
+            } else {
+                // If title is null, effectively means no valid media, clear metadata and set inactive
+                mediaSession?.setMetadata(null)
+                currentMetadata = null
+                hasActiveMedia = false // Ensure this is false
             }
+            
+            // Always update mediaSession active state based on hasActiveMedia
+            mediaSession?.isActive = hasActiveMedia
+            Log.d(TAG, "updateMetadata: mediaSession isActive set to $hasActiveMedia")
 
-            if (hasActiveMedia != hadMetadata) {
+            Log.d(TAG, "updateMetadata: Checking if hasActiveMedia ($hasActiveMedia) changed from oldHasActiveMedia ($oldHasActiveMedia)")
+            if (hasActiveMedia != oldHasActiveMedia) {
                 if (!hasActiveMedia) {
-                    playbackService?.stopForeground()
+                    Log.d(TAG, "updateMetadata: hasActiveMedia is now false. Stopping foreground and abandoning audio focus.")
+                    playbackService?.stopForeground(true) // Pass boolean argument
                     abandonAudioFocus()
+                } else {
+                    Log.d(TAG, "updateMetadata: hasActiveMedia is now true.")
+                    // If it became active, ensure the service is started and notification updated
+                    startPlaybackService() // Ensures service is running
+                    // updateNotificationIfNeeded() is called by updatePlaybackState which usually follows
                 }
             }
+            Log.d(TAG, "updateMetadata (synchronized) END")
         }
     }
 
-    fun updatePlaybackState(playing: Boolean, position: Long) {
-        android.util.Log.d(TAG, "MediaSessionManager: updatePlaybackState ENTRY. isPlaying: $playing, position: $position")
+    // This is the primary method for updating the MediaSession and Service based on the current internal state.
+    // It should be called AFTER 'this.isPlaying' and 'this.currentPosition' are authoritatively set.
+    private fun syncMediaSessionAndService() {
         synchronized(stateChangeLock) {
+            val currentIsPlaying = this.isPlaying // Use the authoritative internal state
+            val currentPos = this.currentPosition
+
+            android.util.Log.d(TAG, "MediaSessionManager.syncMediaSessionAndService: Syncing with isPlaying=$currentIsPlaying, position=$currentPos. PlaybackService is ${if (playbackService == null) "NULL" else "NOT NULL"}")
+
+            val stateBuilder = PlaybackStateCompat.Builder()
+                .setActions(
+                    PlaybackStateCompat.ACTION_PLAY or
+                            PlaybackStateCompat.ACTION_PAUSE or
+                            PlaybackStateCompat.ACTION_SEEK_TO or
+                            PlaybackStateCompat.ACTION_PLAY_PAUSE or
+                            PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                            PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                            PlaybackStateCompat.ACTION_STOP
+                )
+            
+            val playbackStateValue = if (currentIsPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
+            stateBuilder.setState(playbackStateValue, currentPos, if (currentIsPlaying) 1f else 0f)
+
+            stateBuilder.addCustomAction(
+                PlaybackStateCompat.CustomAction.Builder("SKIP_BACKWARD", "Skip Back 15s", R.drawable.ic_skip_backward_15).build()
+            )
+            stateBuilder.addCustomAction(
+                PlaybackStateCompat.CustomAction.Builder("SKIP_FORWARD", "Skip Forward 15s", R.drawable.ic_skip_forward_15).build()
+            )
+
+            val newPlaybackState = stateBuilder.build()
+            mediaSession?.apply {
+                setPlaybackState(newPlaybackState)
+                isActive = if (currentIsPlaying) true else hasActiveMedia // Session active if playing, or if paused with media
+                Log.d(TAG, "MediaSessionManager.syncMediaSessionAndService - mediaSession.setPlaybackState CALLED with: State: ${newPlaybackState.state}, Position: ${newPlaybackState.position}, Session Active: $isActive")
+            }
+
+            playbackService?.let { service ->
+                service.updatePlaybackState(playbackStateValue, currentPos)
+            } ?: run {
+                if (hasActiveMedia) startPlaybackService()
+            }
+            updateNotificationIfNeeded() // Ensures notification reflects the new state
+        }
+    }
+
+    // Public method called by WebView bridge or other non-user-action sources
+    fun updatePlaybackState(playing: Boolean, position: Long) {
+        android.util.Log.d(TAG, "MediaSessionManager: updatePlaybackState (WebView/External) ENTRY. isPlaying: $playing, position: $position")
+        synchronized(stateChangeLock) {
+            val currentTime = System.currentTimeMillis()
+            if (currentTime - lastUserActionTimestamp < USER_ACTION_DEBOUNCE_MS) {
+                // If a user action recently set 'this.isPlaying', and WebView's 'playing' contradicts it, ignore WebView.
+                if (this.isPlaying != playing) {
+                    Log.w(TAG, "MediaSessionManager.updatePlaybackState (WebView/External): Ignoring WebView's state ($playing) because it contradicts a recent user action (user set to ${this.isPlaying}).")
+                    return // Ignore this update from WebView
+                }
+            }
+
+            // If not debounced or if WebView state matches user's intent, update internal state
+            val stateChanged = this.isPlaying != playing || this.currentPosition != position
+            this.isPlaying = playing
+            this.currentPosition = position
+
             if (!hasActiveMedia && playing) {
-                // If media is playing but we don't have metadata yet, make it active
                 hasActiveMedia = true
                 mediaSession?.isActive = true
-                // Ensure service is started when we have active media
+                Log.d(TAG, "updatePlaybackState (WebView/External): Playback started without prior metadata, setting hasActiveMedia=true, session.isActive=true")
                 startPlaybackService()
             }
 
-            val stateChanged = isPlaying != playing
-            val positionChanged = currentPosition != position
-
-            isPlaying = playing
-            currentPosition = position
-
-            if (stateChanged || positionChanged) {
-                updatePlaybackState()
+            if (stateChanged) {
+                syncMediaSessionAndService()
+            } else {
+                Log.d(TAG, "MediaSessionManager.updatePlaybackState (WebView/External): No change in state or significant position, not syncing.")
             }
-            
-            // Always ensure service is running when playing
-            if (playing) {
-                startPlaybackService()
+
+            if (!playing && !hasActiveMedia) {
+                mediaSession?.isActive = false
+                Log.d(TAG, "updatePlaybackState (WebView/External): Playback stopped and no active media, setting session.isActive=false")
             }
         }
     }
 
     fun updatePlaybackPosition(position: Long) {
         synchronized(stateChangeLock) {
-            if (currentPosition != position) {
-                currentPosition = position
-                // Only update state if position changed significantly
-                if (Math.abs(position - currentPosition) > 1000) {
-                    updatePlaybackState()
-                }
+            if (Math.abs(this.currentPosition - position) > 500) { // Update if position changed significantly
+                this.currentPosition = position
+                // Don't change 'this.isPlaying' here, only position.
+                // Then sync. The debounce in the public updatePlaybackState won't apply here directly,
+                // but syncMediaSessionAndService will use the current 'this.isPlaying'.
+                Log.d(TAG, "MediaSessionManager.updatePlaybackPosition: Position updated to $position. Syncing session.")
+                syncMediaSessionAndService()
             }
         }
     }
@@ -535,7 +507,7 @@ class MediaSessionManager private constructor(private val context: Context) {
         mediaSession?.release()
         mediaSession = null
         abandonAudioFocus()
-        playbackService?.stopForeground()
+        playbackService?.stopForeground(true) // Pass boolean argument
         if (isServiceBound) {
             try {
                 context.unbindService(serviceConnection)
@@ -550,7 +522,8 @@ class MediaSessionManager private constructor(private val context: Context) {
     private fun evaluateWebViewJavascript(script: String) {
         Log.d(TAG, "Executing script: $script")
         try {
-            (context as? MainActivity)?.getCurrentWebView()?.evaluateJavascript(script) { result ->
+            // Use webViewProvider instead of context casting
+            webViewProvider?.executeJavascript(script) { result ->
                 Log.d(TAG, "Script result: $result")
             }
         } catch (e: Exception) {
@@ -631,12 +604,8 @@ class MediaSessionManager private constructor(private val context: Context) {
     }
 
     // Interface for WebView to provide current media state
-    interface WebViewProvider {
-        fun getCurrentMediaState(callback: (title: String?, artist: String?, duration: Long?, position: Long?, isPlaying: Boolean?) -> Unit)
-    }
-
     fun setWebViewProvider(provider: WebViewProvider?) {
-        this.webView = provider
+        this.webViewProvider = provider
         if (provider != null) {
             // Optionally fetch initial state when WebView is set
             // fetchMediaStateFromWebView() 
@@ -645,20 +614,19 @@ class MediaSessionManager private constructor(private val context: Context) {
 
     // Potentially called by MediaSessionCallback actions
     private fun fetchMediaStateFromWebView() {
-        webView?.getCurrentMediaState { title, artist, duration, position, isPlaying ->
+        webViewProvider?.getCurrentMediaState { title, artist, duration, position, isPlaying ->
             ThreadManager.runOnMain { // Ensure UI thread for updates if they touch UI directly
                 var changed = false
                 if (title != null || artist != null || duration != null) {
-                    updateMetadata(title, artist, duration)
+                    updateMetadata(title, artist, duration) // Bitmap is null here, handled by updateMetadata
                     changed = true
                 }
                 if (isPlaying != null && position != null) {
                     updatePlaybackState(isPlaying, position)
                     changed = true
                 }
-                if (changed) {
-                    // updateNotificationIfNeeded() // Metadata and PlaybackState updates already call this
-                }
+                // if (changed) { // updateNotificationIfNeeded is called by the above methods
+                // }
             }
         }
     }
@@ -671,48 +639,65 @@ class MediaSessionManager private constructor(private val context: Context) {
     private inner class MediaSessionCallback : MediaSessionCompat.Callback() {
         override fun onPlay() {
             Log.d(TAG, "MediaSessionCallback: onPlay called")
-            if (!audioManager.isMusicActive && !isPlaying) { // Check if something is already playing
-                // Start playback - this might involve telling the WebView to play
-                // For now, just update state and notification
-                // This should ideally trigger playback in the actual player (e.g., WebView)
-                // webView?.play() or similar command
+            if (requestAudioFocus()) {
+                synchronized(stateChangeLock) { // Ensure atomic update of timestamp and isPlaying
+                    lastUserActionTimestamp = System.currentTimeMillis()
+                    wasPlayingBeforeFocusLoss = true
+                    this@MediaSessionManager.isPlaying = true // Authoritative state update
+                    Log.d(TAG, "MediaSessionCallback.onPlay: Set this.isPlaying=true. Evaluating JS.")
+                }
+                evaluateWebViewJavascript("document.querySelector('video, audio')?.play();")
+                syncMediaSessionAndService() // Sync with the new authoritative state
+            } else {
+                Log.w(TAG, "MediaSessionCallback: Could not gain audio focus for onPlay")
+                // Even if focus fails, reflect that the attempt to play means we are not paused.
+                // However, if it can't play, it should ideally revert to paused.
+                // For now, let's assume if focus fails, it doesn't play.
+                synchronized(stateChangeLock) {
+                    lastUserActionTimestamp = System.currentTimeMillis() // Still a user action
+                    this@MediaSessionManager.isPlaying = false // Reflect that play didn't proceed
+                }
+                syncMediaSessionAndService()
             }
-            isPlaying = true
-            updatePlaybackState() // Update MediaSession's state
-            // updateNotificationIfNeeded() // Already called by updatePlaybackState
-            // The service should be started if not already
-            startPlaybackService() // Ensure service is running
         }
 
         override fun onPause() {
             Log.d(TAG, "MediaSessionCallback: onPause called")
-            isPlaying = false
-            updatePlaybackState()
-            // updateNotificationIfNeeded() // Already called by updatePlaybackState
+            synchronized(stateChangeLock) { // Ensure atomic update of timestamp and isPlaying
+                lastUserActionTimestamp = System.currentTimeMillis()
+                wasPlayingBeforeFocusLoss = false
+                this@MediaSessionManager.isPlaying = false // Authoritative state update
+                Log.d(TAG, "MediaSessionCallback.onPause: Set this.isPlaying=false. Evaluating JS.")
+            }
+            evaluateWebViewJavascript("document.querySelector('video, audio')?.pause();")
+            syncMediaSessionAndService() // Sync with the new authoritative state
         }
 
         override fun onStop() {
             Log.d(TAG, "MediaSessionCallback: onStop called")
-            isPlaying = false
-            currentPosition = 0
-            updatePlaybackState()
-            // updateNotificationIfNeeded() // Already called by updatePlaybackState
-            // Consider stopping the service if nothing is playing and it's not needed
-            // if (playbackService != null && !isPlaying) {
-            //     playbackService?.stopSelf()
-            // }
-            hasActiveMedia = false // No active media after stop
-            // Clear notification by sending empty/default state if desired, or rely on service stopping
-            // For now, let the service manage its lifecycle.
-            // A full stop might also involve releasing the media player in the WebView.
+            synchronized(stateChangeLock) {
+                lastUserActionTimestamp = System.currentTimeMillis()
+                wasPlayingBeforeFocusLoss = false
+                this@MediaSessionManager.isPlaying = false // Authoritative state update
+                this@MediaSessionManager.currentPosition = 0L // Reset position on stop
+                Log.d(TAG, "MediaSessionCallback.onStop: Set this.isPlaying=false, position=0. Evaluating JS.")
+            }
+            evaluateWebViewJavascript("var media = document.querySelector('video, audio'); if (media) { media.pause(); media.currentTime = 0; }")
+            syncMediaSessionAndService()
+            abandonAudioFocus()
         }
 
         override fun onSeekTo(pos: Long) {
-            Log.d(TAG, "MediaSessionCallback: onSeekTo called with pos: $pos")
-            currentPosition = pos
-            updatePlaybackState() // Update state with new position
-            // updateNotificationIfNeeded() // Already called by updatePlaybackState
-            // This should also seek the actual player: webView?.seekTo(pos)
+            Log.d(TAG, "MediaSessionCallback: onSeekTo called with position: $pos")
+            synchronized(stateChangeLock) {
+                lastUserActionTimestamp = System.currentTimeMillis()
+                this@MediaSessionManager.currentPosition = pos // Update position
+                // isPlaying state remains unchanged by a seek action
+                Log.d(TAG, "MediaSessionCallback.onSeekTo: Set position=$pos. Evaluating JS. isPlaying=${this@MediaSessionManager.isPlaying}")
+            }
+            val positionInSeconds = pos / 1000.0
+            evaluateWebViewJavascript("var mediaElement = document.querySelector('video, audio'); if (mediaElement) { mediaElement.currentTime = $positionInSeconds; }")
+            syncMediaSessionAndService()
         }
 
         // Handle skip actions. These might involve fetching new media info from WebView or a playlist.

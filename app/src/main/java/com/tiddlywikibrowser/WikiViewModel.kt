@@ -31,6 +31,7 @@ private const val WEBVIEW_OPERATION_TIMEOUT = 5000L
 private const val MAX_RETRY_ATTEMPTS = 3
 
 class WikiViewModel(private val context: Context) : ViewModel() {
+
     // State flows for UI state
     private val _currentWiki = MutableStateFlow<WikiInstance?>(null)
     val currentWiki: StateFlow<WikiInstance?> = _currentWiki

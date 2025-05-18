@@ -28,6 +28,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.*
 import android.widget.Toast
+import com.tiddlywikibrowser.WebViewProvider
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatDelegate
@@ -103,6 +104,8 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.os.PersistableBundle
 import android.view.KeyEvent
+import com.tiddlywikibrowser.PreferencesKeys // Added import
+import com.tiddlywikibrowser.dataStore // Added import
 
 // Memory threshold for optimization (50MB)
 private const val MEMORY_THRESHOLD = 50L * 1024L * 1024L
@@ -121,7 +124,9 @@ class MainActivity : ComponentActivity() {
     private val NETWORK_CHECK_THROTTLE = 5000L
     internal lateinit var mediaSessionManager: MediaSessionManager
     internal lateinit var exoPlayerManager: ExoPlayerManager
-    lateinit var backgroundWebViewManager: BackgroundWebViewManager
+    internal lateinit var backgroundWebViewManager: BackgroundWebViewManager
+    private val TAG = "MainActivity"
+    private var currentWebView: WebView? = null
     var viewModel: WikiViewModel? = null
     private var serviceConnection: ServiceConnection? = null
     private val serviceIntent by lazy { Intent(this, MediaPlaybackService::class.java) }
@@ -221,7 +226,6 @@ class MainActivity : ComponentActivity() {
                     lastUpdate = now;
 
                     if (!activeMediaElement) {
-                        // Only search for media if we don't have an active element
                         const mediaElement = document.querySelector('audio,video');
                         if (mediaElement) {
                             activeMediaElement = mediaElement;
@@ -629,17 +633,28 @@ class MainActivity : ComponentActivity() {
             }
 
             // Add JavaScript interface for media handling
-            class MediaInterface(private val localMediaInterfaceContext: Context) { 
+            class MediaInterface(private val localMediaInterfaceContext: Context) {
                 @JavascriptInterface
                 fun onMediaStateChange(title: String?, artist: String?, duration: Long, position: Long, isPlaying: Boolean) {
-                    Log.d("MediaInterface", "onMediaStateChange received (JS thread): title='$title', artist='$artist', duration='$duration', position='$position', isPlaying='$isPlaying'")
-                    
+                    Log.d("MediaInterface", "onMediaStateChange (JS->Native) RECEIVED - Title: [${title ?: "null"}], Artist: [${artist ?: "null"}], Duration: $duration, Position: $position, IsPlaying: $isPlaying")
+
                     ThreadManager.runOnMain {
-                        Log.d("MediaInterface", "onMediaStateChange: Now on main thread. Context type: ${localMediaInterfaceContext.javaClass.name}")
-                        val msm = MediaSessionManager.getInstance(localMediaInterfaceContext) // Use singleton
-                        msm.updateMetadata(title, artist, duration)
-                        msm.updatePlaybackState(isPlaying, position)
-                        Log.d("MediaInterface", "onMediaStateChange: Calls to MediaSessionManager singleton completed.")
+                        Log.d("MediaInterface", "onMediaStateChange (MainThread) BEGIN - Title: [${title ?: "null"}], Artist: [${artist ?: "null"}], Duration: $duration, Position: $position, IsPlaying: $isPlaying")
+                        try {
+                            val msm = MediaSessionManager.getInstance(localMediaInterfaceContext)
+
+                            Log.d("MediaInterface", "Attempting to call msm.updateMetadata with Duration: $duration, Title: ${title ?: "null"}")
+                            msm.updateMetadata(title, artist, duration)
+                            Log.d("MediaInterface", "Returned from msm.updateMetadata")
+
+                            Log.d("MediaInterface", "Attempting to call msm.updatePlaybackState with IsPlaying: $isPlaying, Position: $position")
+                            msm.updatePlaybackState(isPlaying, position)
+                            Log.d("MediaInterface", "Returned from msm.updatePlaybackState")
+
+                            Log.d("MediaInterface", "onMediaStateChange (MainThread) COMPLETED successfully.")
+                        } catch (e: Exception) {
+                            Log.e("MediaInterface", "Error in onMediaStateChange on main thread: ${e.message}", e)
+                        }
                     }
                 }
 
@@ -647,15 +662,15 @@ class MainActivity : ComponentActivity() {
                 fun updateMediaMetadata(title: String?, artist: String?, album: String?, artworkUrl: String?, duration: Long) {
                     Log.d("MediaInterface", "updateMediaMetadata received: title='$title', artist='$artist', album='$album', duration='$duration'")
                     ThreadManager.runOnMain {
-                         val msm = MediaSessionManager.getInstance(localMediaInterfaceContext) // Use singleton
-                         msm.updateMetadata(title, artist, duration, null) // Assuming null for bitmap for now
+                        val msm = MediaSessionManager.getInstance(localMediaInterfaceContext) // Use singleton
+                        msm.updateMetadata(title, artist, duration, null) // Assuming null for bitmap for now
                     }
                 }
 
                 @JavascriptInterface
                 fun updatePlaybackState(isPlaying: Boolean, position: Long) {
                     Log.d("MediaInterface", "updatePlaybackState received: isPlaying='$isPlaying', position='$position'")
-                     ThreadManager.runOnMain {
+                    ThreadManager.runOnMain {
                         val msm = MediaSessionManager.getInstance(localMediaInterfaceContext) // Use singleton
                         msm.updatePlaybackState(isPlaying, position)
                     }
@@ -693,7 +708,7 @@ class MainActivity : ComponentActivity() {
                                 msm.updatePlaybackState(true, (currentTime * 1000).toLong()) // Assuming playing if time is updating
                             }
                             "loadedmetadata" -> {
-                                 msm.updateMetadata(effectiveTitle, "TiddlyWiki", (duration * 1000).toLong())
+                                msm.updateMetadata(effectiveTitle, "TiddlyWiki", (duration * 1000).toLong())
                             }
                         }
                     }
@@ -929,14 +944,14 @@ class MainActivity : ComponentActivity() {
     }
 
     // Keep track of background mode preference
-    private val _isBackgroundEnabled = MutableStateFlow(false)
-    val isBackgroundEnabled: StateFlow<Boolean> = _isBackgroundEnabled
-    
+    internal val _isBackgroundEnabled = MutableStateFlow(false)
+    internal val isBackgroundEnabled: StateFlow<Boolean> = _isBackgroundEnabled
+
     // Request permission for notifications on Android 13+ (API 33+)
     private fun requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val permission = Manifest.permission.POST_NOTIFICATIONS
-            
+
             // Check if permission is already granted
             if (checkSelfPermission(permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 // Request the permission
@@ -947,15 +962,67 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.d("MainActivity", "MainActivity onCreate: Initializing MediaSessionManager singleton.")
-        mediaSessionManager = MediaSessionManager.getInstance(this) // Correct: Use singleton
-        exoPlayerManager = ExoPlayerManager(this) // Correct: Constructor takes only Context
-        backgroundWebViewManager = BackgroundWebViewManager(this)
+
+        // Initialize ViewModel with ViewModelFactory
+        viewModel = ViewModelProvider(this, ViewModelFactory(applicationContext)).get(WikiViewModel::class.java)
+
+        // Initialize MediaSessionManager
+        mediaSessionManager = MediaSessionManager.getInstance(this)
+
+        // Set up WebView provider for media controls
+        mediaSessionManager.setWebViewProvider(object : WebViewProvider {
+            override fun executeJavascript(script: String, callback: ((String) -> Unit)?) {
+                getCurrentWebView()?.evaluateJavascript(script, callback ?: {})
+            }
+
+            override fun getCurrentMediaState(callback: (title: String?, artist: String?, duration: Long?, position: Long?, isPlaying: Boolean?) -> Unit) {
+                getCurrentWebView()?.evaluateJavascript("""
+                    (function() {
+                        const media = document.querySelector('audio,video');
+                        if (media) {
+                            return JSON.stringify({
+                                title: media.title || document.title,
+                                artist: media.artist || '',
+                                duration: Math.round(media.duration * 1000),
+                                position: Math.round(media.currentTime * 1000),
+                                isPlaying: !media.paused
+                            });
+                        }
+                        return JSON.stringify({
+                            title: null,
+                            artist: null,
+                            duration: null,
+                            position: null,
+                            isPlaying: false
+                        });
+                    })();
+                """.trimIndent()) { result ->
+                    try {
+                        val json = JSONObject(result.replace("\"", "").replace("\"", ""))
+                        callback(
+                            json.optString("title").takeIf { it != "null" },
+                            json.optString("artist").takeIf { it != "null" },
+                            json.optLong("duration").takeIf { it > 0 },
+                            json.optLong("position").takeIf { it >= 0 },
+                            json.optBoolean("isPlaying")
+                        )
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error parsing media state", e)
+                        callback(null, null, null, null, false)
+                    }
+                } ?: run {
+                    callback(null, null, null, null, false)
+                }
+            }
+        })
+
+        exoPlayerManager = ExoPlayerManager(this)
+        backgroundWebViewManager = BackgroundWebViewManager(applicationContext)
 
         try {
             // Initialize WebView configuration first
             applyWebViewConfiguration()
-            
+
             // Request notification permission for Android 13+
             requestNotificationPermission()
 
@@ -1601,7 +1668,7 @@ class MainActivity : ComponentActivity() {
 
                     // Force resume videos to ensure they keep playing in background
                     backgroundWebViewManager.service?.forceResumeVideos()
-                    
+
                     // Notify the service directly that app went to background
                     val serviceIntent = Intent(this, BackgroundWebViewService::class.java).apply {
                         action = BackgroundWebViewService.ACTION_APP_BACKGROUND
@@ -1616,7 +1683,7 @@ class MainActivity : ComponentActivity() {
                     } catch (e: Exception) {
                         Log.e("MainActivity", "Failed to send background notification to service", e)
                     }
-                    
+
                     // Notify the video should keep playing when hidden
                     webView.evaluateJavascript("""
                         (function() {
@@ -1642,6 +1709,43 @@ class MainActivity : ComponentActivity() {
 
         // Log the current background mode state for diagnosis
         Log.d("MainActivity", "onResume - Background mode is ${if (_isBackgroundEnabled.value) "ENABLED" else "DISABLED"}")
+
+        // Set the WebViewProvider for MediaSessionManager
+        mediaSessionManager.setWebViewProvider(object : WebViewProvider {
+            override fun executeJavascript(script: String, callback: ((String) -> Unit)?) {
+                getCurrentWebView()?.evaluateJavascript(script, callback)
+            }
+
+            override fun getCurrentMediaState(callback: (title: String?, artist: String?, duration: Long?, position: Long?, isPlaying: Boolean?) -> Unit) {
+                getCurrentWebView()?.evaluateJavascript("(" + Companion.mediaMonitorScript + ")()") { result ->
+                    // Process the result from mediaMonitorScript to extract media state
+                    // This is a placeholder, you'll need to parse the 'result' JSON string
+                    try {
+                        val json = result?.let { JSONObject(it.removeSurrounding("\"")) } // Remove quotes if present
+                        if (json != null && json.optBoolean("exists", false)) {
+                            val title = json.optString("title", getCurrentWebView()?.title ?: "TiddlyWiki Media")
+                            val artist = json.optString("artist", "Unknown Artist")
+                            val duration = json.optLong("duration", 0)
+                            val position = json.optLong("position", 0)
+                            val isPlaying = json.optBoolean("playing", false)
+                            callback(title, artist, duration, position, isPlaying)
+                        } else {
+                            callback(null, null, null, null, null)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Error parsing media state from JS", e)
+                        callback(null, null, null, null, null)
+                    }
+                }
+            }
+        })
+
+        if (webViewPaused) {
+            currentWebView?.onResume() // Use the class property
+            currentWebView?.resumeTimers() // Use the class property
+            webViewPaused = false
+            Log.d("MainActivity", "WebView resumed and timers started.")
+        }
 
         if (!_isBackgroundEnabled.value) {
             // Standard behavior
@@ -1753,10 +1857,10 @@ class MainActivity : ComponentActivity() {
         } else if (_isBackgroundEnabled.value) {
             // If background mode is enabled, ensure videos keep playing in background
             Log.d("MainActivity", "onStop - Background mode enabled, ensuring videos continue in background.")
-            
+
             // Force resume any videos that should be playing
             backgroundWebViewManager.forceResumeVideos()
-            
+
             // Also make sure the service is still running with explicit background action
             try {
                 val serviceIntent = Intent(this, BackgroundWebViewService::class.java).apply {
@@ -1995,9 +2099,10 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Get the current WebView
+     * Get the current WebView instance from the ViewModel
+     * @return The current WebView or null if not available
      */
-    fun getCurrentWebView(): WebView? {
+    internal fun getCurrentWebView(): WebView? {
         return viewModel?.currentWiki?.value?.let { wiki ->
             viewModel?.getOrCreateWebView(wiki, this)
         }
