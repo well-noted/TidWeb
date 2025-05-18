@@ -262,7 +262,7 @@ class MediaSessionManager private constructor(private val context: Context) {
     private fun updatePlaybackState() {
         synchronized(stateChangeLock) {
             val state = if (isPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
-            android.util.Log.d(TAG, "MediaSessionManager.internalUpdatePlaybackState: state=$state, isPlaying=$isPlaying. PlaybackService is ${if (playbackService == null) "NULL" else "NOT NULL"}")
+            android.util.Log.d(TAG, "MediaSessionManager.internalUpdatePlaybackState: ENTRY. isPlaying=$isPlaying, currentPosition=$currentPosition, Desired state for PlaybackStateCompat: $state")
             Log.d(TAG, "Updating playback state: ${if (isPlaying) "PLAYING" else "PAUSED"}")
             
             val stateBuilder = PlaybackStateCompat.Builder()
@@ -296,6 +296,7 @@ class MediaSessionManager private constructor(private val context: Context) {
             )
 
             val playbackState = stateBuilder.build()
+            Log.d(TAG, "MediaSessionManager.internalUpdatePlaybackState: Built PlaybackState: actions=${playbackState.actions}, state=${playbackState.state}, position=${playbackState.position}, bufferedPosition=${playbackState.bufferedPosition}, extras=${playbackState.extras}")
             mediaSession?.apply {
                 setPlaybackState(playbackState)
                 // isActive state is now primarily managed by updateMetadata and the public updatePlaybackState
@@ -421,6 +422,7 @@ class MediaSessionManager private constructor(private val context: Context) {
     // This is the primary method for updating the MediaSession and Service based on the current internal state.
     // It should be called AFTER 'this.isPlaying' and 'this.currentPosition' are authoritatively set.
     private fun syncMediaSessionAndService() {
+        Log.d(TAG, "MediaSessionManager.syncMediaSessionAndService: ENTRY. Current internal state: isPlaying=$isPlaying, currentPosition=$currentPosition, hasActiveMedia=$hasActiveMedia, webViewProvider null? ${webViewProvider == null}")
         synchronized(stateChangeLock) {
             val currentIsPlaying = this.isPlaying // Use the authoritative internal state
             val currentPos = this.currentPosition
@@ -462,6 +464,7 @@ class MediaSessionManager private constructor(private val context: Context) {
             }
             updateNotificationIfNeeded() // Ensures notification reflects the new state
         }
+        Log.d(TAG, "MediaSessionManager.syncMediaSessionAndService: EXIT.")
     }
 
     // Public method called by WebView bridge or other non-user-action sources
@@ -764,37 +767,38 @@ class MediaSessionManager private constructor(private val context: Context) {
             // Schedule another sync to ensure state is consistent
             Handler(Looper.getMainLooper()).postDelayed({
                 logd("🔄 Executing final sync after play")
+                fetchMediaStateFromWebView() // Get latest state from webview
                 syncMediaSessionAndService()
             }, 100)
         }
 
         override fun onPause() {
-            Log.d(LOG_TAG, "⏸️ onPause() called - Entry point")
-            Log.d(LOG_TAG, "Current thread: ${Thread.currentThread().name}")
-            Log.d(LOG_TAG, "Current media session: $mediaSession")
-            Log.d(LOG_TAG, "Current playback state: $currentPlaybackState")
-            Log.d(LOG_TAG, "WebViewProvider is ${if (webViewProvider != null) "not null" else "null"}")
-
-            // Log the entire stack trace to see who called onPause
+            logd("⏸️ onPause() called - Entry point")
             Log.d(LOG_TAG, "Stack trace:", Exception("Pause called from"))
-            
-            // Verify WebView is available
-            if (webViewProvider == null) {
-                Log.e(LOG_TAG, "❌ WebViewProvider is null in onPause")
+            logd("Current thread: ${Thread.currentThread().name}")
+            logd("Current media session: $mediaSession")
+            logd("Current playback state: $currentPlaybackState")
+            logd("WebViewProvider is ${if (webViewProvider != null) "not null" else "null"}")
+
+            val currentTime = System.currentTimeMillis()
+            if (currentTime - lastUserActionTimestamp < USER_ACTION_DEBOUNCE_MS) {
+                logd("⚠️ Debouncing onPause() call, last action at $lastUserActionTimestamp")
                 return
             }
-            
-            // Update local state first
+            lastUserActionTimestamp = currentTime
+
+            if (webViewProvider == null) {
+                loge("❌ WebViewProvider is null in onPause")
+                return
+            }
+
             synchronized(stateChangeLock) {
                 isPlaying = false
-                lastUserActionTimestamp = System.currentTimeMillis()
-                wasPlayingBeforeFocusLoss = false
-                Log.d(LOG_TAG, "✅ Local state updated - isPlaying: false, wasPlayingBeforeFocusLoss: false")
+                logd("✅ Local state updated - isPlaying: false")
             }
-            
-            Log.d(LOG_TAG, "🔄 Updated local state, proceeding with pause action")
 
-            // Execute pause JavaScript with error handling
+            logd("🔄 Updated local state, proceeding with pause action")
+
             val pauseScript = """
                 (function() {
                     console.log('[$JS_TAG] ⏸️ Pause requested');
@@ -804,17 +808,12 @@ class MediaSessionManager private constructor(private val context: Context) {
                             console.log('[$JS_TAG] ❌ No media element found to pause');
                             return 'no_media';
                         }
-                        
-                        console.log('[$JS_TAG] Pausing media. Current state: ' +
-                            'tagName: ' + media.tagName + ', ' +
-                            'currentTime: ' + media.currentTime + ', ' +
-                            'duration: ' + media.duration + ', ' +
-                            'paused: ' + media.paused + ', ' +
-                            'readyState: ' + media.readyState
-                        );
-                        
-                        media.pause();
-                        console.log('[$JS_TAG] ✅ Pause successful');
+                        if (!media.paused) {
+                            media.pause();
+                            console.log('[$JS_TAG] ✅ Media paused');
+                        } else {
+                            console.log('[$JS_TAG] ℹ️ Media already paused');
+                        }
                         return 'success';
                     } catch (e) {
                         console.error('[$JS_TAG] ❌ Pause error:', e);
@@ -822,28 +821,26 @@ class MediaSessionManager private constructor(private val context: Context) {
                     }
                 })();
             """.trimIndent()
-            
-            Log.d(LOG_TAG, "📜 Executing pause script")
-            
-            // Execute the JavaScript and handle the result
+
+            logd("📜 Executing pause script")
             evaluateWebViewJavascript(pauseScript)
-            
+
             // Update the playback state immediately
-            Log.d(LOG_TAG, "🔄 Updating playback state to PAUSED")
-            updatePlaybackState(false, currentPosition)
+            logd("🔄 Updating playback state to PAUSED")
+            updatePlaybackState(false, currentPosition) // Pass currentPosition, though it might be updated by webview soon
             
             // Sync the state
-            Log.d(LOG_TAG, "🔄 Syncing media session and service after pause")
+            logd("🔄 Syncing media session and service after pause")
             syncMediaSessionAndService()
             
-            // Schedule another sync to ensure state is consistent
+            // Optionally, consider abandoning audio focus here or after a delay
+            // abandonAudioFocus() // if appropriate for your app's behavior
+            
+            // Schedule another sync to ensure state is consistent after WebView updates
             Handler(Looper.getMainLooper()).postDelayed({
-                Log.d(LOG_TAG, "🔄 Executing final sync after pause")
+                logd("🔄 Executing final sync after pause")
+                fetchMediaStateFromWebView() // Get latest state from webview
                 syncMediaSessionAndService()
-                
-                // Log final state
-                Log.d(LOG_TAG, "✅ Pause operation completed")
-                Log.d(LOG_TAG, "Final state - isPlaying: $isPlaying, position: $currentPosition")
             }, 100)
         }
 
@@ -1020,23 +1017,27 @@ class MediaSessionManager private constructor(private val context: Context) {
         // Handle MediaButton events here if not using a separate MediaButtonReceiver
         override fun onMediaButtonEvent(mediaButtonEvent: Intent?): Boolean {
             Log.d(LOG_TAG, "MediaSessionCallback.onMediaButtonEvent received intent: $mediaButtonEvent")
-            var eventHandled = false
             mediaButtonEvent?.let { intent ->
                 val keyEvent = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT)
                 keyEvent?.let {
                     Log.d(LOG_TAG, "Key event in onMediaButtonEvent: keyCode=${it.keyCode}, action=${it.action}")
                     if (it.keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE && it.action == KeyEvent.ACTION_DOWN) {
-                        Log.d(LOG_TAG, "--> Specific PAUSE KeyCode (ACTION_DOWN) received in onMediaButtonEvent <--")
-                        this.onPause() // Directly call onPause for this test
-                        eventHandled = true // We've handled it
+                        Log.d(LOG_TAG, "--> Specific PAUSE KeyCode (ACTION_DOWN) received, manually calling onPause() <--")
+                        this.onPause()
+                        return true // Event handled
                     }
                     // You could add similar direct calls for onPlay, onSkipToNext etc. if needed for further diagnostics
+                    // Example for play:
+                    // if (it.keyCode == KeyEvent.KEYCODE_MEDIA_PLAY && it.action == KeyEvent.ACTION_DOWN) {
+                    //     Log.d(LOG_TAG, "--> Specific PLAY KeyCode (ACTION_DOWN) received, manually calling onPlay() <--")
+                    //     this.onPlay()
+                    //     return true // Event handled
+                    // }
                 }
             }
-            if (eventHandled) {
-                return true // Indicate we handled the event
-            }
-            // If not handled by our direct logic, call super
+            // If not handled by our direct logic (e.g. not PAUSE), call super
+            // CRUCIAL: Call super to ensure default dispatching for other events (play, next, prev etc.) occurs
+            Log.d(LOG_TAG, "Pause key not detected or not ACTION_DOWN, delegating to super.onMediaButtonEvent")
             return super.onMediaButtonEvent(mediaButtonEvent)
         }
     }
