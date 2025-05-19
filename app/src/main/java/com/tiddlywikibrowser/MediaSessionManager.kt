@@ -852,104 +852,21 @@ class MediaSessionManager private constructor(private val context: Context) {
         }
 
         override fun onPause() {
-            logd("⏸️ onPause() called - Entry point")
-            Log.d(LOG_TAG, "Stack trace:", Exception("Pause called from"))
-            logd("Current thread: ${Thread.currentThread().name}")
-            logd("Current media session: $mediaSession")
-            logd("Current playback state: $currentPlaybackState")
-            logd("WebViewProvider is ${if (webViewProvider != null) "not null" else "null"}")
-
-            val currentTime = System.currentTimeMillis()
-            if (currentTime - lastUserActionTimestamp < USER_ACTION_DEBOUNCE_MS) {
-                logd("⚠️ Debouncing onPause() call, last action at $lastUserActionTimestamp")
-                return
-            }
-            lastUserActionTimestamp = currentTime
-
-            if (webViewProvider == null) {
-                loge("❌ WebViewProvider is null in onPause")
-                return
-            }
-
+            Log.d(TAG, "MediaSession.onPause()")
             synchronized(stateChangeLock) {
+                if (!isPlaying) {
+                    Log.d(TAG, "Media already paused")
+                    return
+                }
+
                 isPlaying = false
-                logd("✅ Local state updated - isPlaying: false")
+                // Pause the ExoPlayer via the MainActivity
+                (context as? MainActivity)?.exoPlayerManager?.getOrCreatePlayer()?.pause()
+                // Also try to pause any HTML5 audio/video elements directly
+                evaluateWebViewJavascript("document.querySelector('audio,video')?.pause()")
+                updatePlaybackState(false, currentPosition)
+                abandonAudioFocus()
             }
-
-            logd("🔄 Updated local state, proceeding with pause action")
-
-            val pauseScript = """
-                (function() {
-                    console.log('[MediaControl] Pause requested');
-                    try {
-                        // Try multiple selector approaches
-                        const media = document.querySelector('video, audio, .tc-media-player');
-                        
-                        if (!media) {
-                            console.log('[MediaControl] No media element found');
-                            return 'no_media';
-                        }
-                        
-                        console.log('[MediaControl] Media element found:', media.tagName);
-                        
-                        // Handle different types of media players
-                        if (media.tagName === 'VIDEO' || media.tagName === 'AUDIO') {
-                            // Standard HTML5 media
-                            if (!media.paused) {
-                                console.log('[MediaControl] Standard media - pausing');
-                                media.pause();
-                                return 'paused';
-                            }
-                            return 'already_paused';
-                        } else {
-                            // Possibly a TiddlyWiki custom player
-                            console.log('[MediaControl] Non-standard media player detected');
-                            
-                            // Try to find pause button if it's a custom player
-                            const pauseButton = document.querySelector('.tc-player-pause, .pause-button');
-                            if (pauseButton) {
-                                console.log('[MediaControl] Found pause button, clicking');
-                                pauseButton.click();
-                                return 'pause_button_clicked';
-                            }
-                            
-                            // If no pause button, try toggling the play button
-                            const playButton = document.querySelector('.tc-player-play, .play-button');
-                            if (playButton && !playButton.classList.contains('hidden')) {
-                                console.log('[MediaControl] Toggling play button to pause');
-                                playButton.click();
-                                return 'toggle_play_button_clicked';
-                            }
-                            
-                            return 'unknown_player_type';
-                        }
-                    } catch (e) {
-                        console.error('[MediaControl] Pause error:', e);
-                        return 'error: ' + e.toString();
-                    }
-                })();
-            """.trimIndent()
-
-            logd("📜 Executing pause script")
-            evaluateWebViewJavascript(pauseScript)
-
-            // Update the playback state immediately
-            logd("🔄 Updating playback state to PAUSED")
-            updatePlaybackState(false, currentPosition) // Pass currentPosition, though it might be updated by webview soon
-            
-            // Sync the state
-            logd("🔄 Syncing media session and service after pause")
-            syncMediaSessionAndService()
-            
-            // Optionally, consider abandoning audio focus here or after a delay
-            // abandonAudioFocus() // if appropriate for your app's behavior
-            
-            // Schedule another sync to ensure state is consistent after WebView updates
-            Handler(Looper.getMainLooper()).postDelayed({
-                logd("🔄 Executing final sync after pause")
-                fetchMediaStateFromWebView() // Get latest state from webview
-                syncMediaSessionAndService()
-            }, 100)
         }
 
         override fun onStop() {
