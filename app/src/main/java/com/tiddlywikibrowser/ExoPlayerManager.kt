@@ -11,6 +11,7 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import android.util.Log
+import com.tiddlywikibrowser.media.MediaSessionManager
 
 class ExoPlayerManager(private val context: Context) {
     private var player: ExoPlayer? = null
@@ -63,8 +64,8 @@ class ExoPlayerManager(private val context: Context) {
                                 
                                 // Explicitly manage foreground service based on playback state
                                 if (isPlaying) {
-                                    // Start media service via MediaSessionManager
-                                    activity.mediaSessionManager.startMediaService()
+                                    // Start media service via MainActivity
+                                    activity.startMediaService()
                                 }
                             }
                         } catch (e: Exception) {
@@ -93,7 +94,7 @@ class ExoPlayerManager(private val context: Context) {
                                             duration = exoPlayer.duration
                                         )
                                         // Ensure service is started when media is ready
-                                        activity.mediaSessionManager.startMediaService()
+                                        activity.startMediaService()
                                     }
                                 }
                             } catch (e: Exception) {
@@ -122,6 +123,8 @@ class ExoPlayerManager(private val context: Context) {
             getOrCreatePlayer().apply {
                 setMediaItem(mediaItem)
                 prepare()
+                // Ensure playback starts
+                play()
             }
         } else {
             // If it's the same URL, just resume if paused
@@ -233,5 +236,26 @@ class ExoPlayerManager(private val context: Context) {
     fun stop() {
         player?.stop()
         _currentPosition = 0
+    }
+    
+    /**
+     * Pause the player (called from MediaSession)
+     */
+    fun pause() {
+        player?.pause()
+    }
+    
+    /**
+     * Resume/play the player (called from MediaSession)
+     */
+    fun play() {
+        player?.play()
+    }
+    
+    /**
+     * Seek to position (called from MediaSession)
+     */
+    fun seekTo(position: Long) {
+        player?.seekTo(position)
     }
 }

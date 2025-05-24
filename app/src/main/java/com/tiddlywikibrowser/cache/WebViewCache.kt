@@ -1,4 +1,4 @@
-package com.tiddlywikibrowser
+package com.tiddlywikibrowser.cache
 
 import android.content.Context
 import android.os.Bundle
@@ -9,6 +9,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import com.tiddlywikibrowser.R
+import com.tiddlywikibrowser.ThreadManager
 import java.util.concurrent.ConcurrentHashMap
 import java.util.LinkedHashMap
 import java.util.concurrent.locks.ReentrantReadWriteLock

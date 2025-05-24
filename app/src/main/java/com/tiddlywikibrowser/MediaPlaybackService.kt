@@ -321,5 +321,29 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         return START_NOT_STICKY
     }
 
-    // ...existing code...
+    override fun onDestroy() {
+        Log.d("MediaPlaybackService", "onDestroy: Cleaning up resources")
+        
+        try {
+            // Clear the media session
+            mediaSession?.let { session ->
+                session.isActive = false
+                session.release()
+                mediaSession = null
+            }
+            
+            // Stop foreground service and remove notification
+            stopForeground(true)
+            stopSelf()
+            
+            // Clear callbacks
+            mediaPlayerCallback = null
+            
+            Log.d("MediaPlaybackService", "onDestroy: Cleanup complete")
+        } catch (e: Exception) {
+            Log.e("MediaPlaybackService", "Error during onDestroy", e)
+        }
+        
+        super.onDestroy()
+    }
 }

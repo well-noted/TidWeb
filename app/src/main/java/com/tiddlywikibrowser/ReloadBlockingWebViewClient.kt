@@ -670,20 +670,96 @@ class ReloadBlockingWebViewClient(
                 // Skip if already initialized
                 if (window.__videoBackgroundPlaybackInitialized) return true;
                 
+                // Create a flag to track if ExoPlayer routing is enabled
+                // This enables background media control support
+                window.__useExoPlayerForMedia = true;
+                
+                // Function to intercept media play events and route through ExoPlayer
+                function interceptMediaPlayback(mediaElement) {
+                    if (!mediaElement || mediaElement.__exoPlayerIntercepted) return;
+                    
+                    // Mark as intercepted
+                    mediaElement.__exoPlayerIntercepted = true;
+                    
+                    // Store the original play method
+                    const originalPlay = mediaElement.play.bind(mediaElement);
+                    
+                    // Override the play method
+                    mediaElement.play = function() {
+                        console.log('[Media Intercept] Play called on:', mediaElement.src);
+                        
+                        // If we have ExoPlayer interface and a valid source, route through ExoPlayer
+                        if (window.__useExoPlayerForMedia && window.ExoPlayerInterface && mediaElement.src && 
+                            !mediaElement.src.startsWith('blob:') && !mediaElement.src.startsWith('data:')) {
+                            
+                            console.log('[Media Intercept] Routing to ExoPlayer:', mediaElement.src);
+                            
+                            // Hide controls on the WebView media element since ExoPlayer will handle playback
+                            mediaElement.style.visibility = 'hidden';
+                            mediaElement.style.height = '0';
+                            
+                            // Get media title
+                            const title = mediaElement.getAttribute('title') || 
+                                         mediaElement.closest('.tc-tiddler-frame')?.querySelector('.tc-title')?.textContent || 
+                                         'TiddlyWiki Media';
+                            
+                            // Notify MediaInterface about metadata
+                            if (window.MediaInterface) {
+                                window.MediaInterface.onMediaEvent(
+                                    'loadedmetadata',
+                                    mediaElement.id || 'media-' + Math.random().toString(36).substring(2, 9),
+                                    0,
+                                    mediaElement.duration || 0,
+                                    mediaElement.src,
+                                    title
+                                );
+                            }
+                            
+                            // Play through ExoPlayer
+                            window.ExoPlayerInterface.playMedia(mediaElement.src);
+                            
+                            // Return a resolved promise to satisfy the play() API
+                            return Promise.resolve();
+                        } else {
+                            // Fallback to normal playback
+                            return originalPlay();
+                        }
+                    };
+                    
+                    // Also intercept pause to ensure ExoPlayer stops
+                    const originalPause = mediaElement.pause.bind(mediaElement);
+                    mediaElement.pause = function() {
+                        console.log('[Media Intercept] Pause called');
+                        
+                        // If using ExoPlayer, we need to pause it through media controls
+                        if (window.__useExoPlayerForMedia && window.ExoPlayerInterface && mediaElement.style.visibility === 'hidden') {
+                            // The pause will be handled by MediaSession controls
+                            console.log('[Media Intercept] Pause should be handled by MediaSession');
+                        }
+                        
+                        // Always call original pause
+                        return originalPause();
+                    };
+                }
+                
                 // Create a MutationObserver to detect new video elements
                 const videoObserver = new MutationObserver(function(mutations) {
                     mutations.forEach(function(mutation) {
                         if (mutation.addedNodes && mutation.addedNodes.length > 0) {
                             for (let i = 0; i < mutation.addedNodes.length; i++) {
                                 const node = mutation.addedNodes[i];
-                                // Check direct node if it's a video
-                                if (node.tagName && node.tagName.toLowerCase() === 'video') {
+                                // Check direct node if it's a video or audio
+                                if (node.tagName && (node.tagName.toLowerCase() === 'video' || node.tagName.toLowerCase() === 'audio')) {
                                     enableBackgroundPlayback(node);
+                                    interceptMediaPlayback(node);
                                 }
-                                // Check if the added node contains videos
+                                // Check if the added node contains videos or audio
                                 if (node.querySelectorAll) {
-                                    const videos = node.querySelectorAll('video');
-                                    videos.forEach(enableBackgroundPlayback);
+                                    const mediaElements = node.querySelectorAll('video, audio');
+                                    mediaElements.forEach(function(media) {
+                                        enableBackgroundPlayback(media);
+                                        interceptMediaPlayback(media);
+                                    });
                                 }
                             }
                         }
@@ -696,8 +772,11 @@ class ReloadBlockingWebViewClient(
                     subtree: true
                 });
                 
-                // Process any existing videos
-                document.querySelectorAll('video').forEach(enableBackgroundPlayback);
+                // Process any existing videos and audio elements
+                document.querySelectorAll('video, audio').forEach(function(media) {
+                    enableBackgroundPlayback(media);
+                    interceptMediaPlayback(media);
+                });
                 
                 // Function to enable background playback for a video element
                 function enableBackgroundPlayback(videoElement) {

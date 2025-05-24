@@ -21,6 +21,7 @@ import android.provider.Settings
 import android.util.Log
 import android.webkit.WebView
 import androidx.core.app.NotificationCompat
+import com.tiddlywikibrowser.cache.WebViewCache
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 

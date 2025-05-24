@@ -18,6 +18,8 @@ import android.support.v4.media.session.PlaybackStateCompat
 import android.support.v4.media.MediaMetadataCompat
 import android.util.Log
 import android.view.KeyEvent
+import android.webkit.JavascriptInterface
+import com.tiddlywikibrowser.util.ThreadManager
 
 private const val TAG = "MediaSessionManager"
 
@@ -518,23 +520,274 @@ class MediaSessionManager private constructor(private val context: Context) {
         }
     }
 
+    /**
+     * Release the media session when a tiddler with media is closed
+     * This is a lighter version of the full release() method
+     * that stops playback and clears metadata but doesn't fully destroy the session
+     */
+    fun releaseMediaSession() {
+        Log.d(TAG, "Releasing media session for closed tiddler")
+        
+        synchronized(stateChangeLock) {
+            // Stop any ongoing playback
+            isPlaying = false
+            currentPosition = 0
+            hasActiveMedia = false
+            
+            // Clear the metadata
+            updateMetadata(null, null, null)
+            
+            // Update the playback state
+            updatePlaybackState(false, 0)
+            
+            // Sync the state
+            syncMediaSessionAndService()
+            
+            // Abandon audio focus
+            abandonAudioFocus()
+            
+            // Stop foreground service
+            playbackService?.let { service ->
+                try {
+                    service.stopForeground(true)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error stopping foreground service", e)
+                }
+            }
+            
+            Log.d(TAG, "Media session released for closed tiddler")
+        }
+    }
+
+    /**
+     * Inject JavaScript to detect when a tiddler with media is closed
+     */
+    private fun injectTiddlerCloseDetection(webView: android.webkit.WebView) {
+        Log.d(TAG, "Injecting tiddler close detection")
+        val script = """
+            (function() {
+                if (window.tiddlerCloseDetectionInjected) return;
+                window.tiddlerCloseDetectionInjected = true;
+                
+                console.log('[TiddlerCloseDetection] Initializing tiddler close detection');
+                
+                // Track the currently playing media element
+                window.currentPlayingMediaElement = null;
+                
+                // Function to check if a tiddler contains media
+                function tiddlerHasMedia(title) {
+                    try {
+                        if (!'${'$'}tw'|| !'${'$'}tw'.wiki) return false;
+                        
+                        const tiddler = $'${'$'}tw'.wiki.getTiddler(title);
+                        if (!tiddler) return false;
+                        
+                        // Check if this is an audio/video tiddler
+                        if (tiddler.fields.type === 'audio/mp3' || 
+                            tiddler.fields.type === 'audio' || 
+                            tiddler.fields.type === 'video' ||
+                            tiddler.fields.type === 'video/mp4') {
+                            return true;
+                        }
+                        
+                        // Check for embedded audio/video in content
+                        const content = tiddler.fields.text || '';
+                        if (content.includes('<audio') || 
+                            content.includes('<video') ||
+                            content.includes('tc-player-') ||
+                            content.includes('tc-audio-')) {
+                            return true;
+                        }
+                        
+                        return false;
+                    } catch (e) {
+                        console.error('[TiddlerCloseDetection] Error checking tiddler:', e);
+                        return false;
+                    }
+                }
+                
+                // Wait for TW to be fully loaded
+                function setupWhenReady() {
+                    if (typeof '${'$'}tw' === 'undefined' || !'${'$'}tw'.wiki) {
+                        setTimeout(setupWhenReady, 500);
+                        return;
+                    }
+                    
+                    console.log('[TiddlerCloseDetection] TiddlyWiki detected, setting up listeners');
+                    
+                    // Set up media playback detection
+                    function setupMediaMonitoring() {
+                        // Create a MutationObserver to watch for new media elements
+                        const observer = new MutationObserver(function(mutations) {
+                            mutations.forEach(function(mutation) {
+                                if (mutation.addedNodes) {
+                                    Array.from(mutation.addedNodes).forEach(function(node) {
+                                        // Check if the added node is an audio/video element or contains one
+                                        if (node.nodeName === 'AUDIO' || node.nodeName === 'VIDEO') {
+                                            handleNewMediaElement(node);
+                                        } else if (node.querySelectorAll) {
+                                            const mediaElements = node.querySelectorAll('audio, video');
+                                            Array.from(mediaElements).forEach(handleNewMediaElement);
+                                        }
+                                    });
+                                }
+                            });
+                        });
+                        
+                        // Start observing the document
+                        observer.observe(document.body, {
+                            childList: true,
+                            subtree: true
+                        });
+                        
+                        // Also add event listeners to all audio/video elements already on the page
+                        document.querySelectorAll('audio, video').forEach(handleNewMediaElement);
+                        
+                        console.log('[TiddlerCloseDetection] Media monitoring set up');
+                    }
+                    
+                    // Handle media element play events
+                    function handleNewMediaElement(mediaElement) {
+                        if (!mediaElement) return;
+                        
+                        // Don't re-attach listeners
+                        if (mediaElement._hasPlaylisteners) return;
+                        mediaElement._hasPlaylisteners = true;
+                        
+                        mediaElement.addEventListener('play', function() {
+                            console.log('[TiddlerCloseDetection] Media element started playing:', mediaElement.src || 'embedded');
+                            
+                            // If it's a different media element than the one currently playing
+                            if (window.currentPlayingMediaElement && 
+                                window.currentPlayingMediaElement !== mediaElement && 
+                                !window.currentPlayingMediaElement.paused) {
+                                
+                                console.log('[TiddlerCloseDetection] New media started while another is playing - releasing previous session');
+                                try {
+                                    if (window.Android && window.Android.notifyTiddlerClosed) {
+                                        window.Android.notifyTiddlerClosed('new_media_started');
+                                    }
+                                } catch (e) {
+                                    console.error('[TiddlerCloseDetection] Error notifying Android:', e);
+                                }
+                            }
+                            
+                            // Update current playing element
+                            window.currentPlayingMediaElement = mediaElement;
+                        });
+                    }
+                    
+                    // Run the setup
+                    setupMediaMonitoring();
+                    
+                    // Story list change detection
+                    '${'$'}tw'.wiki.addEventListener('change', function(changedTiddlers) {
+                        if (changedTiddlers["$:/StoryList"]) {
+                            // The story list has changed, so tiddlers may have been closed
+                            const currentStoryList = '${'$'}tw'.wiki.getTiddlerList("$:/StoryList");
+                            
+                            // Check if any media tiddlers were closed
+                            const mediaElements = document.querySelectorAll('audio, video');
+                            if (mediaElements.length === 0) {
+                                // No media playing, notify Android
+                                console.log('[TiddlerCloseDetection] No active media elements found');
+                                try {
+                                    if (window.Android && window.Android.notifyTiddlerClosed) {
+                                        window.Android.notifyTiddlerClosed('media_removed');
+                                    }
+                                } catch (e) {
+                                    console.error('[TiddlerCloseDetection] Error notifying Android:', e);
+                                }
+                            }
+                        }
+                        
+                        // Check through changed tiddlers
+                        Object.keys(changedTiddlers).forEach(function(title) {
+                            if (tiddlerHasMedia(title) && !$'${'$'}tw'.wiki.tiddlerExists(title)) {
+                                console.log('[TiddlerCloseDetection] Media tiddler closed:', title);
+                                try {
+                                    if (window.Android && window.Android.notifyTiddlerClosed) {
+                                        window.Android.notifyTiddlerClosed(title);
+                                    }
+                                } catch (e) {
+                                    console.error('[TiddlerCloseDetection] Error notifying Android:', e);
+                                }
+                            }
+                        });
+                    });
+                    
+                    console.log('[TiddlerCloseDetection] Setup complete');
+                }
+                
+                setupWhenReady();
+            })();
+        """.trimIndent()
+        
+        webView.evaluateJavascript(script, null)
+    }
+
     fun release() {
         Log.d(TAG, "Releasing MediaSessionManager")
-        hasActiveMedia = false
-        mediaSession?.isActive = false
-        mediaSession?.release()
-        mediaSession = null
-        abandonAudioFocus()
-        playbackService?.stopForeground(true) // Pass boolean argument
-        if (isServiceBound) {
-            try {
-                context.unbindService(serviceConnection)
-                isServiceBound = false
-            } catch (e: Exception) {
-                Log.w(TAG, "Error unbinding service", e)
+        
+        synchronized(stateChangeLock) {
+            // Update internal state
+            isPlaying = false
+            hasActiveMedia = false
+            currentPosition = 0
+            
+            // Clear any pending callbacks
+            gainCallbackHandler.removeCallbacksAndMessages(null)
+            pendingGainCallback = null
+            pendingLossTransientCallback = null
+            
+            // Release media session
+            mediaSession?.let { session ->
+                try {
+                    session.isActive = false
+                    session.setCallback(null)
+                    session.setPlaybackState(
+                        PlaybackStateCompat.Builder()
+                            .setState(PlaybackStateCompat.STATE_STOPPED, 0, 0f)
+                            .build()
+                    )
+                    session.release()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error releasing media session", e)
+                }
+                mediaSession = null
             }
+            
+            // Stop playback service
+            try {
+                playbackService?.let { service ->
+                    service.stopForeground(true)
+                    service.stopSelf()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error stopping playback service", e)
+            }
+            
+            // Unbind service
+            if (isServiceBound) {
+                try {
+                    context.unbindService(serviceConnection)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error unbinding service", e)
+                } finally {
+                    isServiceBound = false
+                }
+            }
+            
+            // Release audio focus last
+            abandonAudioFocus()
+            
+            // Clear references
+            playbackService = null
+            currentBitmap = null
+            currentMetadata = null
         }
-        playbackService = null
+        
+        INSTANCE = null
     }
 
     // Logging helper methods
@@ -619,6 +872,101 @@ class MediaSessionManager private constructor(private val context: Context) {
                 // Check if WebView is destroyed before using it
                 webView.settings
                 
+                // Setup WebViewProvider interface
+                webViewProvider = object : WebViewProvider {
+                    override fun executeJavascript(script: String, callback: ((String) -> Unit)?) {
+                        webView.evaluateJavascript(script) { result ->
+                            callback?.invoke(result ?: "")
+                        }
+                    }
+                    
+                    override fun getCurrentMediaState(callback: (title: String?, artist: String?, duration: Long?, position: Long?, isPlaying: Boolean?) -> Unit) {
+                        val script = """
+                            (function() {
+                                try {
+                                    const media = document.querySelector('audio, video');
+                                    if (!media) return JSON.stringify({found: false});
+                                    
+                                    const isPlaying = !media.paused && !media.ended;
+                                    const containerTitle = media.closest('.tc-tiddler-frame')?.querySelector('.tc-title')?.textContent || 'Media';
+                                    
+                                    return JSON.stringify({
+                                        found: true,
+                                        title: containerTitle || media.title || 'TiddlyWiki Media',
+                                        artist: 'TiddlyWiki',
+                                        duration: Math.round(media.duration * 1000) || 0,
+                                        position: Math.round(media.currentTime * 1000) || 0,
+                                        isPlaying: isPlaying
+                                    });
+                                } catch (e) {
+                                    return JSON.stringify({found: false, error: e.message});
+                                }
+                            })();
+                        """.trimIndent()
+                        
+                        webView.evaluateJavascript(script) { result ->
+                            try {
+                                if (result == null || result == "null") {
+                                    callback(null, null, null, null, null)
+                                    return@evaluateJavascript
+                                }
+                                
+                                val jsonResult = android.util.JsonReader(java.io.StringReader(result))
+                                jsonResult.beginObject()
+                                
+                                var found = false
+                                var title: String? = null
+                                var artist: String? = null
+                                var duration: Long? = null
+                                var position: Long? = null
+                                var isPlaying: Boolean? = null
+                                var error: String? = null
+                                
+                                while (jsonResult.hasNext()) {
+                                    val name = jsonResult.nextName()
+                                    when (name) {
+                                        "found" -> found = jsonResult.nextBoolean()
+                                        "title" -> title = jsonResult.nextString()
+                                        "artist" -> artist = jsonResult.nextString()
+                                        "duration" -> duration = jsonResult.nextLong()
+                                        "position" -> position = jsonResult.nextLong()
+                                        "isPlaying" -> isPlaying = jsonResult.nextBoolean()
+                                        "error" -> error = jsonResult.nextString()
+                                        else -> jsonResult.skipValue()
+                                    }
+                                }
+                                
+                                jsonResult.endObject()
+                                
+                                if (found) {
+                                    callback(title, artist, duration, position, isPlaying)
+                                } else {
+                                    android.util.Log.d(TAG, "No media found in WebView, or error: $error")
+                                    callback(null, null, null, null, null)
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e(TAG, "Error parsing media state: ${e.message}")
+                                callback(null, null, null, null, null)
+                            }
+                        }
+                    }
+                }
+                
+                // Add JavaScript interface for tiddler close detection
+                webView.addJavascriptInterface(object : Any() {
+                    @android.webkit.JavascriptInterface
+                    fun notifyTiddlerClosed(title: String) {
+                        Log.d(TAG, "Tiddler closed notification received for: $title")
+                        ThreadManager.runOnMain {
+                            releaseMediaSession()
+                        }
+                    }
+                }, "Android")
+                
+                // Inject the tiddler close detection script
+                injectTiddlerCloseDetection(webView)
+                
+                // Check for existing media and update state
                 webView.evaluateJavascript("""
                     (function() {
                         // Check for existing media and update state
@@ -640,6 +988,9 @@ class MediaSessionManager private constructor(private val context: Context) {
             } catch (e: Exception) {
                 Log.e(TAG, "Error checking WebView for media: ${e.message}")
             }
+        } else {
+            // Clear the WebViewProvider if webView is null
+            webViewProvider = null
         }
     }
 
@@ -746,7 +1097,6 @@ class MediaSessionManager private constructor(private val context: Context) {
             logd("Current thread: ${Thread.currentThread().name}")
             logd("Current media session: $mediaSession")
             logd("Current playback state: $currentPlaybackState")
-            logd("WebViewProvider is ${if (webViewProvider != null) "not null" else "null"}")
 
             val currentTime = System.currentTimeMillis()
             if (currentTime - lastUserActionTimestamp < USER_ACTION_DEBOUNCE_MS) {
@@ -755,85 +1105,87 @@ class MediaSessionManager private constructor(private val context: Context) {
             }
             lastUserActionTimestamp = currentTime
 
-            if (webViewProvider == null) {
-                loge("❌ WebViewProvider is null in onPlay")
-                return
-            }
-
             // Request audio focus before playing
             if (!requestAudioFocus()) {
                 loge("❌ Failed to gain audio focus in onPlay")
-                // Optionally, update state to paused if focus is not granted
-                // updatePlaybackState(false, currentPosition)
-                // syncMediaSessionAndService()
                 return
             }
             
             synchronized(stateChangeLock) {
                 isPlaying = true
-                lastPlayTimestamp = System.currentTimeMillis() // Record the time play was initiated
+                lastPlayTimestamp = System.currentTimeMillis()
                 logd("✅ Local state updated - isPlaying: true")
             }
 
-            logd("🔄 Updated local state, proceeding with play action")
-
-            // First, detect the type of media player
-            detectMediaPlayerType()
-            
-            val playScript = """
-                (function() {
-                    console.log('[MediaControl] Play requested');
-                    try {
-                        // Try multiple selector approaches
-                        const media = document.querySelector('video, audio, .tc-media-player');
-                        
-                        if (!media) {
-                            console.log('[MediaControl] No media element found');
-                            return 'no_media';
-                        }
-                        
-                        console.log('[MediaControl] Media element found:', media.tagName);
-                        
-                        // Handle different types of media players
-                        if (media.tagName === 'VIDEO' || media.tagName === 'AUDIO') {
-                            // Standard HTML5 media
-                            if (media.paused) {
-                                console.log('[MediaControl] Standard media - attempting to play');
-                                const playPromise = media.play();
-                                
-                                if (playPromise !== undefined) {
-                                    playPromise.catch(e => {
-                                        console.error('[MediaControl] Play error:', e);
-                                        return 'error: ' + e.message;
-                                    });
+            // Primary method: Play via ExoPlayer which works in background
+            val exoPlayer = (context as? MainActivity)?.exoPlayerManager?.getOrCreatePlayer()
+            if (exoPlayer != null) {
+                exoPlayer.play()
+                logd("✅ Started playback via ExoPlayer")
+            } else if (webViewProvider != null) {
+                // Fallback: Use WebView if ExoPlayer not available
+                logd("⚠️ ExoPlayer not available, falling back to WebView control")
+                
+                // First, detect the type of media player
+                detectMediaPlayerType()
+                
+                val playScript = """
+                    (function() {
+                        console.log('[MediaControl] Play requested');
+                        try {
+                            // Try multiple selector approaches
+                            const media = document.querySelector('video, audio, .tc-media-player');
+                            
+                            if (!media) {
+                                console.log('[MediaControl] No media element found');
+                                return 'no_media';
+                            }
+                            
+                            console.log('[MediaControl] Media element found:', media.tagName);
+                            
+                            // Handle different types of media players
+                            if (media.tagName === 'VIDEO' || media.tagName === 'AUDIO') {
+                                // Standard HTML5 media
+                                if (media.paused) {
+                                    console.log('[MediaControl] Standard media - attempting to play');
+                                    const playPromise = media.play();
+                                    
+                                    if (playPromise !== undefined) {
+                                        playPromise.catch(e => {
+                                            console.error('[MediaControl] Play error:', e);
+                                            return 'error: ' + e.message;
+                                        });
+                                    }
+                                    return 'play_attempted';
                                 }
-                                return 'play_attempted';
+                                return 'already_playing';
+                            } else {
+                                // Possibly a TiddlyWiki custom player
+                                console.log('[MediaControl] Non-standard media player detected');
+                                
+                                // Try to find play button if it's a custom player
+                                const playButton = document.querySelector('.tc-player-play, .play-button');
+                                if (playButton) {
+                                    console.log('[MediaControl] Found play button, clicking');
+                                    playButton.click();
+                                    return 'play_button_clicked';
+                                }
+                                
+                                return 'unknown_player_type';
                             }
-                            return 'already_playing';
-                        } else {
-                            // Possibly a TiddlyWiki custom player
-                            console.log('[MediaControl] Non-standard media player detected');
-                            
-                            // Try to find play button if it's a custom player
-                            const playButton = document.querySelector('.tc-player-play, .play-button');
-                            if (playButton) {
-                                console.log('[MediaControl] Found play button, clicking');
-                                playButton.click();
-                                return 'play_button_clicked';
-                            }
-                            
-                            return 'unknown_player_type';
+                            return 'success';
+                        } catch (e) {
+                            console.error('[$JS_TAG] ❌ Play error:', e);
+                            return 'error: ' + e.message;
                         }
-                        return 'success';
-                    } catch (e) {
-                        console.error('[$JS_TAG] ❌ Play error:', e);
-                        return 'error: ' + e.message;
-                    }
-                })();
-            """.trimIndent()
+                    })();
+                """.trimIndent()
 
-            logd("📜 Executing play script")
-            evaluateWebViewJavascript(playScript)
+                logd("📜 Executing play script")
+                evaluateWebViewJavascript(playScript)
+            } else {
+                loge("❌ Neither ExoPlayer nor WebViewProvider available in onPlay")
+            }
 
             // Update the playback state immediately
             logd("🔄 Updating playback state to PLAYING")
@@ -860,11 +1212,26 @@ class MediaSessionManager private constructor(private val context: Context) {
                 }
 
                 isPlaying = false
-                // Pause the ExoPlayer via the MainActivity
-                (context as? MainActivity)?.exoPlayerManager?.getOrCreatePlayer()?.pause()
-                // Also try to pause any HTML5 audio/video elements directly
-                evaluateWebViewJavascript("document.querySelector('audio,video')?.pause()")
+                
+                // Primary method: Pause via ExoPlayer which works in background
+                val exoPlayer = (context as? MainActivity)?.exoPlayerManager?.getOrCreatePlayer()
+                if (exoPlayer != null) {
+                    exoPlayer.pause()
+                    Log.d(TAG, "Paused via ExoPlayer")
+                } else {
+                    // Fallback: Try to pause HTML5 audio/video if in foreground
+                    if (webViewProvider != null) {
+                        try {
+                            evaluateWebViewJavascript("document.querySelector('audio,video')?.pause()")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error while trying to pause webview media", e)
+                        }
+                    }
+                }
+                
+                // Update state and broadcasting
                 updatePlaybackState(false, currentPosition)
+                syncMediaSessionAndService()
                 abandonAudioFocus()
             }
         }
@@ -878,17 +1245,27 @@ class MediaSessionManager private constructor(private val context: Context) {
                 this@MediaSessionManager.currentPosition = 0L
                 Log.d(TAG, "MediaSessionCallback.onStop: Set this.isPlaying=false, position=0")
             }
-            evaluateWebViewJavascript("""
-                (function() {
-                    const media = document.querySelector('video, audio');
-                    if (media) {
-                        media.pause();
-                        media.currentTime = 0;
-                        return true;
-                    }
-                    return false;
-                })();
-            """.trimIndent())
+            
+            // Primary method: Stop via ExoPlayer which works in background
+            val exoPlayer = (context as? MainActivity)?.exoPlayerManager?.getOrCreatePlayer()
+            if (exoPlayer != null) {
+                exoPlayer.stop()
+                Log.d(TAG, "Stopped via ExoPlayer")
+            } else {
+                // Fallback: Use WebView if ExoPlayer not available
+                evaluateWebViewJavascript("""
+                    (function() {
+                        const media = document.querySelector('video, audio');
+                        if (media) {
+                            media.pause();
+                            media.currentTime = 0;
+                            return true;
+                        }
+                        return false;
+                    })();
+                """.trimIndent())
+            }
+            
             syncMediaSessionAndService()
             abandonAudioFocus()
         }
@@ -900,79 +1277,112 @@ class MediaSessionManager private constructor(private val context: Context) {
                 this@MediaSessionManager.currentPosition = pos
                 Log.d(TAG, "MediaSessionCallback.onSeekTo: Set position=$pos")
             }
-            val positionInSeconds = pos / 1000.0
-            evaluateWebViewJavascript("""
-                (function() {
-                    const media = document.querySelector('video, audio');
-                    if (media) {
-                        media.currentTime = $positionInSeconds;
-                        return true;
-                    }
-                    return false;
-                })();
-            """.trimIndent())
+            
+            // Primary method: Seek via ExoPlayer which works in background
+            val exoPlayer = (context as? MainActivity)?.exoPlayerManager?.getOrCreatePlayer()
+            if (exoPlayer != null) {
+                exoPlayer.seekTo(pos)
+                Log.d(TAG, "Seeked via ExoPlayer to position: $pos")
+            } else {
+                // Fallback: Use WebView if ExoPlayer not available
+                val positionInSeconds = pos / 1000.0
+                evaluateWebViewJavascript("""
+                    (function() {
+                        const media = document.querySelector('video, audio');
+                        if (media) {
+                            media.currentTime = $positionInSeconds;
+                            return true;
+                        }
+                        return false;
+                    })();
+                """.trimIndent())
+            }
+            
             syncMediaSessionAndService()
         }
 
         override fun onSkipToNext() {
             logd("⏭️ onSkipToNext() called")
-            val skipScript = """
-                (function() {
-                    try {
-                        console.log('[MediaControls] ⏭️ Skip forward requested');
-                        let media = document.querySelector('video, audio');
-                        if (!media) {
-                            console.log('[MediaControls] ❌ No media element found for skip');
-                            return false;
-                        }
-                        
-                        console.log('[MediaControls] Current time: ' + media.currentTime.toFixed(2) + 's');
-                        
-                        // Try custom skip function first
-                        if (typeof window.skipForward === 'function') {
-                            console.log('[MediaControls] Using custom skipForward function');
-                            window.skipForward();
-                        } else {
-                            // Fallback to direct manipulation
-                            const newTime = Math.min(media.duration, media.currentTime + 15);
-                            console.log('[MediaControls] ⏩ Skipping to: ' + newTime.toFixed(2) + 's');
-                            media.currentTime = newTime;
+            
+            synchronized(stateChangeLock) {
+                lastUserActionTimestamp = System.currentTimeMillis()
+            }
+            
+            // Primary method: Skip via ExoPlayer which works in background
+            val exoPlayer = (context as? MainActivity)?.exoPlayerManager?.getOrCreatePlayer()
+            if (exoPlayer != null) {
+                val currentPos = exoPlayer.currentPosition
+                val duration = exoPlayer.duration
+                val newPosition = (currentPos + 15000).coerceAtMost(duration)
+                exoPlayer.seekTo(newPosition)
+                logd("✅ Skipped forward via ExoPlayer to position: $newPosition")
+                
+                synchronized(stateChangeLock) {
+                    currentPosition = newPosition
+                    if (!isPlaying && exoPlayer.playWhenReady) {
+                        isPlaying = true
+                    }
+                }
+            } else if (webViewProvider != null) {
+                // Fallback: Use WebView if ExoPlayer not available
+                val skipScript = """
+                    (function() {
+                        try {
+                            console.log('[MediaControls] ⏭️ Skip forward requested');
+                            let media = document.querySelector('video, audio');
+                            if (!media) {
+                                console.log('[MediaControls] ❌ No media element found for skip');
+                                return false;
+                            }
                             
-                            // Ensure the UI updates
-                            media.dispatchEvent(new Event('timeupdate'));
+                            console.log('[MediaControls] Current time: ' + media.currentTime.toFixed(2) + 's');
                             
-                            // If paused, play after seeking
-                            if (media.paused) {
-                                console.log('[MediaControls] Media was paused, resuming playback');
-                                const playPromise = media.play();
-                                if (playPromise !== undefined) {
-                                    playPromise
-                                        .then(() => console.log('[MediaControls] ✅ Playback resumed after skip'))
-                                        .catch(e => console.error('[MediaControls] ❌ Failed to resume playback after skip:', e));
+                            // Try custom skip function first
+                            if (typeof window.skipForward === 'function') {
+                                console.log('[MediaControls] Using custom skipForward function');
+                                window.skipForward();
+                            } else {
+                                // Fallback to direct manipulation
+                                const newTime = Math.min(media.duration, media.currentTime + 15);
+                                console.log('[MediaControls] ⏩ Skipping to: ' + newTime.toFixed(2) + 's');
+                                media.currentTime = newTime;
+                                
+                                // Ensure the UI updates
+                                media.dispatchEvent(new Event('timeupdate'));
+                                
+                                // If paused, play after seeking
+                                if (media.paused) {
+                                    console.log('[MediaControls] Media was paused, resuming playback');
+                                    const playPromise = media.play();
+                                    if (playPromise !== undefined) {
+                                        playPromise
+                                            .then(() => console.log('[MediaControls] ✅ Playback resumed after skip'))
+                                            .catch(e => console.error('[MediaControls] ❌ Failed to resume playback after skip:', e));
+                                    }
                                 }
                             }
+                            return true;
+                        } catch (e) {
+                            console.error('[MediaControls] ❌ Skip forward error:', e);
+                            return false;
                         }
-                        return true;
-                    } catch (e) {
-                        console.error('[MediaControls] ❌ Skip forward error:', e);
-                        return false;
-                    }
-                })();
-            """.trimIndent()
-            
-            logd("📜 Executing skip forward script")
-            evaluateWebViewJavascript(skipScript)
-            
-            // Update the current position
-            synchronized(stateChangeLock) {
-                val duration = mediaSession?.controller?.metadata?.getLong(MediaMetadataCompat.METADATA_KEY_DURATION) ?: Long.MAX_VALUE
-                currentPosition = (currentPosition + 15000).coerceAtMost(duration)
-                logd("🔄 Updated position: $currentPosition (max: $duration)")
+                    })();
+                """.trimIndent()
                 
-                // Force update the playback state
-                if (!isPlaying) {
-                    isPlaying = true
-                    logd("🔄 Forcing isPlaying=true after skip")
+                logd("📜 Executing skip forward script")
+                evaluateWebViewJavascript(skipScript)
+                
+                // Update the current position
+                synchronized(stateChangeLock) {
+                    val duration = mediaSession?.controller?.metadata?.getLong(MediaMetadataCompat.METADATA_KEY_DURATION) ?: Long.MAX_VALUE
+                    currentPosition = (currentPosition + 15000).coerceAtMost(duration)
+                    logd("🔄 Updated position: $currentPosition (max: $duration)")
+                    
+                    // Force update the playback state
+                    if (!isPlaying) {
+                        isPlaying = true
+                        logd("🔄 Forcing isPlaying=true after skip")
+                    }
                 }
             }
             
@@ -990,43 +1400,65 @@ class MediaSessionManager private constructor(private val context: Context) {
 
         override fun onSkipToPrevious() {
             logd("⏮️ onSkipToPrevious() called")
-            evaluateWebViewJavascript("""
-                (function() {
-                    try {
-                        let media = document.querySelector('video, audio');
-                        if (!media) return false;
-                        
-                        // Try custom skip function first
-                        if (typeof window.skipBackward === 'function') {
-                            window.skipBackward();
-                        } else {
-                            // Fallback to direct manipulation
-                            media.currentTime = Math.max(0, media.currentTime - 15);
-                            // Ensure the UI updates
-                            media.dispatchEvent(new Event('timeupdate'));
+            
+            synchronized(stateChangeLock) {
+                lastUserActionTimestamp = System.currentTimeMillis()
+            }
+            
+            // Primary method: Skip via ExoPlayer which works in background
+            val exoPlayer = (context as? MainActivity)?.exoPlayerManager?.getOrCreatePlayer()
+            if (exoPlayer != null) {
+                val currentPos = exoPlayer.currentPosition
+                val newPosition = (currentPos - 15000).coerceAtLeast(0)
+                exoPlayer.seekTo(newPosition)
+                logd("✅ Skipped backward via ExoPlayer to position: $newPosition")
+                
+                synchronized(stateChangeLock) {
+                    currentPosition = newPosition
+                    if (!isPlaying && exoPlayer.playWhenReady) {
+                        isPlaying = true
+                    }
+                }
+            } else if (webViewProvider != null) {
+                // Fallback: Use WebView if ExoPlayer not available
+                evaluateWebViewJavascript("""
+                    (function() {
+                        try {
+                            let media = document.querySelector('video, audio');
+                            if (!media) return false;
                             
-                            // If paused, play after seeking
-                            if (media.paused) {
-                                const playPromise = media.play();
-                                if (playPromise !== undefined) {
-                                    playPromise.catch(e => console.log('Auto-play after skip failed:', e));
+                            // Try custom skip function first
+                            if (typeof window.skipBackward === 'function') {
+                                window.skipBackward();
+                            } else {
+                                // Fallback to direct manipulation
+                                media.currentTime = Math.max(0, media.currentTime - 15);
+                                // Ensure the UI updates
+                                media.dispatchEvent(new Event('timeupdate'));
+                                
+                                // If paused, play after seeking
+                                if (media.paused) {
+                                    const playPromise = media.play();
+                                    if (playPromise !== undefined) {
+                                        playPromise.catch(e => console.log('Auto-play after skip failed:', e));
+                                    }
                                 }
                             }
+                            return true;
+                        } catch (e) {
+                            console.error('Skip backward error:', e);
+                            return false;
                         }
-                        return true;
-                    } catch (e) {
-                        console.error('Skip backward error:', e);
-                        return false;
+                    })();
+                """.trimIndent())
+                
+                // Update the current position
+                synchronized(stateChangeLock) {
+                    currentPosition = (currentPosition - 15000).coerceAtLeast(0)
+                    // Force update the playback state
+                    if (!isPlaying) {
+                        isPlaying = true
                     }
-                })();
-            """.trimIndent())
-            
-            // Update the current position
-            synchronized(stateChangeLock) {
-                currentPosition = (currentPosition - 15000).coerceAtLeast(0)
-                // Force update the playback state
-                if (!isPlaying) {
-                    isPlaying = true
                 }
             }
             
