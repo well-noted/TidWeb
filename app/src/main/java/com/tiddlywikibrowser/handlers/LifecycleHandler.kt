@@ -130,8 +130,8 @@ class LifecycleHandler(
         })
         
         if (webViewPaused) {
-            activity.currentWebView?.onResume()
-            activity.currentWebView?.resumeTimers()
+            activity.getCurrentWebView()?.onResume()
+            activity.getCurrentWebView()?.resumeTimers()
             webViewPaused = false
             Log.d(TAG, "WebView resumed and timers started.")
         }
