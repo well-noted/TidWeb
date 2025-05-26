@@ -313,6 +313,9 @@ class MainActivity : ComponentActivity() {
 
         // Initialize managers
         initializeManagers()
+        
+        // Initialize MediaSessionManager and bind to service
+        mediaSessionManager.bindToService()
 
         try {
             // Initialize WebView configuration first
@@ -357,7 +360,54 @@ class MainActivity : ComponentActivity() {
     private fun initializeManagers() {
         // Initialize MediaSessionManager
         mediaSessionManager = MediaSessionManager.getInstance(this)
+        
+        // Set up media session callbacks
+        mediaSessionManager.setWebViewProvider(object : WebViewProvider {
+            override fun executeJavascript(script: String, callback: ((String) -> Unit)?) {
+                getCurrentWebView()?.evaluateJavascript(script) { result ->
+                    callback?.invoke(result)
+                }
+            }
 
+            override fun getCurrentMediaState(callback: (title: String?, artist: String?, duration: Long?, position: Long?, isPlaying: Boolean?) -> Unit) {
+                getCurrentWebView()?.evaluateJavascript("""
+                    (function() {
+                        const media = document.querySelector('audio,video');
+                        if (media) {
+                            return JSON.stringify({
+                                title: media.title || document.title,
+                                artist: media.artist || '',
+                                duration: Math.round(media.duration * 1000),
+                                position: Math.round(media.currentTime * 1000),
+                                isPlaying: !media.paused
+                            });
+                        }
+                        return null;
+                    })();
+                """.trimIndent()) { result ->
+                    try {
+                        if (result != null && result != "null") {
+                            val json = JSONObject(result)
+                            callback(
+                                json.optString("title").takeIf { it != "null" },
+                                json.optString("artist").takeIf { it != "null" },
+                                json.optLong("duration").takeIf { it > 0 },
+                                json.optLong("position").takeIf { it >= 0 },
+                                json.optBoolean("isPlaying")
+                            )
+                        } else {
+                            callback(null, null, null, null, false)
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error parsing media state", e)
+                        callback(null, null, null, null, false)
+                    }
+                } ?: run {
+                    callback(null, null, null, null, false)
+                }
+            }
+        })
+        
         // Set up WebView provider for media controls
         mediaSessionManager.setWebViewProvider(object : WebViewProvider {
             override fun executeJavascript(script: String, callback: ((String) -> Unit)?) {
@@ -438,6 +488,100 @@ class MainActivity : ComponentActivity() {
     /**
      * Set up the main UI
      */
+    private fun setupMediaMonitoring(webView: WebView) {
+        // Configure WebView for media playback
+        webView.settings.apply {
+            mediaPlaybackRequiresUserGesture = false
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            databaseEnabled = true
+            cacheMode = WebSettings.LOAD_DEFAULT
+        }
+
+        // Set up WebChromeClient for media playback
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onProgressChanged(view: WebView, newProgress: Int) {
+                super.onProgressChanged(view, newProgress)
+                // Update media session when page loads
+                if (newProgress > 50) {
+                    updateMediaSession()
+                }
+            }
+        }
+
+        // Set up WebViewClient to handle page loading
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView, url: String) {
+                super.onPageFinished(view, url)
+                // Update media session when page finishes loading
+                updateMediaSession()
+            }
+        }
+    }
+
+
+    private fun updateMediaSession() {
+        getCurrentWebView()?.let { webView ->
+            webView.evaluateJavascript("""
+                (function() {
+                    const media = document.querySelector('audio,video');
+                    if (media) {
+                        return JSON.stringify({
+                            title: media.title || document.title,
+                            artist: media.artist || '',
+                            duration: Math.round(media.duration * 1000),
+                            position: Math.round(media.currentTime * 1000),
+                            isPlaying: !media.paused
+                        });
+                    }
+                    return null;
+                })();
+            """.trimIndent()) { result ->
+                try {
+                    if (result != null && result != "null") {
+                        val json = JSONObject(result)
+                        val title = json.optString("title").takeIf { it != "null" }
+                        val artist = json.optString("artist").takeIf { it != "null" }
+                        val duration = json.optLong("duration").takeIf { it > 0 }
+                        val position = json.optLong("position").takeIf { it >= 0 }
+                        val isPlaying = json.optBoolean("isPlaying")
+
+                        if (title != null && duration != null && position != null) {
+                            // Update metadata
+                            mediaSessionManager.updateMetadata(
+                                title = title,
+                                artist = artist ?: "TiddlyWiki",
+                                duration = duration
+                            )
+                            
+                            // Update playback state
+                            mediaSessionManager.updatePlaybackState(
+                                isPlaying = isPlaying,
+                                position = position
+                            )
+                            
+                            // Bind to service if not already bound and media is playing
+                            if (isPlaying) {
+                                mediaSessionManager.bindToService()
+                            }
+                        } else {
+                            // No active media, update state to stopped
+                            mediaSessionManager.updatePlaybackState(false, 0)
+                        }
+                    } else {
+                        // No media element found
+                        mediaSessionManager.updatePlaybackState(false, 0)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error updating media session", e)
+                    mediaSessionManager.updatePlaybackState(false, 0)
+                }
+            }
+        } ?: run {
+            mediaSessionManager.updatePlaybackState(false, 0)
+        }
+    }
+
     private fun setupUI() {
         setContent {
             val currentContext = LocalContext.current as ComponentActivity
@@ -674,11 +818,17 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         lifecycleHandler.onPause()
+        
+        // Update media session state when activity is paused
+        updateMediaSession()
     }
 
     override fun onResume() {
         super.onResume()
         lifecycleHandler.onResume()
+        
+        // Update media session state when activity is resumed
+        updateMediaSession()
     }
 
     override fun onStop() {
@@ -687,22 +837,29 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
-        mediaSessionManager.release()
+        // Release media session manager first
+        try {
+            mediaSessionManager.release()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error releasing MediaSessionManager", e)
+        }
+        
+        // Release other managers
         exoPlayerManager.release()
         backgroundWebViewManager.release()
+        networkManager.release()
 
         // Unbind the service connection
         serviceConnection?.let { connection ->
             try {
                 unbindService(connection)
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e(TAG, "Error unbinding service", e)
             }
             serviceConnection = null
         }
 
-        networkManager.release()
+        super.onDestroy()
     }
 
     // Implement the onLowMemory callback
@@ -773,7 +930,12 @@ class MainActivity : ComponentActivity() {
      */
     internal fun getCurrentWebView(): WebView? {
         return viewModel?.currentWiki?.value?.let { wiki ->
-            viewModel?.getOrCreateWebView(wiki, this)
+            viewModel?.getOrCreateWebView(wiki, this)?.also { webView ->
+                // Ensure media monitoring is set up for the WebView
+                if (webView.webViewClient == null) {
+                    setupMediaMonitoring(webView)
+                }
+            }
         }
     }
 
