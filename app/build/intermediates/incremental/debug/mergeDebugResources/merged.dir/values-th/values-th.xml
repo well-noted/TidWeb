@@ -1,22 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:ns1="urn:oasis:names:tc:xliff:document:1.2" xmlns:ns2="http://schemas.android.com/tools">
-    <string-array name="exo_controls_playback_speeds">
-    <item>0.25x</item>
-    <item>0.5x</item>
-    <item>0.75x</item>
-    <item>ปกติ</item>
-    <item>1.25x</item>
-    <item>1.5x</item>
-    <item>2x</item>
-  </string-array>
-    <plurals name="exo_controls_fastforward_by_amount_description">
-    <item quantity="one">กรอไปข้างหน้า %d วินาที</item>
-    <item quantity="other">กรอไปข้างหน้า %d วินาที</item>
-  </plurals>
-    <plurals name="exo_controls_rewind_by_amount_description">
-    <item quantity="one">กรอกลับ %d วินาที</item>
-    <item quantity="other">กรอกลับ %d วินาที</item>
-  </plurals>
     <plurals name="mtrl_badge_content_description">
     <item quantity="one">การแจ้งเตือนใหม่ %d รายการ</item>
     <item quantity="other">การแจ้งเตือนใหม่ %d รายการ</item>
@@ -48,7 +31,6 @@
     <string msgid="8875138169939072951" name="abc_shareactionprovider_share_with">"แชร์กับ"</string>
     <string msgid="9055268688411532828" name="abc_shareactionprovider_share_with_application">"แชร์ทาง <ns1:g id="APPLICATION_NAME">%s</ns1:g>"</string>
     <string msgid="1656852541809559762" name="abc_toolbar_collapse_description">"ยุบ"</string>
-    <string name="authentication_required">ต้องมีการตรวจสอบสิทธิ์</string>
     <string msgid="6128938260108474660" name="bottom_sheet_collapse_description">"ยุบ Bottom Sheet"</string>
     <string msgid="1918297411568599192" name="bottom_sheet_dismiss_description">"ปิด Bottom Sheet"</string>
     <string msgid="7772321844937772780" name="bottom_sheet_drag_handle_description">"แฮนเดิลการลาก"</string>
@@ -103,62 +85,10 @@
     <string msgid="5759491386723090559" name="date_range_picker_start_headline">"วันที่เริ่มต้น"</string>
     <string msgid="690080476639943577" name="date_range_picker_title">"เลือกวันที่"</string>
     <string msgid="8038256446254964252" name="default_error_message">"อินพุตไม่ถูกต้อง"</string>
-    <string name="default_notification_channel_name">กำลังเล่น</string>
     <string msgid="6312721426453364202" name="default_popup_window_title">"หน้าต่างป๊อปอัป"</string>
     <string msgid="4057925834421392736" name="dialog">"กล่องโต้ตอบ"</string>
     <string msgid="1890207353314751437" name="dropdown_menu">"เมนูแบบเลื่อนลง"</string>
     <string name="error_icon_content_description">ข้อผิดพลาด</string>
-    <string name="exo_controls_cc_disabled_description">เปิดใช้คำบรรยาย</string>
-    <string name="exo_controls_cc_enabled_description">ปิดใช้คำบรรยาย</string>
-    <string name="exo_controls_fastforward_description">กรอไปข้างหน้า</string>
-    <string name="exo_controls_fullscreen_enter_description">แสดงแบบเต็มหน้าจอ</string>
-    <string name="exo_controls_fullscreen_exit_description">ออกจากโหมดเต็มหน้าจอ</string>
-    <string name="exo_controls_hide">ซ่อนตัวควบคุมโปรแกรมเล่น</string>
-    <string name="exo_controls_next_description">ถัดไป</string>
-    <string name="exo_controls_overflow_hide_description">ซ่อนการตั้งค่าเพิ่มเติม</string>
-    <string name="exo_controls_overflow_show_description">แสดงการตั้งค่าเพิ่มเติม</string>
-    <string name="exo_controls_pause_description">หยุด</string>
-    <string name="exo_controls_play_description">เล่น</string>
-    <string name="exo_controls_playback_speed">ความเร็ว</string>
-    <string name="exo_controls_previous_description">ก่อนหน้า</string>
-    <string name="exo_controls_repeat_all_description">โหมดปัจจุบัน: เล่นซ้ำทั้งหมด สลับโหมดเล่นซ้ำ</string>
-    <string name="exo_controls_repeat_off_description">โหมดปัจจุบัน: ไม่เล่นซ้ำ สลับโหมดเล่นซ้ำ</string>
-    <string name="exo_controls_repeat_one_description">โหมดปัจจุบัน: เล่นซ้ำรายการเดียว สลับโหมดเล่นซ้ำ</string>
-    <string name="exo_controls_rewind_description">กรอกลับ</string>
-    <string name="exo_controls_seek_bar_description">ความคืบหน้าในการเล่น</string>
-    <string name="exo_controls_settings_description">การตั้งค่า</string>
-    <string name="exo_controls_show">แสดงแผงควบคุมโปรแกรมเล่น</string>
-    <string name="exo_controls_shuffle_off_description">เปิดใช้โหมดสุ่มเพลง</string>
-    <string name="exo_controls_shuffle_on_description">ปิดใช้โหมดสุ่มเพลง</string>
-    <string name="exo_controls_stop_description">หยุด</string>
-    <string name="exo_controls_vr_description">โหมด VR</string>
-    <string name="exo_download_completed">การดาวน์โหลดเสร็จสมบูรณ์</string>
-    <string name="exo_download_description">ดาวน์โหลด</string>
-    <string name="exo_download_downloading">กำลังดาวน์โหลด</string>
-    <string name="exo_download_failed">การดาวน์โหลดล้มเหลว</string>
-    <string name="exo_download_notification_channel_name">ดาวน์โหลด</string>
-    <string name="exo_download_paused">การดาวน์โหลดหยุดชั่วคราว</string>
-    <string name="exo_download_paused_for_network">กำลังรอเครือข่ายเพื่อดาวน์โหลด</string>
-    <string name="exo_download_paused_for_wifi">กำลังรอ Wi-Fi เพื่อดาวน์โหลด</string>
-    <string name="exo_download_removing">กำลังนำรายการที่ดาวน์โหลดออก</string>
-    <string name="exo_item_list">%1$s, %2$s</string>
-    <string name="exo_track_bitrate">%1$.2f Mbps</string>
-    <string name="exo_track_mono">โมโน</string>
-    <string name="exo_track_resolution">%1$d × %2$d</string>
-    <string name="exo_track_role_alternate">อื่นๆ</string>
-    <string name="exo_track_role_closed_captions">คำบรรยาย</string>
-    <string name="exo_track_role_commentary">ความคิดเห็น</string>
-    <string name="exo_track_role_supplementary">แทร็กเสริม</string>
-    <string name="exo_track_selection_auto">อัตโนมัติ</string>
-    <string name="exo_track_selection_none">ไม่มี</string>
-    <string name="exo_track_selection_title_audio">เสียง</string>
-    <string name="exo_track_selection_title_text">ข้อความ</string>
-    <string name="exo_track_selection_title_video">วิดีโอ</string>
-    <string name="exo_track_stereo">สเตอริโอ</string>
-    <string name="exo_track_surround">เสียงเซอร์ราวด์</string>
-    <string name="exo_track_surround_5_point_1">ระบบเสียง 5.1 เซอร์ราวด์</string>
-    <string name="exo_track_surround_7_point_1">7.1 เสียงเซอร์ราวด์</string>
-    <string name="exo_track_unknown">ไม่ทราบ</string>
     <string msgid="5974471714631304645" name="expanded">"ขยาย"</string>
     <string name="exposed_dropdown_menu_content_description">แสดงเมนูแบบเลื่อนลง</string>
     <string name="icon_content_description">ไอคอนกล่องโต้ตอบ</string>
@@ -178,12 +108,6 @@
     <string name="material_timepicker_pm">PM</string>
     <string name="material_timepicker_select_time">เลือกเวลา</string>
     <string name="material_timepicker_text_input_mode_description">สลับไปโหมดป้อนข้อความเพื่อป้อนเวลา</string>
-    <string name="media3_controls_pause_description">หยุดชั่วคราว</string>
-    <string name="media3_controls_play_description">เล่น</string>
-    <string name="media3_controls_seek_back_description">กรอกลับ</string>
-    <string name="media3_controls_seek_forward_description">กรอไปข้างหน้า</string>
-    <string name="media3_controls_seek_to_next_description">กรอไปยังรายการถัดไป</string>
-    <string name="media3_controls_seek_to_previous_description">กรอไปยังรายการก่อนหน้า</string>
     <string name="mtrl_badge_numberless_content_description">การแจ้งเตือนใหม่</string>
     <string name="mtrl_chip_close_icon_content_description">นำ %1$s ออก</string>
     <string name="mtrl_exceed_max_badge_number_content_description" ns2:ignore="PluralsCandidate">การแจ้งเตือนใหม่มากกว่า %1$d รายการ</string>

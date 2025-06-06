@@ -1,24 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:ns1="urn:oasis:names:tc:xliff:document:1.2" xmlns:ns2="http://schemas.android.com/tools">
-    <string-array name="exo_controls_playback_speeds">
-    <item>0.25x</item>
-    <item>0.5x</item>
-    <item>0.75x</item>
-    <item>רגילה</item>
-    <item>1.25x</item>
-    <item>1.5x</item>
-    <item>2x</item>
-  </string-array>
-    <plurals name="exo_controls_fastforward_by_amount_description">
-    <item quantity="one">הרצה %d שניות קדימה</item>
-    <item quantity="two">הרצה %d שניות קדימה</item>
-    <item quantity="other">הרצה %d שניות קדימה</item>
-  </plurals>
-    <plurals name="exo_controls_rewind_by_amount_description">
-    <item quantity="one">הרצה %d שניות אחורה</item>
-    <item quantity="two">הרצה %d שניות אחורה</item>
-    <item quantity="other">הרצה %d שניות אחורה</item>
-  </plurals>
     <plurals name="mtrl_badge_content_description">
     <item quantity="one">%d התראות חדשות</item>
     <item quantity="two">%d התראות חדשות</item>
@@ -51,7 +32,6 @@
     <string msgid="8875138169939072951" name="abc_shareactionprovider_share_with">"שיתוף עם"</string>
     <string msgid="9055268688411532828" name="abc_shareactionprovider_share_with_application">"שיתוף עם <ns1:g id="APPLICATION_NAME">%s</ns1:g>"</string>
     <string msgid="1656852541809559762" name="abc_toolbar_collapse_description">"כיווץ"</string>
-    <string name="authentication_required">נדרש אימות</string>
     <string msgid="6128938260108474660" name="bottom_sheet_collapse_description">"כיווץ הגיליון התחתון"</string>
     <string msgid="1918297411568599192" name="bottom_sheet_dismiss_description">"סגירת הגיליון התחתון"</string>
     <string msgid="7772321844937772780" name="bottom_sheet_drag_handle_description">"נקודת אחיזה לגרירה"</string>
@@ -106,62 +86,10 @@
     <string msgid="5759491386723090559" name="date_range_picker_start_headline">"תאריך התחלה"</string>
     <string msgid="690080476639943577" name="date_range_picker_title">"בחירת תאריכים"</string>
     <string msgid="8038256446254964252" name="default_error_message">"הקלט לא תקין"</string>
-    <string name="default_notification_channel_name">הפריט שמופעל עכשיו</string>
     <string msgid="6312721426453364202" name="default_popup_window_title">"חלון קופץ"</string>
     <string msgid="4057925834421392736" name="dialog">"תיבת דו-שיח"</string>
     <string msgid="1890207353314751437" name="dropdown_menu">"תפריט נפתח"</string>
     <string name="error_icon_content_description">שגיאה</string>
-    <string name="exo_controls_cc_disabled_description">הפעלת כתוביות</string>
-    <string name="exo_controls_cc_enabled_description">השבתת כתוביות</string>
-    <string name="exo_controls_fastforward_description">הרצה קדימה</string>
-    <string name="exo_controls_fullscreen_enter_description">כניסה למסך מלא</string>
-    <string name="exo_controls_fullscreen_exit_description">יציאה ממסך מלא</string>
-    <string name="exo_controls_hide">הסתרת פקדי הנגן</string>
-    <string name="exo_controls_next_description">הבא</string>
-    <string name="exo_controls_overflow_hide_description">הסתרת ההגדרות הנוספות</string>
-    <string name="exo_controls_overflow_show_description">הצגת הגדרות נוספות</string>
-    <string name="exo_controls_pause_description">השהיה</string>
-    <string name="exo_controls_play_description">הפעלה</string>
-    <string name="exo_controls_playback_speed">מהירות</string>
-    <string name="exo_controls_previous_description">הקודם</string>
-    <string name="exo_controls_repeat_all_description">המצב הנוכחי: חזרה על כל הפריטים. לחצן להחלפת מצב החזרה.</string>
-    <string name="exo_controls_repeat_off_description">המצב הנוכחי: ללא חזרה. לחצן להחלפת מצב החזרה.</string>
-    <string name="exo_controls_repeat_one_description">המצב הנוכחי: חזרה על פריט אחד. לחצן להחלפת מצב החזרה.</string>
-    <string name="exo_controls_rewind_description">הרצה אחורה</string>
-    <string name="exo_controls_seek_bar_description">התקדמות ההפעלה</string>
-    <string name="exo_controls_settings_description">הגדרות</string>
-    <string name="exo_controls_show">הצגת פקדי הנגן</string>
-    <string name="exo_controls_shuffle_off_description">הפעלת מצב ההפעלה האקראית</string>
-    <string name="exo_controls_shuffle_on_description">השבתת מצב ההפעלה האקראית</string>
-    <string name="exo_controls_stop_description">הפסקה</string>
-    <string name="exo_controls_vr_description">מצב VR</string>
-    <string name="exo_download_completed">ההורדה הושלמה</string>
-    <string name="exo_download_description">הורדה</string>
-    <string name="exo_download_downloading">ההורדה מתבצעת</string>
-    <string name="exo_download_failed">ההורדה לא הושלמה</string>
-    <string name="exo_download_notification_channel_name">הורדות</string>
-    <string name="exo_download_paused">ההורדות הושהו</string>
-    <string name="exo_download_paused_for_network">ההורדות בהמתנה לרשת</string>
-    <string name="exo_download_paused_for_wifi">ההורדות בהמתנה ל-Wi-Fi</string>
-    <string name="exo_download_removing">מסיר הורדות</string>
-    <string name="exo_item_list">%1$s‏, %2$s</string>
-    <string name="exo_track_bitrate">%1$.2f מגה סיביות לשנייה</string>
-    <string name="exo_track_mono">מונו</string>
-    <string name="exo_track_resolution">%1$d × %2$d</string>
-    <string name="exo_track_role_alternate">חלופי</string>
-    <string name="exo_track_role_closed_captions">כתוביות</string>
-    <string name="exo_track_role_commentary">פרשנות</string>
-    <string name="exo_track_role_supplementary">משלים</string>
-    <string name="exo_track_selection_auto">אוטומטי</string>
-    <string name="exo_track_selection_none">ללא</string>
-    <string name="exo_track_selection_title_audio">אודיו</string>
-    <string name="exo_track_selection_title_text">טקסט</string>
-    <string name="exo_track_selection_title_video">סרטון</string>
-    <string name="exo_track_stereo">סטריאו</string>
-    <string name="exo_track_surround">סראונד</string>
-    <string name="exo_track_surround_5_point_1">סראונד 5.1</string>
-    <string name="exo_track_surround_7_point_1">סראונד 7.1</string>
-    <string name="exo_track_unknown">לא ידוע</string>
     <string msgid="5974471714631304645" name="expanded">"מורחב"</string>
     <string name="exposed_dropdown_menu_content_description">הצגת התפריט הנפתח</string>
     <string name="icon_content_description">סמל לתיבת דו-שיח</string>
@@ -181,12 +109,6 @@
     <string name="material_timepicker_pm">PM</string>
     <string name="material_timepicker_select_time">בחר שעה</string>
     <string name="material_timepicker_text_input_mode_description">העבר למצב קלט טקסט לצורך הזנת השעה</string>
-    <string name="media3_controls_pause_description">השהיה</string>
-    <string name="media3_controls_play_description">הפעלה</string>
-    <string name="media3_controls_seek_back_description">דילוג אחורה</string>
-    <string name="media3_controls_seek_forward_description">דילוג קדימה</string>
-    <string name="media3_controls_seek_to_next_description">דילוג לפריט הבא</string>
-    <string name="media3_controls_seek_to_previous_description">דילוג לפריט הקודם</string>
     <string name="mtrl_badge_numberless_content_description">התראה חדשה</string>
     <string name="mtrl_chip_close_icon_content_description">הסרה של %1$s</string>
     <string name="mtrl_exceed_max_badge_number_content_description" ns2:ignore="PluralsCandidate">יותר מ-%1$d התראות חדשות</string>

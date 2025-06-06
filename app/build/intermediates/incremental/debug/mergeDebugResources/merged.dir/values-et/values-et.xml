@@ -1,22 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:ns1="urn:oasis:names:tc:xliff:document:1.2" xmlns:ns2="http://schemas.android.com/tools">
-    <string-array name="exo_controls_playback_speeds">
-    <item>0,25-kordne</item>
-    <item>0,5-kordne</item>
-    <item>0,75-kordne</item>
-    <item>Tavaline</item>
-    <item>1,25-kordne</item>
-    <item>1,5-kordne</item>
-    <item>2-kordne</item>
-  </string-array>
-    <plurals name="exo_controls_fastforward_by_amount_description">
-    <item quantity="one">Keri %d sekund edasi</item>
-    <item quantity="other">Keri %d sekundit edasi</item>
-  </plurals>
-    <plurals name="exo_controls_rewind_by_amount_description">
-    <item quantity="one">Keri %d sekund tagasi</item>
-    <item quantity="other">Keri %d sekundit tagasi</item>
-  </plurals>
     <plurals name="mtrl_badge_content_description">
     <item quantity="one">%d uus märguanne</item>
     <item quantity="other">%d uut märguannet</item>
@@ -48,7 +31,6 @@
     <string msgid="8875138169939072951" name="abc_shareactionprovider_share_with">"Jaga:"</string>
     <string msgid="9055268688411532828" name="abc_shareactionprovider_share_with_application">"Jagamine rakendusega <ns1:g id="APPLICATION_NAME">%s</ns1:g>"</string>
     <string msgid="1656852541809559762" name="abc_toolbar_collapse_description">"Ahendamine"</string>
-    <string name="authentication_required">Vajalik on autentimine</string>
     <string msgid="6128938260108474660" name="bottom_sheet_collapse_description">"Alumise lehe ahendamine"</string>
     <string msgid="1918297411568599192" name="bottom_sheet_dismiss_description">"Alumisest lehest loobumine"</string>
     <string msgid="7772321844937772780" name="bottom_sheet_drag_handle_description">"Lohistamispide"</string>
@@ -103,62 +85,10 @@
     <string msgid="5759491386723090559" name="date_range_picker_start_headline">"Alguskuupäev"</string>
     <string msgid="690080476639943577" name="date_range_picker_title">"Valige kuupäevad"</string>
     <string msgid="8038256446254964252" name="default_error_message">"Sobimatu sisend"</string>
-    <string name="default_notification_channel_name">Hetkel mängimas</string>
     <string msgid="6312721426453364202" name="default_popup_window_title">"Hüpikaken"</string>
     <string msgid="4057925834421392736" name="dialog">"Dialoog"</string>
     <string msgid="1890207353314751437" name="dropdown_menu">"Rippmenüü"</string>
     <string name="error_icon_content_description">Viga</string>
-    <string name="exo_controls_cc_disabled_description">Luba subtiitrid</string>
-    <string name="exo_controls_cc_enabled_description">Keela subtiitrid</string>
-    <string name="exo_controls_fastforward_description">Keri edasi</string>
-    <string name="exo_controls_fullscreen_enter_description">Avamine täisekraanil</string>
-    <string name="exo_controls_fullscreen_exit_description">Väljumine täisekraanilt</string>
-    <string name="exo_controls_hide">Peida pleieri juhtnupud</string>
-    <string name="exo_controls_next_description">Edasi</string>
-    <string name="exo_controls_overflow_hide_description">Peida lisaseaded</string>
-    <string name="exo_controls_overflow_show_description">Kuva lisaseaded</string>
-    <string name="exo_controls_pause_description">Peata</string>
-    <string name="exo_controls_play_description">Esita</string>
-    <string name="exo_controls_playback_speed">Kiirus</string>
-    <string name="exo_controls_previous_description">Eelmine</string>
-    <string name="exo_controls_repeat_all_description">Praegune režiim: Korda kõiki. Aktiveerige kordusrežiim.</string>
-    <string name="exo_controls_repeat_off_description">Praegune režiim: Ära korda. Aktiveerige kordusrežiim.</string>
-    <string name="exo_controls_repeat_one_description">Praegune režiim: Korda ühte. Aktiveerige kordusrežiim.</string>
-    <string name="exo_controls_rewind_description">Keri tagasi</string>
-    <string name="exo_controls_seek_bar_description">Taasesitus on pooleli</string>
-    <string name="exo_controls_settings_description">Seaded</string>
-    <string name="exo_controls_show">Kuva pleieri juhtnupud</string>
-    <string name="exo_controls_shuffle_off_description">Juhuesituse režiimi lubamine</string>
-    <string name="exo_controls_shuffle_on_description">Juhuesituse režiimi keelamine</string>
-    <string name="exo_controls_stop_description">Lõpeta</string>
-    <string name="exo_controls_vr_description">VR-režiim</string>
-    <string name="exo_download_completed">Allalaadimine lõpetati</string>
-    <string name="exo_download_description">Allalaadimine</string>
-    <string name="exo_download_downloading">Allalaadimine</string>
-    <string name="exo_download_failed">Allalaadimine ebaõnnestus</string>
-    <string name="exo_download_notification_channel_name">Allalaadimised</string>
-    <string name="exo_download_paused">Allalaadimised peatati</string>
-    <string name="exo_download_paused_for_network">Allalaadimised on võrgu ootel</string>
-    <string name="exo_download_paused_for_wifi">Allalaadimised on WiFi-võrgu ootel</string>
-    <string name="exo_download_removing">Allalaadimiste eemaldamine</string>
-    <string name="exo_item_list">%1$s, %2$s</string>
-    <string name="exo_track_bitrate">%1$.2f Mbit/s</string>
-    <string name="exo_track_mono">Mono</string>
-    <string name="exo_track_resolution">%1$d × %2$d</string>
-    <string name="exo_track_role_alternate">Alternatiiv</string>
-    <string name="exo_track_role_closed_captions">Subtiitrid</string>
-    <string name="exo_track_role_commentary">Kommentaar</string>
-    <string name="exo_track_role_supplementary">Lisalugu</string>
-    <string name="exo_track_selection_auto">Automaatne</string>
-    <string name="exo_track_selection_none">Ühtegi</string>
-    <string name="exo_track_selection_title_audio">Heli</string>
-    <string name="exo_track_selection_title_text">Tekst</string>
-    <string name="exo_track_selection_title_video">Video</string>
-    <string name="exo_track_stereo">Stereo</string>
-    <string name="exo_track_surround">Ruumiline heli</string>
-    <string name="exo_track_surround_5_point_1">Ruumiline heli 5.1</string>
-    <string name="exo_track_surround_7_point_1">Ruumiline heli 7.1</string>
-    <string name="exo_track_unknown">Teadmata</string>
     <string msgid="5974471714631304645" name="expanded">"Laiendatud"</string>
     <string name="exposed_dropdown_menu_content_description">Kuva rippmenüü</string>
     <string name="icon_content_description">Dialoogi ikoon</string>
@@ -178,12 +108,6 @@
     <string name="material_timepicker_pm">PM</string>
     <string name="material_timepicker_select_time">Aja valimine</string>
     <string name="material_timepicker_text_input_mode_description">Aktiveerige kellaaja sisestamiseks tekstisisestusrežiim.</string>
-    <string name="media3_controls_pause_description">Peatamine</string>
-    <string name="media3_controls_play_description">Esitamine</string>
-    <string name="media3_controls_seek_back_description">Tagasikerimine</string>
-    <string name="media3_controls_seek_forward_description">Edasikerimine</string>
-    <string name="media3_controls_seek_to_next_description">Järgmise üksuse juurde liikumine</string>
-    <string name="media3_controls_seek_to_previous_description">Eelmise üksuse juurde liikumine</string>
     <string name="mtrl_badge_numberless_content_description">Uus märguanne</string>
     <string name="mtrl_chip_close_icon_content_description">Üksuse %1$s eemaldamine</string>
     <string name="mtrl_exceed_max_badge_number_content_description" ns2:ignore="PluralsCandidate">Rohkem kui %1$d uut märguannet</string>

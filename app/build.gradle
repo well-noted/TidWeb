@@ -46,7 +46,6 @@ android {
 dependencies {
     def lifecycle_version = "2.6.2"
     def compose_version = "1.5.1"
-    def media3_version = "1.2.0"
     
     implementation platform('androidx.compose:compose-bom:2023.08.00')
     androidTestImplementation platform('androidx.compose:compose-bom:2023.08.00')
@@ -88,20 +87,13 @@ dependencies {
     
     // Image loading
     implementation "io.coil-kt:coil-compose:2.5.0"
-    
-    // Media Session and ExoPlayer dependencies
+      // Media Session dependencies
     implementation "androidx.media:media:1.7.0"
     
     // Remove this legacy dependency as it's causing conflicts
     // implementation "android.arch.lifecycle:extensions:1.1.1"
     
     implementation "androidx.legacy:legacy-support-v4:1.0.0"
-    
-    // Media3 dependencies using the defined version variable
-    implementation "androidx.media3:media3-exoplayer:$media3_version"
-    implementation "androidx.media3:media3-ui:$media3_version"
-    implementation "androidx.media3:media3-common:$media3_version"
-    implementation "androidx.media3:media3-session:$media3_version"
     
     // Debug dependencies
     debugImplementation "androidx.compose.ui:ui-tooling"

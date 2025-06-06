@@ -23,8 +23,7 @@ class LifecycleHandler(
     private val viewModelProvider: () -> WikiViewModel?,
     private val backgroundModeManager: BackgroundModeManager,
     private val backgroundWebViewManager: BackgroundWebViewManager,
-    private val mediaSessionManager: MediaSessionManager,
-    private val exoPlayerManager: ExoPlayerManager
+    private val mediaSessionManager: MediaSessionManager
 ) {
     private val TAG = "LifecycleHandler"
     private var webViewPaused = false
@@ -33,10 +32,8 @@ class LifecycleHandler(
     
     fun onPause() {
         webViewPaused = true
-        
-        if (!backgroundModeManager.isBackgroundEnabled.value) {
+          if (!backgroundModeManager.isBackgroundEnabled.value) {
             Log.d(TAG, "onPause - Background mode disabled, performing standard pause.")
-            exoPlayerManager.onPause()
             viewModelProvider()?.let { vm ->
                 vm.currentWiki.value?.let { wiki ->
                     val key = wiki.idFromUrl ?: wiki.url
@@ -108,10 +105,8 @@ class LifecycleHandler(
             }
         }
     }
-    
-    fun onResume() {
+      fun onResume() {
         webViewPaused = false
-        exoPlayerManager.onResume()
         
         Log.d(TAG, "onResume - Background mode is ${if (backgroundModeManager.isBackgroundEnabled.value) "ENABLED" else "DISABLED"}")
         

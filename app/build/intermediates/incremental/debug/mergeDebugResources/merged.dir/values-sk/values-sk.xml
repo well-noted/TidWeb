@@ -1,26 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:ns1="urn:oasis:names:tc:xliff:document:1.2" xmlns:ns2="http://schemas.android.com/tools">
-    <string-array name="exo_controls_playback_speeds">
-    <item>0,25 ×</item>
-    <item>0,5 ×</item>
-    <item>0,75 ×</item>
-    <item>Normálne</item>
-    <item>1,25 ×</item>
-    <item>1,5 ×</item>
-    <item>2 ×</item>
-  </string-array>
-    <plurals name="exo_controls_fastforward_by_amount_description">
-    <item quantity="one">Pretočiť dopredu o %d sekundu</item>
-    <item quantity="few">Pretočiť dopredu o %d sekundy</item>
-    <item quantity="many">Pretočiť dopredu o %d sekundy</item>
-    <item quantity="other">Pretočiť dopredu o %d sekúnd</item>
-  </plurals>
-    <plurals name="exo_controls_rewind_by_amount_description">
-    <item quantity="one">Pretočiť späť o %d sekundu</item>
-    <item quantity="few">Pretočiť späť o %d sekundy</item>
-    <item quantity="many">Pretočiť späť o %d sekundy</item>
-    <item quantity="other">Pretočiť späť o %d sekúnd</item>
-  </plurals>
     <plurals name="mtrl_badge_content_description">
     <item quantity="one">%d nové upozornenie</item>
     <item quantity="few">%d nové upozornenia</item>
@@ -54,7 +33,6 @@
     <string msgid="8875138169939072951" name="abc_shareactionprovider_share_with">"Zdieľať s"</string>
     <string msgid="9055268688411532828" name="abc_shareactionprovider_share_with_application">"Zdieľať s aplikáciou <ns1:g id="APPLICATION_NAME">%s</ns1:g>"</string>
     <string msgid="1656852541809559762" name="abc_toolbar_collapse_description">"Zbaliť"</string>
-    <string name="authentication_required">Vyžaduje sa overenie</string>
     <string msgid="6128938260108474660" name="bottom_sheet_collapse_description">"Zbaliť dolný hárok"</string>
     <string msgid="1918297411568599192" name="bottom_sheet_dismiss_description">"Zavrieť dolný hárok"</string>
     <string msgid="7772321844937772780" name="bottom_sheet_drag_handle_description">"Presúvadlo"</string>
@@ -109,62 +87,10 @@
     <string msgid="5759491386723090559" name="date_range_picker_start_headline">"Dátum začatia"</string>
     <string msgid="690080476639943577" name="date_range_picker_title">"Vyberte dátumy"</string>
     <string msgid="8038256446254964252" name="default_error_message">"Neplatný vstup"</string>
-    <string name="default_notification_channel_name">Prehráva sa</string>
     <string msgid="6312721426453364202" name="default_popup_window_title">"Vyskakovacie okno"</string>
     <string msgid="4057925834421392736" name="dialog">"Dialógové okno"</string>
     <string msgid="1890207353314751437" name="dropdown_menu">"Rozbaľovacia ponuka"</string>
     <string name="error_icon_content_description">Chyba</string>
-    <string name="exo_controls_cc_disabled_description">Povoliť titulky</string>
-    <string name="exo_controls_cc_enabled_description">Zakázať titulky</string>
-    <string name="exo_controls_fastforward_description">Pretočiť dopredu</string>
-    <string name="exo_controls_fullscreen_enter_description">Prejsť do režimu celej obrazovky</string>
-    <string name="exo_controls_fullscreen_exit_description">Ukončiť režim celej obrazovky</string>
-    <string name="exo_controls_hide">Skryť ovládacie prvky prehrávača</string>
-    <string name="exo_controls_next_description">Ďalšia</string>
-    <string name="exo_controls_overflow_hide_description">Skryť ďalšie nastavenia</string>
-    <string name="exo_controls_overflow_show_description">Zobraziť ďalšie nastavenia</string>
-    <string name="exo_controls_pause_description">Pozastaviť</string>
-    <string name="exo_controls_play_description">Prehrať</string>
-    <string name="exo_controls_playback_speed">Rýchlosť</string>
-    <string name="exo_controls_previous_description">Predchádzajúca</string>
-    <string name="exo_controls_repeat_all_description">Aktuálny režim: Opakovať všetky. Prepnúť režim opakovania</string>
-    <string name="exo_controls_repeat_off_description">Aktuálny režim: Neopakovať. Prepnúť režim opakovania</string>
-    <string name="exo_controls_repeat_one_description">Aktuálny režim: Opakovať jedno. Prepnúť režim opakovania</string>
-    <string name="exo_controls_rewind_description">Pretočiť späť</string>
-    <string name="exo_controls_seek_bar_description">Priebeh prehrávania</string>
-    <string name="exo_controls_settings_description">Nastavenia</string>
-    <string name="exo_controls_show">Zobraziť ovládacie prvky prehrávača</string>
-    <string name="exo_controls_shuffle_off_description">Zapnúť režim náhodného prehrávania</string>
-    <string name="exo_controls_shuffle_on_description">Vypnúť režim náhodného prehrávania</string>
-    <string name="exo_controls_stop_description">Zastaviť</string>
-    <string name="exo_controls_vr_description">režim VR</string>
-    <string name="exo_download_completed">Sťahovanie bolo dokončené</string>
-    <string name="exo_download_description">Stiahnuť</string>
-    <string name="exo_download_downloading">Sťahuje sa</string>
-    <string name="exo_download_failed">Nepodarilo sa stiahnuť</string>
-    <string name="exo_download_notification_channel_name">Stiahnuté</string>
-    <string name="exo_download_paused">Sťahovanie je pozastavené</string>
-    <string name="exo_download_paused_for_network">Sťahovanie čaká na sieť</string>
-    <string name="exo_download_paused_for_wifi">Sťahovanie čaká na Wi‑Fi</string>
-    <string name="exo_download_removing">Odstraňuje sa stiahnutý obsah</string>
-    <string name="exo_item_list">%1$s, %2$s</string>
-    <string name="exo_track_bitrate">%1$.2f MB/s</string>
-    <string name="exo_track_mono">Mono</string>
-    <string name="exo_track_resolution">%1$d × %2$d</string>
-    <string name="exo_track_role_alternate">Alternatívna stopa</string>
-    <string name="exo_track_role_closed_captions">Skryté titulky</string>
-    <string name="exo_track_role_commentary">Komentár</string>
-    <string name="exo_track_role_supplementary">Doplnková stopa</string>
-    <string name="exo_track_selection_auto">Automaticky</string>
-    <string name="exo_track_selection_none">Žiadne</string>
-    <string name="exo_track_selection_title_audio">Zvuk</string>
-    <string name="exo_track_selection_title_text">Text</string>
-    <string name="exo_track_selection_title_video">Video</string>
-    <string name="exo_track_stereo">Stereo</string>
-    <string name="exo_track_surround">Priestorový zvuk</string>
-    <string name="exo_track_surround_5_point_1">Priestorový zvuk 5.1</string>
-    <string name="exo_track_surround_7_point_1">Priestorový zvuk 7.1</string>
-    <string name="exo_track_unknown">Neznáme</string>
     <string msgid="5974471714631304645" name="expanded">"Rozbalené"</string>
     <string name="exposed_dropdown_menu_content_description">Zobraziť rozbaľovaciu ponuku</string>
     <string name="icon_content_description">Ikona dialógového okna</string>
@@ -184,12 +110,6 @@
     <string name="material_timepicker_pm">PM</string>
     <string name="material_timepicker_select_time">Vyberte čas</string>
     <string name="material_timepicker_text_input_mode_description">Ak chcete zadať čas, prepnite na textový režim vstupu</string>
-    <string name="media3_controls_pause_description">Pozastaviť</string>
-    <string name="media3_controls_play_description">Prehrať</string>
-    <string name="media3_controls_seek_back_description">Hľadať smerom dozadu</string>
-    <string name="media3_controls_seek_forward_description">Hľadať smerom dopredu</string>
-    <string name="media3_controls_seek_to_next_description">Hľadať v ďalšej položke</string>
-    <string name="media3_controls_seek_to_previous_description">Hľadať v predchádzajúcej položke</string>
     <string name="mtrl_badge_numberless_content_description">Nové upozornenie</string>
     <string name="mtrl_chip_close_icon_content_description">Odstrániť položku %1$s</string>
     <string name="mtrl_exceed_max_badge_number_content_description" ns2:ignore="PluralsCandidate">Viac než %1$d nových upozornení</string>

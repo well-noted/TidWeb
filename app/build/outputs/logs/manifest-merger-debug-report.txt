@@ -61,16 +61,6 @@ MERGED from [androidx.compose.ui:ui-test-manifest:1.5.4] C:\Users\tetuo\.gradle\
 MERGED from [androidx.activity:activity:1.8.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\bc555ea7d787face91b0e62c04227ae6\transformed\jetified-activity-1.8.1\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.activity:activity-compose:1.8.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\bd932090f3969fc853fde7a2c594bb85\transformed\jetified-activity-compose-1.8.1\AndroidManifest.xml:2:1-7:12
 MERGED from [androidx.activity:activity-ktx:1.8.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c0525ed9d41aed2be374b935f557c105\transformed\jetified-activity-ktx-1.8.1\AndroidManifest.xml:2:1-7:12
-MERGED from [androidx.media3:media3-exoplayer:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\28f07efe1c19814dbca39a9d8b74939a\transformed\jetified-media3-exoplayer-1.2.0\AndroidManifest.xml:17:1-24:12
-MERGED from [androidx.media3:media3-session:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\8e94bff7841c98ef0557eb7716c6e804\transformed\jetified-media3-session-1.2.0\AndroidManifest.xml:17:1-22:12
-MERGED from [androidx.media3:media3-extractor:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\d70e6e2f4c41c711e33679b2e5308da7\transformed\jetified-media3-extractor-1.2.0\AndroidManifest.xml:17:1-22:12
-MERGED from [androidx.media3:media3-container:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c6ff58a79997d494010ab44f8896cbac\transformed\jetified-media3-container-1.2.0\AndroidManifest.xml:17:1-22:12
-MERGED from [androidx.media3:media3-datasource:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\e0abcc26e49161d537708e1b0d2a2791\transformed\jetified-media3-datasource-1.2.0\AndroidManifest.xml:17:1-22:12
-MERGED from [androidx.media3:media3-decoder:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\4d2dfe8faaf2aad2750345ba6c37fd90\transformed\jetified-media3-decoder-1.2.0\AndroidManifest.xml:17:1-22:12
-MERGED from [androidx.media3:media3-database:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\09f26c6ede5c5070de9a52cee457e4a1\transformed\jetified-media3-database-1.2.0\AndroidManifest.xml:17:1-22:12
-MERGED from [androidx.media3:media3-common:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1af7831adb57d922e8dc2cac73072c6e\transformed\jetified-media3-common-1.2.0\AndroidManifest.xml:17:1-24:12
-MERGED from [androidx.media3:media3-ui:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\908dcefb568b9f96532884ca3fe6644f\transformed\jetified-media3-ui-1.2.0\AndroidManifest.xml:17:1-22:12
-MERGED from [androidx.recyclerview:recyclerview:1.3.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\a010fd1505339eb0c131d9e3657b06ff\transformed\recyclerview-1.3.0\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.customview:customview-poolingcontainer:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c2d8c3d7575f9a51fe6919b4048ae091\transformed\jetified-customview-poolingcontainer-1.0.0\AndroidManifest.xml:17:1-23:12
 MERGED from [androidx.core:core-ktx:1.12.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1382de947bc3999ecfdcee384d9aa1d0\transformed\jetified-core-ktx-1.12.0\AndroidManifest.xml:2:1-7:12
 MERGED from [androidx.webkit:webkit:1.8.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\7ac750958a2d872936544a40e9ca1484\transformed\webkit-1.8.0\AndroidManifest.xml:2:1-7:12
@@ -85,6 +75,7 @@ MERGED from [androidx.vectordrawable:vectordrawable:1.1.0] C:\Users\tetuo\.gradl
 MERGED from [androidx.legacy:legacy-support-core-utils:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b0d760a8b6525c0e4084e95cffc5e422\transformed\legacy-support-core-utils-1.0.0\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.viewpager:viewpager:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\a901ac73a6de165b642c4b1ea23ed526\transformed\viewpager-1.0.0\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.loader:loader:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\134291bdf3f2c0ccd098fa55c610743a\transformed\loader-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.recyclerview:recyclerview:1.1.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\3b54294525687cb0f8fee36cd5274624\transformed\recyclerview-1.1.0\AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.slidingpanelayout:slidingpanelayout:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\0fa374dbe7066df4328d8be663540933\transformed\slidingpanelayout-1.0.0\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.customview:customview:1.1.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b98af967640ddf287257219dee778892\transformed\customview-1.1.0\AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.swiperefreshlayout:swiperefreshlayout:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\9ccc49659eda844020f25b83e332e0fc\transformed\swiperefreshlayout-1.0.0\AndroidManifest.xml:17:1-22:12
@@ -106,11 +97,10 @@ MERGED from [androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2] C:\Users\tetu
 MERGED from [androidx.lifecycle:lifecycle-runtime-ktx:2.6.2] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\2276a537512039309b4b95c81262f5bc\transformed\jetified-lifecycle-runtime-ktx-2.6.2\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.datastore:datastore-preferences:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\5e26247f7f6f184bb0899ba9aeb9ff16\transformed\jetified-datastore-preferences-1.0.0\AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.datastore:datastore:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\dcdb8c593c85d035aa4ab5d3773651a1\transformed\jetified-datastore-1.0.0\AndroidManifest.xml:17:1-24:12
-MERGED from [androidx.annotation:annotation-experimental:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\3f627e55fdd02674f3832ea987b796e5\transformed\jetified-annotation-experimental-1.3.1\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.annotation:annotation-experimental:1.3.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c34d59fa5d753c26c787e5395b37a71c\transformed\jetified-annotation-experimental-1.3.0\AndroidManifest.xml:17:1-22:12
 MERGED from [io.github.aakira:napier-android-debug:1.4.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\8fe7b622a6623fc6c55cc23b296ec950\transformed\jetified-napier-debug\AndroidManifest.xml:2:1-11:12
 MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\e61acd8c22df3bfbd45f2e4bfe76b0c4\transformed\cursoradapter-1.0.0\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.cardview:cardview:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\0bef36ca5c63b69f537ba6a490339cdf\transformed\cardview-1.0.0\AndroidManifest.xml:17:1-22:12
-MERGED from [androidx.exifinterface:exifinterface:1.3.6] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\2f552b2923a2cda9882a7436b93c1781\transformed\exifinterface-1.3.6\AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.interpolator:interpolator:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\50f74abb3594eb315035c7732a2fa2eb\transformed\interpolator-1.0.0\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\dc0f21531616e0033a68c5ebdd889127\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:17:1-27:12
 MERGED from [androidx.arch.core:core-runtime:2.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\e8fca0093423cbd6b1f9b49534a2a2cf\transformed\core-runtime-2.2.0\AndroidManifest.xml:17:1-22:12
@@ -120,6 +110,7 @@ MERGED from [androidx.print:print:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\tr
 MERGED from [androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b7bdad78661ed30a9c6a5e6c4c88924b\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:17:1-55:12
 MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\31cd04cf25c7807e7cbe73d5cec0f4ff\transformed\jetified-startup-runtime-1.1.1\AndroidManifest.xml:17:1-33:12
 MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\3353b37d8952c15feaaecb926ade2d72\transformed\jetified-tracing-1.0.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.exifinterface:exifinterface:1.3.6] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\2f552b2923a2cda9882a7436b93c1781\transformed\exifinterface-1.3.6\AndroidManifest.xml:17:1-24:12
 	package
 		INJECTED from C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml
 	android:versionName
@@ -134,10 +125,6 @@ ADDED from C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:3:5-67
 		ADDED from C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:3:22-64
 uses-permission#android.permission.ACCESS_NETWORK_STATE
 ADDED from C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:4:5-79
-MERGED from [androidx.media3:media3-exoplayer:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\28f07efe1c19814dbca39a9d8b74939a\transformed\jetified-media3-exoplayer-1.2.0\AndroidManifest.xml:22:5-79
-MERGED from [androidx.media3:media3-exoplayer:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\28f07efe1c19814dbca39a9d8b74939a\transformed\jetified-media3-exoplayer-1.2.0\AndroidManifest.xml:22:5-79
-MERGED from [androidx.media3:media3-common:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1af7831adb57d922e8dc2cac73072c6e\transformed\jetified-media3-common-1.2.0\AndroidManifest.xml:22:5-79
-MERGED from [androidx.media3:media3-common:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1af7831adb57d922e8dc2cac73072c6e\transformed\jetified-media3-common-1.2.0\AndroidManifest.xml:22:5-79
 	android:name
 		ADDED from C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml:4:22-76
 uses-permission#android.permission.WRITE_EXTERNAL_STORAGE
@@ -459,26 +446,6 @@ MERGED from [androidx.activity:activity-compose:1.8.1] C:\Users\tetuo\.gradle\ca
 MERGED from [androidx.activity:activity-compose:1.8.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\bd932090f3969fc853fde7a2c594bb85\transformed\jetified-activity-compose-1.8.1\AndroidManifest.xml:5:5-44
 MERGED from [androidx.activity:activity-ktx:1.8.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c0525ed9d41aed2be374b935f557c105\transformed\jetified-activity-ktx-1.8.1\AndroidManifest.xml:5:5-44
 MERGED from [androidx.activity:activity-ktx:1.8.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c0525ed9d41aed2be374b935f557c105\transformed\jetified-activity-ktx-1.8.1\AndroidManifest.xml:5:5-44
-MERGED from [androidx.media3:media3-exoplayer:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\28f07efe1c19814dbca39a9d8b74939a\transformed\jetified-media3-exoplayer-1.2.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.media3:media3-exoplayer:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\28f07efe1c19814dbca39a9d8b74939a\transformed\jetified-media3-exoplayer-1.2.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.media3:media3-session:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\8e94bff7841c98ef0557eb7716c6e804\transformed\jetified-media3-session-1.2.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.media3:media3-session:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\8e94bff7841c98ef0557eb7716c6e804\transformed\jetified-media3-session-1.2.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.media3:media3-extractor:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\d70e6e2f4c41c711e33679b2e5308da7\transformed\jetified-media3-extractor-1.2.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.media3:media3-extractor:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\d70e6e2f4c41c711e33679b2e5308da7\transformed\jetified-media3-extractor-1.2.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.media3:media3-container:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c6ff58a79997d494010ab44f8896cbac\transformed\jetified-media3-container-1.2.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.media3:media3-container:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c6ff58a79997d494010ab44f8896cbac\transformed\jetified-media3-container-1.2.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.media3:media3-datasource:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\e0abcc26e49161d537708e1b0d2a2791\transformed\jetified-media3-datasource-1.2.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.media3:media3-datasource:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\e0abcc26e49161d537708e1b0d2a2791\transformed\jetified-media3-datasource-1.2.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.media3:media3-decoder:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\4d2dfe8faaf2aad2750345ba6c37fd90\transformed\jetified-media3-decoder-1.2.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.media3:media3-decoder:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\4d2dfe8faaf2aad2750345ba6c37fd90\transformed\jetified-media3-decoder-1.2.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.media3:media3-database:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\09f26c6ede5c5070de9a52cee457e4a1\transformed\jetified-media3-database-1.2.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.media3:media3-database:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\09f26c6ede5c5070de9a52cee457e4a1\transformed\jetified-media3-database-1.2.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.media3:media3-common:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1af7831adb57d922e8dc2cac73072c6e\transformed\jetified-media3-common-1.2.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.media3:media3-common:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1af7831adb57d922e8dc2cac73072c6e\transformed\jetified-media3-common-1.2.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.media3:media3-ui:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\908dcefb568b9f96532884ca3fe6644f\transformed\jetified-media3-ui-1.2.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.media3:media3-ui:1.2.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\908dcefb568b9f96532884ca3fe6644f\transformed\jetified-media3-ui-1.2.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.recyclerview:recyclerview:1.3.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\a010fd1505339eb0c131d9e3657b06ff\transformed\recyclerview-1.3.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.recyclerview:recyclerview:1.3.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\a010fd1505339eb0c131d9e3657b06ff\transformed\recyclerview-1.3.0\AndroidManifest.xml:20:5-44
 MERGED from [androidx.customview:customview-poolingcontainer:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c2d8c3d7575f9a51fe6919b4048ae091\transformed\jetified-customview-poolingcontainer-1.0.0\AndroidManifest.xml:20:5-21:38
 MERGED from [androidx.customview:customview-poolingcontainer:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c2d8c3d7575f9a51fe6919b4048ae091\transformed\jetified-customview-poolingcontainer-1.0.0\AndroidManifest.xml:20:5-21:38
 MERGED from [androidx.core:core-ktx:1.12.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\1382de947bc3999ecfdcee384d9aa1d0\transformed\jetified-core-ktx-1.12.0\AndroidManifest.xml:5:5-44
@@ -507,6 +474,8 @@ MERGED from [androidx.viewpager:viewpager:1.0.0] C:\Users\tetuo\.gradle\caches\8
 MERGED from [androidx.viewpager:viewpager:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\a901ac73a6de165b642c4b1ea23ed526\transformed\viewpager-1.0.0\AndroidManifest.xml:20:5-44
 MERGED from [androidx.loader:loader:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\134291bdf3f2c0ccd098fa55c610743a\transformed\loader-1.0.0\AndroidManifest.xml:20:5-44
 MERGED from [androidx.loader:loader:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\134291bdf3f2c0ccd098fa55c610743a\transformed\loader-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.recyclerview:recyclerview:1.1.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\3b54294525687cb0f8fee36cd5274624\transformed\recyclerview-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.recyclerview:recyclerview:1.1.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\3b54294525687cb0f8fee36cd5274624\transformed\recyclerview-1.1.0\AndroidManifest.xml:20:5-22:41
 MERGED from [androidx.slidingpanelayout:slidingpanelayout:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\0fa374dbe7066df4328d8be663540933\transformed\slidingpanelayout-1.0.0\AndroidManifest.xml:20:5-44
 MERGED from [androidx.slidingpanelayout:slidingpanelayout:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\0fa374dbe7066df4328d8be663540933\transformed\slidingpanelayout-1.0.0\AndroidManifest.xml:20:5-44
 MERGED from [androidx.customview:customview:1.1.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\b98af967640ddf287257219dee778892\transformed\customview-1.1.0\AndroidManifest.xml:20:5-22:41
@@ -549,16 +518,14 @@ MERGED from [androidx.datastore:datastore-preferences:1.0.0] C:\Users\tetuo\.gra
 MERGED from [androidx.datastore:datastore-preferences:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\5e26247f7f6f184bb0899ba9aeb9ff16\transformed\jetified-datastore-preferences-1.0.0\AndroidManifest.xml:20:5-22:41
 MERGED from [androidx.datastore:datastore:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\dcdb8c593c85d035aa4ab5d3773651a1\transformed\jetified-datastore-1.0.0\AndroidManifest.xml:20:5-22:41
 MERGED from [androidx.datastore:datastore:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\dcdb8c593c85d035aa4ab5d3773651a1\transformed\jetified-datastore-1.0.0\AndroidManifest.xml:20:5-22:41
-MERGED from [androidx.annotation:annotation-experimental:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\3f627e55fdd02674f3832ea987b796e5\transformed\jetified-annotation-experimental-1.3.1\AndroidManifest.xml:20:5-44
-MERGED from [androidx.annotation:annotation-experimental:1.3.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\3f627e55fdd02674f3832ea987b796e5\transformed\jetified-annotation-experimental-1.3.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.annotation:annotation-experimental:1.3.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c34d59fa5d753c26c787e5395b37a71c\transformed\jetified-annotation-experimental-1.3.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.annotation:annotation-experimental:1.3.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\c34d59fa5d753c26c787e5395b37a71c\transformed\jetified-annotation-experimental-1.3.0\AndroidManifest.xml:20:5-44
 MERGED from [io.github.aakira:napier-android-debug:1.4.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\8fe7b622a6623fc6c55cc23b296ec950\transformed\jetified-napier-debug\AndroidManifest.xml:7:5-9:41
 MERGED from [io.github.aakira:napier-android-debug:1.4.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\8fe7b622a6623fc6c55cc23b296ec950\transformed\jetified-napier-debug\AndroidManifest.xml:7:5-9:41
 MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\e61acd8c22df3bfbd45f2e4bfe76b0c4\transformed\cursoradapter-1.0.0\AndroidManifest.xml:20:5-44
 MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\e61acd8c22df3bfbd45f2e4bfe76b0c4\transformed\cursoradapter-1.0.0\AndroidManifest.xml:20:5-44
 MERGED from [androidx.cardview:cardview:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\0bef36ca5c63b69f537ba6a490339cdf\transformed\cardview-1.0.0\AndroidManifest.xml:20:5-44
 MERGED from [androidx.cardview:cardview:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\0bef36ca5c63b69f537ba6a490339cdf\transformed\cardview-1.0.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.exifinterface:exifinterface:1.3.6] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\2f552b2923a2cda9882a7436b93c1781\transformed\exifinterface-1.3.6\AndroidManifest.xml:20:5-22:41
-MERGED from [androidx.exifinterface:exifinterface:1.3.6] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\2f552b2923a2cda9882a7436b93c1781\transformed\exifinterface-1.3.6\AndroidManifest.xml:20:5-22:41
 MERGED from [androidx.interpolator:interpolator:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\50f74abb3594eb315035c7732a2fa2eb\transformed\interpolator-1.0.0\AndroidManifest.xml:20:5-44
 MERGED from [androidx.interpolator:interpolator:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\50f74abb3594eb315035c7732a2fa2eb\transformed\interpolator-1.0.0\AndroidManifest.xml:20:5-44
 MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\dc0f21531616e0033a68c5ebdd889127\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:20:5-22:41
@@ -577,6 +544,8 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\tetuo\.gradle\cach
 MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\31cd04cf25c7807e7cbe73d5cec0f4ff\transformed\jetified-startup-runtime-1.1.1\AndroidManifest.xml:21:5-23:41
 MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\3353b37d8952c15feaaecb926ade2d72\transformed\jetified-tracing-1.0.0\AndroidManifest.xml:20:5-22:41
 MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\3353b37d8952c15feaaecb926ade2d72\transformed\jetified-tracing-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.exifinterface:exifinterface:1.3.6] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\2f552b2923a2cda9882a7436b93c1781\transformed\exifinterface-1.3.6\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.exifinterface:exifinterface:1.3.6] C:\Users\tetuo\.gradle\caches\8.10.2\transforms\2f552b2923a2cda9882a7436b93c1781\transformed\exifinterface-1.3.6\AndroidManifest.xml:20:5-22:41
 	android:targetSdkVersion
 		INJECTED from C:\Users\tetuo\TidWeb\app\src\main\AndroidManifest.xml
 	android:minSdkVersion

@@ -1,110 +1,110 @@
 [
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/mipmap-mdpi_ic_launcher.webp.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/mipmap-mdpi/ic_launcher.webp"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/mipmap-xxhdpi_ic_launcher_foreground.webp.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/mipmap-xxhdpi/ic_launcher_foreground.webp"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/drawable_ic_skip_backward_15.xml.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/drawable/ic_skip_backward_15.xml"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/drawable_ic_play.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/drawable/ic_play.xml"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/mipmap-xxhdpi_ic_launcher.webp.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/mipmap-xxhdpi/ic_launcher.webp"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/mipmap-xxhdpi_ic_launcher_round.webp.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/mipmap-xxhdpi/ic_launcher_round.webp"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/mipmap-xhdpi_ic_launcher_round.webp.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/mipmap-xhdpi/ic_launcher_round.webp"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/mipmap-xhdpi_ic_launcher.webp.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/mipmap-xhdpi/ic_launcher.webp"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/drawable_ic_previous.xml.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/drawable/ic_previous.xml"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/drawable_ic_skip_forward_15.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/drawable/ic_skip_forward_15.xml"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/drawable_ic_play.xml.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/drawable/ic_play.xml"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/mipmap-anydpi-v26/ic_launcher.xml"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/drawable_ic_pause.xml.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/drawable/ic_pause.xml"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/mipmap-mdpi_ic_launcher.webp.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/mipmap-mdpi/ic_launcher.webp"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/drawable_ic_launcher_foreground.xml.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/drawable/ic_launcher_foreground.xml"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/mipmap-xxxhdpi_ic_launcher_foreground.webp.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/mipmap-xxxhdpi/ic_launcher_foreground.webp"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/drawable_ic_launcher_background.xml.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/drawable/ic_launcher_background.xml"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/mipmap-hdpi_ic_launcher_foreground.webp.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/mipmap-hdpi/ic_launcher_foreground.webp"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/drawable_ic_notification.xml.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/drawable/ic_notification.xml"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/drawable_ic_notification.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/drawable/ic_notification.xml"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/mipmap-xxhdpi_ic_launcher_foreground.webp.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/mipmap-xxhdpi/ic_launcher_foreground.webp"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/drawable_ic_previous.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/drawable/ic_previous.xml"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/mipmap-hdpi_ic_launcher_foreground.webp.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/mipmap-hdpi/ic_launcher_foreground.webp"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/mipmap-mdpi_ic_launcher_foreground.webp.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/mipmap-mdpi/ic_launcher_foreground.webp"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/mipmap-xhdpi_ic_launcher.webp.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/mipmap-xhdpi/ic_launcher.webp"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/mipmap-xhdpi_ic_launcher_foreground.webp.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/mipmap-xhdpi/ic_launcher_foreground.webp"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/mipmap-anydpi-v26_ic_launcher.xml.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/mipmap-anydpi-v26/ic_launcher.xml"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/drawable_ic_next.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/drawable/ic_next.xml"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/drawable_ic_next.xml.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/drawable/ic_next.xml"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/drawable_ic_skip_backward_15.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/drawable/ic_skip_backward_15.xml"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/mipmap-xhdpi_ic_launcher_foreground.webp.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/mipmap-xhdpi/ic_launcher_foreground.webp"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/drawable_ic_launcher_background.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/drawable/ic_launcher_background.xml"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/mipmap-xxxhdpi_ic_launcher_foreground.webp.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/mipmap-xxxhdpi/ic_launcher_foreground.webp"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/mipmap-xxxhdpi_ic_launcher.webp.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/mipmap-xxxhdpi/ic_launcher.webp"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/mipmap-hdpi_ic_launcher_round.webp.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/mipmap-hdpi/ic_launcher_round.webp"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/xml_file_paths.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/xml/file_paths.xml"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/mipmap-mdpi_ic_launcher_foreground.webp.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/mipmap-mdpi/ic_launcher_foreground.webp"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/mipmap-xxxhdpi_ic_launcher_round.webp.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/mipmap-xxxhdpi/ic_launcher_round.webp"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/mipmap-anydpi-v26/ic_launcher_round.xml"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/mipmap-anydpi-v26/ic_launcher_round.xml"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/mipmap-xxxhdpi_ic_launcher_round.webp.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/mipmap-xxxhdpi/ic_launcher_round.webp"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/drawable/ic_launcher_foreground.xml"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/mipmap-xxxhdpi_ic_launcher.webp.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/mipmap-xxxhdpi/ic_launcher.webp"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/mipmap-mdpi_ic_launcher_round.webp.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/mipmap-mdpi/ic_launcher_round.webp"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/mipmap-xxhdpi_ic_launcher_round.webp.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/mipmap-xxhdpi/ic_launcher_round.webp"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/mipmap-xhdpi_ic_launcher_round.webp.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/mipmap-xhdpi/ic_launcher_round.webp"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/mipmap-hdpi_ic_launcher.webp.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/mipmap-hdpi/ic_launcher.webp"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/mipmap-hdpi_ic_launcher_round.webp.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/mipmap-hdpi/ic_launcher_round.webp"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/mipmap-mdpi_ic_launcher_round.webp.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/mipmap-mdpi/ic_launcher_round.webp"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/mipmap-hdpi_ic_launcher.webp.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/mipmap-hdpi/ic_launcher.webp"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/drawable_ic_skip_forward_15.xml.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/drawable/ic_skip_forward_15.xml"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/mipmap-xxhdpi_ic_launcher.webp.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/mipmap-xxhdpi/ic_launcher.webp"
     },
     {
-        "merged": "com.tiddlywikibrowser.app-merged_res-73:/xml_file_paths.xml.flat",
-        "source": "com.tiddlywikibrowser.app-main-75:/xml/file_paths.xml"
+        "merged": "com.tiddlywikibrowser.app-merged_res-70:/drawable_ic_pause.xml.flat",
+        "source": "com.tiddlywikibrowser.app-main-72:/drawable/ic_pause.xml"
     }
 ]

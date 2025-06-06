@@ -226,8 +226,7 @@ object WebViewFactory {
         try {
             webView.addJavascriptInterface(
                 ScrollInterface(context.applicationContext), 
-                "ScrollInterface"
-            )
+                "ScrollInterface"            )
             webView.addJavascriptInterface(
                 MediaInterface(context.applicationContext), 
                 "Android"
@@ -235,10 +234,6 @@ object WebViewFactory {
             webView.addJavascriptInterface(
                 MediaInterface(context.applicationContext), 
                 "MediaInterface"
-            )
-            webView.addJavascriptInterface(
-                ExoPlayerInterface(context), 
-                "ExoPlayerInterface"
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error adding JavaScript interfaces", e)
@@ -481,16 +476,9 @@ object WebViewFactory {
             val decorView = activity.window.decorView as FrameLayout
             decorView.addView(view, FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT))
-            
+                FrameLayout.LayoutParams.MATCH_PARENT))            
             activity.actionBar?.hide()
             activity.setMainContentVisible(false)
-            
-            if (view is androidx.media3.ui.PlayerView) {
-                activity.exoPlayerManager.getOrCreatePlayer().also { player ->
-                    view.player = player
-                }
-            }
             
             activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
@@ -598,18 +586,6 @@ class MediaInterface(private val context: Context) {
                 "loadedmetadata" -> {
                     msm.updateMetadata(effectiveTitle, "TiddlyWiki", (duration * 1000).toLong())
                 }
-            }
-        }
+            }        }
     }
 }
-
-class ExoPlayerInterface(private val context: Context) {
-    @JavascriptInterface
-    fun playMedia(url: String) {
-        (context as? MainActivity)?.let { activity ->
-            activity.runOnUiThread {
-                activity.exoPlayerManager.playMedia(url)
-            }
-        }
-    }
-} 

@@ -1,22 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:ns1="urn:oasis:names:tc:xliff:document:1.2" xmlns:ns2="http://schemas.android.com/tools">
-    <string-array name="exo_controls_playback_speeds">
-    <item>0.25x</item>
-    <item>0.5x</item>
-    <item>0.75x</item>
-    <item>Biasa</item>
-    <item>1.25x</item>
-    <item>1.5x</item>
-    <item>2x</item>
-  </string-array>
-    <plurals name="exo_controls_fastforward_by_amount_description">
-    <item quantity="one">Mundar laju %d saat</item>
-    <item quantity="other">Mundar laju %d saat</item>
-  </plurals>
-    <plurals name="exo_controls_rewind_by_amount_description">
-    <item quantity="one">Mandir %d saat</item>
-    <item quantity="other">Mandir %d saat</item>
-  </plurals>
     <plurals name="mtrl_badge_content_description">
     <item quantity="one">%d pemberitahuan baharu</item>
     <item quantity="other">%d pemberitahuan baharu</item>
@@ -48,7 +31,6 @@
     <string msgid="8875138169939072951" name="abc_shareactionprovider_share_with">"Kongsi dengan"</string>
     <string msgid="9055268688411532828" name="abc_shareactionprovider_share_with_application">"Kongsi dengan <ns1:g id="APPLICATION_NAME">%s</ns1:g>"</string>
     <string msgid="1656852541809559762" name="abc_toolbar_collapse_description">"Runtuhkan"</string>
-    <string name="authentication_required">Pengesahan diperlukan</string>
     <string msgid="6128938260108474660" name="bottom_sheet_collapse_description">"Kuncupkan helaian bawah"</string>
     <string msgid="1918297411568599192" name="bottom_sheet_dismiss_description">"Ketepikan helaian bawah"</string>
     <string msgid="7772321844937772780" name="bottom_sheet_drag_handle_description">"Pemegang seret"</string>
@@ -103,62 +85,10 @@
     <string msgid="5759491386723090559" name="date_range_picker_start_headline">"Tarikh mula"</string>
     <string msgid="690080476639943577" name="date_range_picker_title">"Pilih tarikh"</string>
     <string msgid="8038256446254964252" name="default_error_message">"Input tidak sah"</string>
-    <string name="default_notification_channel_name">Sedang dimainkan</string>
     <string msgid="6312721426453364202" name="default_popup_window_title">"Tetingkap Timbul"</string>
     <string msgid="4057925834421392736" name="dialog">"Dialog"</string>
     <string msgid="1890207353314751437" name="dropdown_menu">"Menu lungsur"</string>
     <string name="error_icon_content_description">Ralat</string>
-    <string name="exo_controls_cc_disabled_description">Dayakan sari kata</string>
-    <string name="exo_controls_cc_enabled_description">Lumpuhkan sari kata</string>
-    <string name="exo_controls_fastforward_description">Mundar laju</string>
-    <string name="exo_controls_fullscreen_enter_description">Masuk ke skrin penuh</string>
-    <string name="exo_controls_fullscreen_exit_description">Keluar dari skrin penuh</string>
-    <string name="exo_controls_hide">Sembunyikan kawalan pemain</string>
-    <string name="exo_controls_next_description">Seterusnya</string>
-    <string name="exo_controls_overflow_hide_description">Sembunyikan tetapan tambahan</string>
-    <string name="exo_controls_overflow_show_description">Tunjukkan tetapan tambahan</string>
-    <string name="exo_controls_pause_description">Jeda</string>
-    <string name="exo_controls_play_description">Main</string>
-    <string name="exo_controls_playback_speed">Kelajuan</string>
-    <string name="exo_controls_previous_description">Sebelumnya</string>
-    <string name="exo_controls_repeat_all_description">Mod semasa: Ulang semua. Togol mod ulang.</string>
-    <string name="exo_controls_repeat_off_description">Mod semasa: Tidak berulang. Togol mod ulang.</string>
-    <string name="exo_controls_repeat_one_description">Mod semasa: Ulang satu. Togol mod ulang.</string>
-    <string name="exo_controls_rewind_description">Mandir</string>
-    <string name="exo_controls_seek_bar_description">Kemajuan main balik</string>
-    <string name="exo_controls_settings_description">Tetapan</string>
-    <string name="exo_controls_show">Tunjukkan kawalan pemain</string>
-    <string name="exo_controls_shuffle_off_description">Dayakan mod rombak</string>
-    <string name="exo_controls_shuffle_on_description">Lumpuhkan mod rombak</string>
-    <string name="exo_controls_stop_description">Berhenti</string>
-    <string name="exo_controls_vr_description">Mod VR</string>
-    <string name="exo_download_completed">Muat turun selesai</string>
-    <string name="exo_download_description">Muat turun</string>
-    <string name="exo_download_downloading">Memuat turun</string>
-    <string name="exo_download_failed">Muat turun gagal</string>
-    <string name="exo_download_notification_channel_name">Muat turun</string>
-    <string name="exo_download_paused">Muat turun dijeda</string>
-    <string name="exo_download_paused_for_network">Muat turun menunggu rangkaian</string>
-    <string name="exo_download_paused_for_wifi">Muat turun menunggu Wi-Fi</string>
-    <string name="exo_download_removing">Mengalih keluar muat turun</string>
-    <string name="exo_item_list">%1$s, %2$s</string>
-    <string name="exo_track_bitrate">%1$.2f Mbps</string>
-    <string name="exo_track_mono">Mono</string>
-    <string name="exo_track_resolution">%1$d × %2$d</string>
-    <string name="exo_track_role_alternate">Alternatif</string>
-    <string name="exo_track_role_closed_captions">SK</string>
-    <string name="exo_track_role_commentary">Ulasan</string>
-    <string name="exo_track_role_supplementary">Tambahan</string>
-    <string name="exo_track_selection_auto">Automatik</string>
-    <string name="exo_track_selection_none">Tiada</string>
-    <string name="exo_track_selection_title_audio">Audio</string>
-    <string name="exo_track_selection_title_text">Teks</string>
-    <string name="exo_track_selection_title_video">Video</string>
-    <string name="exo_track_stereo">Stereo</string>
-    <string name="exo_track_surround">Bunyi keliling</string>
-    <string name="exo_track_surround_5_point_1">Bunyi keliling 5.1</string>
-    <string name="exo_track_surround_7_point_1">Bunyi keliling 7.1</string>
-    <string name="exo_track_unknown">Tidak diketahui</string>
     <string msgid="5974471714631304645" name="expanded">"Dikembangkan"</string>
     <string name="exposed_dropdown_menu_content_description">Tunjukkan menu lungsur</string>
     <string name="icon_content_description">Ikon Dialog</string>
@@ -178,12 +108,6 @@
     <string name="material_timepicker_pm">P/M</string>
     <string name="material_timepicker_select_time">Pilih masa</string>
     <string name="material_timepicker_text_input_mode_description">Beralih ke mod input teks untuk input masa.</string>
-    <string name="media3_controls_pause_description">Jeda</string>
-    <string name="media3_controls_play_description">Main</string>
-    <string name="media3_controls_seek_back_description">Mandir</string>
-    <string name="media3_controls_seek_forward_description">Mundar</string>
-    <string name="media3_controls_seek_to_next_description">Cari sehingga item seterusnya</string>
-    <string name="media3_controls_seek_to_previous_description">Cari sehingga item sebelumnya</string>
     <string name="mtrl_badge_numberless_content_description">Pemberitahuan baharu</string>
     <string name="mtrl_chip_close_icon_content_description">Alih keluar %1$s</string>
     <string name="mtrl_exceed_max_badge_number_content_description" ns2:ignore="PluralsCandidate">Lebih daripada %1$d pemberitahuan baharu</string>

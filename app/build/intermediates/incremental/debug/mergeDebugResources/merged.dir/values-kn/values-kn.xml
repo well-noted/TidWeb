@@ -1,22 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:ns1="urn:oasis:names:tc:xliff:document:1.2" xmlns:ns2="http://schemas.android.com/tools">
-    <string-array name="exo_controls_playback_speeds">
-    <item>0.25 ಪಟ್ಟು</item>
-    <item>0.5 ಪಟ್ಟು</item>
-    <item>0.75 ಪಟ್ಟು</item>
-    <item>ಸಾಮಾನ್ಯ</item>
-    <item>1.25 ಪಟ್ಟು</item>
-    <item>1.5 ಪಟ್ಟು</item>
-    <item>2 ಪಟ್ಟು</item>
-  </string-array>
-    <plurals name="exo_controls_fastforward_by_amount_description">
-    <item quantity="one">%d ಸೆಕೆಂಡ್‌ಗಳಷ್ಟು ಫಾಸ್ಟ್ ಫಾರ್ವರ್ಡ್ ಮಾಡಿ</item>
-    <item quantity="other">%d ಸೆಕೆಂಡ್‌ಗಳಷ್ಟು ಫಾಸ್ಟ್ ಫಾರ್ವರ್ಡ್ ಮಾಡಿ</item>
-  </plurals>
-    <plurals name="exo_controls_rewind_by_amount_description">
-    <item quantity="one">%d ಸೆಕೆಂಡ್‌ಗಳಷ್ಟು ರಿವೈಂಡ್ ಮಾಡಿ</item>
-    <item quantity="other">%d ಸೆಕೆಂಡ್‌ಗಳಷ್ಟು ರಿವೈಂಡ್ ಮಾಡಿ</item>
-  </plurals>
     <plurals name="mtrl_badge_content_description">
     <item quantity="one">%d ಹೊಸ ಅಧಿಸೂಚನೆಗಳು</item>
     <item quantity="other">%d ಹೊಸ ಅಧಿಸೂಚನೆಗಳು</item>
@@ -48,7 +31,6 @@
     <string msgid="8875138169939072951" name="abc_shareactionprovider_share_with">"ಇವರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಿ"</string>
     <string msgid="9055268688411532828" name="abc_shareactionprovider_share_with_application">"<ns1:g id="APPLICATION_NAME">%s</ns1:g> ನೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಿ"</string>
     <string msgid="1656852541809559762" name="abc_toolbar_collapse_description">"ಕುಗ್ಗಿಸಿ"</string>
-    <string name="authentication_required">ದೃಢೀಕರಣದ ಅಗತ್ಯವಿದೆ</string>
     <string msgid="6128938260108474660" name="bottom_sheet_collapse_description">"ಕೆಳಭಾಗದ ಶೀಟ್ ಅನ್ನು ಕುಗ್ಗಿಸಿ"</string>
     <string msgid="1918297411568599192" name="bottom_sheet_dismiss_description">"ಕೆಳಭಾಗದ ಶೀಟ್ ಅನ್ನು ವಜಾಗೊಳಿಸಿ"</string>
     <string msgid="7772321844937772780" name="bottom_sheet_drag_handle_description">"ಹ್ಯಾಂಡಲ್ ಡ್ರ್ಯಾಗ್ ಮಾಡಿ"</string>
@@ -103,62 +85,10 @@
     <string msgid="5759491386723090559" name="date_range_picker_start_headline">"ಆರಂಭ ದಿನಾಂಕ"</string>
     <string msgid="690080476639943577" name="date_range_picker_title">"ದಿನಾಂಕಗಳನ್ನು ಆಯ್ಕೆಮಾಡಿ"</string>
     <string msgid="8038256446254964252" name="default_error_message">"ಅಮಾನ್ಯ ಇನ್‌ಪುಟ್"</string>
-    <string name="default_notification_channel_name">ಇದೀಗ ಪ್ಲೇ ಮಾಡಲಾಗುತ್ತಿದೆ</string>
     <string msgid="6312721426453364202" name="default_popup_window_title">"ಪಾಪ್-ಅಪ್ ವಿಂಡೋ"</string>
     <string msgid="4057925834421392736" name="dialog">"ಡೈಲಾಗ್"</string>
     <string msgid="1890207353314751437" name="dropdown_menu">"ಡ್ರಾಪ್‌ಡೌನ್ ಮೆನು"</string>
     <string name="error_icon_content_description">ದೋಷ</string>
-    <string name="exo_controls_cc_disabled_description">ಸಬ್‌ಟೈಟಲ್‌ಗಳನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ</string>
-    <string name="exo_controls_cc_enabled_description">ಸಬ್‌ಟೈಟಲ್‌ಗಳನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ</string>
-    <string name="exo_controls_fastforward_description">ಫಾಸ್ಟ್ ಫಾರ್ವರ್ಡ್</string>
-    <string name="exo_controls_fullscreen_enter_description">ಫುಲ್‌ಸ್ಕ್ರೀನ್‌ಗೆ ಪ್ರವೇಶಿಸಿ</string>
-    <string name="exo_controls_fullscreen_exit_description">ಫುಲ್‌ಸ್ಕ್ರೀನ್‌ನಿಂದ ನಿರ್ಗಮಿಸಿ</string>
-    <string name="exo_controls_hide">ಪ್ಲೇಯರ್ ನಿಯಂತ್ರಣಗಳನ್ನು ಮರೆಮಾಡಿ</string>
-    <string name="exo_controls_next_description">ಮುಂದೆ</string>
-    <string name="exo_controls_overflow_hide_description">ಹೆಚ್ಚುವರಿ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ಮರೆ ಮಾಡಿ</string>
-    <string name="exo_controls_overflow_show_description">ಹೆಚ್ಚುವರಿ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ತೋರಿಸಿ</string>
-    <string name="exo_controls_pause_description">ವಿರಾಮ</string>
-    <string name="exo_controls_play_description">ಪ್ಲೇ</string>
-    <string name="exo_controls_playback_speed">ವೇಗ</string>
-    <string name="exo_controls_previous_description">ಹಿಂದಿನದು</string>
-    <string name="exo_controls_repeat_all_description">ಈಗಿನ ಮೋಡ್: ಎಲ್ಲವನ್ನು ರಿಪೀಟ್ ಮಾಡಿ. ರಿಪೀಟ್ ಮೋಡ್ ಟಾಗಲ್ ಮಾಡಿ.</string>
-    <string name="exo_controls_repeat_off_description">ಈಗಿನ ಮೋಡ್: ಯಾವುದನ್ನು ರಿಪೀಟ್ ಮಾಡಬೇಡಿ. ರಿಪೀಟ್ ಮೋಡ್ ಟಾಗಲ್ ಮಾಡಿ.</string>
-    <string name="exo_controls_repeat_one_description">ಈಗಿನ ಮೋಡ್: ಒಂದನ್ನು ರಿಪೀಟ್ ಮಾಡಿ. ರಿಪೀಟ್ ಮೋಡ್ ಟಾಗಲ್ ಮಾಡಿ.</string>
-    <string name="exo_controls_rewind_description">ರಿವೈಂಡ್</string>
-    <string name="exo_controls_seek_bar_description">ಪ್ಲೇಬ್ಯಾಕ್ ಪ್ರಗತಿಯಲ್ಲಿದೆ</string>
-    <string name="exo_controls_settings_description">ಸೆಟ್ಟಿಂಗ್‌ಗಳು</string>
-    <string name="exo_controls_show">ಪ್ಲೇಯರ್ ನಿಯಂತ್ರಣಗಳನ್ನು ತೋರಿಸಿ</string>
-    <string name="exo_controls_shuffle_off_description">ಶಫಲ್ ಮೋಡ್ ಅನ್ನುಸಕ್ರಿಯಗೊಳಿಸಿ</string>
-    <string name="exo_controls_shuffle_on_description">ಶಫಲ್ ಮೋಡ್ ಅನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ</string>
-    <string name="exo_controls_stop_description">ನಿಲ್ಲಿಸಿ</string>
-    <string name="exo_controls_vr_description">VR ಮೋಡ್</string>
-    <string name="exo_download_completed">ಡೌನ್‌ಲೋಡ್ ಪೂರ್ಣಗೊಂಡಿದೆ</string>
-    <string name="exo_download_description">ಡೌನ್‌ಲೋಡ್‌</string>
-    <string name="exo_download_downloading">ಡೌನ್‌ಲೋಡ್ ಮಾಡಲಾಗುತ್ತಿದೆ</string>
-    <string name="exo_download_failed">ಡೌನ್‌ಲೋಡ್‌ ವಿಫಲಗೊಂಡಿದೆ</string>
-    <string name="exo_download_notification_channel_name">ಡೌನ್‌ಲೋಡ್‌ಗಳು</string>
-    <string name="exo_download_paused">ಡೌನ್‌ಲೋಡ್‌ಗಳನ್ನು ವಿರಾಮಗೊಳಿಸಲಾಗಿದೆ</string>
-    <string name="exo_download_paused_for_network">ಡೌನ್‌ಲೋಡ್‌ಗಳು ನೆಟ್‌ವರ್ಕ್‌ಗಾಗಿ ಕಾಯುತ್ತಿವೆ</string>
-    <string name="exo_download_paused_for_wifi">ಡೌನ್‌ಲೋಡ್‌ಗಳು Wi-Fi ಗಾಗಿ ಕಾಯುತ್ತಿವೆ</string>
-    <string name="exo_download_removing">ಡೌನ್ಲೋಡ್‌ಗಳನ್ನು ತೆಗೆದುಹಾಕಲಾಗುತ್ತಿದೆ</string>
-    <string name="exo_item_list">%1$s, %2$s</string>
-    <string name="exo_track_bitrate">%1$.2f Mbps</string>
-    <string name="exo_track_mono">ಮೊನೊ</string>
-    <string name="exo_track_resolution">%1$d × %2$d</string>
-    <string name="exo_track_role_alternate">ಪರ್ಯಾಯ</string>
-    <string name="exo_track_role_closed_captions">CC</string>
-    <string name="exo_track_role_commentary">ವ್ಯಾಖ್ಯಾನ</string>
-    <string name="exo_track_role_supplementary">ಪೂರಕ</string>
-    <string name="exo_track_selection_auto">ಸ್ವಯಂ</string>
-    <string name="exo_track_selection_none">ಯಾವುದೂ ಅಲ್ಲ</string>
-    <string name="exo_track_selection_title_audio">ಆಡಿಯೋ</string>
-    <string name="exo_track_selection_title_text">ಪಠ್ಯ</string>
-    <string name="exo_track_selection_title_video">ವೀಡಿಯೊ</string>
-    <string name="exo_track_stereo">ಸ್ಟೀರಿಯೊ</string>
-    <string name="exo_track_surround">ಸರೌಂಡ್ ಶಬ್ದ</string>
-    <string name="exo_track_surround_5_point_1">5.1 ಸರೌಂಡ್ ಶಬ್ದ</string>
-    <string name="exo_track_surround_7_point_1">7.1 ಸರೌಂಡ್ ಶಬ್ದ</string>
-    <string name="exo_track_unknown">ಅಪರಿಚಿತ</string>
     <string msgid="5974471714631304645" name="expanded">"ವಿಸ್ತರಿಸಲಾಗಿದೆ"</string>
     <string name="exposed_dropdown_menu_content_description">ಡ್ರಾಪ್‌ಡೌನ್ ಮೆನು ತೋರಿಸಿ</string>
     <string name="icon_content_description">ಡೈಲಾಗ್ ಐಕಾನ್</string>
@@ -178,12 +108,6 @@
     <string name="material_timepicker_pm">PM</string>
     <string name="material_timepicker_select_time">ಸಮಯವನ್ನು ಆಯ್ಕೆಮಾಡಿ</string>
     <string name="material_timepicker_text_input_mode_description">ಸಮಯವನ್ನು ನಮೂದಿಸಲು ಪಠ್ಯದ ನಮೂನೆಗೆ ಬದಲಿಸಿ.</string>
-    <string name="media3_controls_pause_description">ವಿರಾಮಗೊಳಿಸಿ</string>
-    <string name="media3_controls_play_description">ಪ್ಲೇ ಮಾಡಿ</string>
-    <string name="media3_controls_seek_back_description">ಹಿಂದಕ್ಕೆ ಸೀಕ್ ಮಾಡಿ</string>
-    <string name="media3_controls_seek_forward_description">ಮುಂದಕ್ಕೆ ಸೀಕ್ ಮಾಡಿ</string>
-    <string name="media3_controls_seek_to_next_description">ಮುಂದಿನ ಐಟಂಗೆ ಸೀಕ್ ಮಾಡಿ</string>
-    <string name="media3_controls_seek_to_previous_description">ಹಿಂದಿನ ಐಟಂಗೆ ಸೀಕ್ ಮಾಡಿ</string>
     <string name="mtrl_badge_numberless_content_description">ಹೊಸ ಅಧಿಸೂಚನೆ</string>
     <string name="mtrl_chip_close_icon_content_description">%1$s ಅನ್ನು ತೆಗೆದುಹಾಕಿ</string>
     <string name="mtrl_exceed_max_badge_number_content_description" ns2:ignore="PluralsCandidate">%1$d ಕ್ಕಿಂತ ಹೆಚ್ಚು ಹೊಸ ಅಧಿಸೂಚನೆಗಳು</string>

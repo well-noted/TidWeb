@@ -1,22 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:ns1="urn:oasis:names:tc:xliff:document:1.2" xmlns:ns2="http://schemas.android.com/tools">
-    <string-array name="exo_controls_playback_speeds">
-    <item>0,25x</item>
-    <item>0,5x</item>
-    <item>0,75x</item>
-    <item>Κανονική</item>
-    <item>1,25x</item>
-    <item>1,5x</item>
-    <item>2x</item>
-  </string-array>
-    <plurals name="exo_controls_fastforward_by_amount_description">
-    <item quantity="one">Γρήγορη προώθηση κατά %d δευτερόλεπτο</item>
-    <item quantity="other">Γρήγορη προώθηση κατά %d δευτερόλεπτα</item>
-  </plurals>
-    <plurals name="exo_controls_rewind_by_amount_description">
-    <item quantity="one">Μετάβαση προς τα πίσω κατά %d δευτερόλεπτο</item>
-    <item quantity="other">Μετάβαση προς τα πίσω κατά %d δευτερόλεπτα</item>
-  </plurals>
     <plurals name="mtrl_badge_content_description">
     <item quantity="one">%d νέα ειδοποίηση</item>
     <item quantity="other">%d νέες ειδοποιήσεις</item>
@@ -48,7 +31,6 @@
     <string msgid="8875138169939072951" name="abc_shareactionprovider_share_with">"Κοινοποίηση σε"</string>
     <string msgid="9055268688411532828" name="abc_shareactionprovider_share_with_application">"Κοινοποίηση στην εφαρμογή <ns1:g id="APPLICATION_NAME">%s</ns1:g>"</string>
     <string msgid="1656852541809559762" name="abc_toolbar_collapse_description">"Σύμπτυξη"</string>
-    <string name="authentication_required">Απαιτείται έλεγχος ταυτότητας</string>
     <string msgid="6128938260108474660" name="bottom_sheet_collapse_description">"Σύμπτυξη φύλλου κάτω μέρους"</string>
     <string msgid="1918297411568599192" name="bottom_sheet_dismiss_description">"Παράβλεψη φύλλου κάτω μέρους"</string>
     <string msgid="7772321844937772780" name="bottom_sheet_drag_handle_description">"Λαβή μεταφοράς"</string>
@@ -103,62 +85,10 @@
     <string msgid="5759491386723090559" name="date_range_picker_start_headline">"Ημερομηνία έναρξης"</string>
     <string msgid="690080476639943577" name="date_range_picker_title">"Επιλογή ημερομηνιών"</string>
     <string msgid="8038256446254964252" name="default_error_message">"Μη έγκυρη καταχώριση"</string>
-    <string name="default_notification_channel_name">Ακούγεται τώρα</string>
     <string msgid="6312721426453364202" name="default_popup_window_title">"Αναδυόμενο παράθυρο"</string>
     <string msgid="4057925834421392736" name="dialog">"Παράθυρο διαλόγου"</string>
     <string msgid="1890207353314751437" name="dropdown_menu">"Αναπτυσσόμενο μενού"</string>
     <string name="error_icon_content_description">Σφάλμα</string>
-    <string name="exo_controls_cc_disabled_description">Ενεργοποίηση υπότιτλων</string>
-    <string name="exo_controls_cc_enabled_description">Απενεργοποίηση υπότιτλων</string>
-    <string name="exo_controls_fastforward_description">Γρήγορη προώθηση</string>
-    <string name="exo_controls_fullscreen_enter_description">Πλήρης οθόνη</string>
-    <string name="exo_controls_fullscreen_exit_description">Έξοδος από πλήρη οθόνη</string>
-    <string name="exo_controls_hide">Απόκρ. στοιχείων ελέγχου προγράμματος αναπαραγωγής</string>
-    <string name="exo_controls_next_description">Επόμενο</string>
-    <string name="exo_controls_overflow_hide_description">Απόκρυψη πρόσθετων ρυθμίσεων</string>
-    <string name="exo_controls_overflow_show_description">Εμφάνιση πρόσθετων ρυθμίσεων</string>
-    <string name="exo_controls_pause_description">Παύση</string>
-    <string name="exo_controls_play_description">Αναπαραγωγή</string>
-    <string name="exo_controls_playback_speed">Ταχύτητα</string>
-    <string name="exo_controls_previous_description">Προηγούμενο</string>
-    <string name="exo_controls_repeat_all_description">Τρέχ. λειτουργία: Επανάλ. όλων Εναλλαγή λειτουργ. επανάλ.</string>
-    <string name="exo_controls_repeat_off_description">Τρέχ. λειτουργία: Καμία επανάλ. Εναλλαγή λειτουργ. επανάλ.</string>
-    <string name="exo_controls_repeat_one_description">Τρέχ. λειτουργία: Επανάλ. ενός. Εναλλαγή λειτουργ. επανάλ.</string>
-    <string name="exo_controls_rewind_description">Επαναφορά</string>
-    <string name="exo_controls_seek_bar_description">Πρόοδος αναπαραγωγής</string>
-    <string name="exo_controls_settings_description">Ρυθμίσεις</string>
-    <string name="exo_controls_show">Εμφάν. στοιχείων ελέγχου προγράμματος αναπαραγωγής</string>
-    <string name="exo_controls_shuffle_off_description">Ενεργοπ. λειτουργ. τυχαίας αναπαραγωγής</string>
-    <string name="exo_controls_shuffle_on_description">Απενεργ. λειτουργ. τυχαίας αναπαραγωγής</string>
-    <string name="exo_controls_stop_description">Διακοπή</string>
-    <string name="exo_controls_vr_description">Λειτουργία VR mode</string>
-    <string name="exo_download_completed">Η λήψη ολοκληρώθηκε</string>
-    <string name="exo_download_description">Λήψη</string>
-    <string name="exo_download_downloading">Λήψη</string>
-    <string name="exo_download_failed">Η λήψη απέτυχε</string>
-    <string name="exo_download_notification_channel_name">Λήψεις</string>
-    <string name="exo_download_paused">Οι λήψεις τέθηκαν σε παύση.</string>
-    <string name="exo_download_paused_for_network">Οι λήψεις είναι σε αναμονή για δίκτυο.</string>
-    <string name="exo_download_paused_for_wifi">Οι λήψεις είναι σε αναμονή για Wi-Fi.</string>
-    <string name="exo_download_removing">Κατάργηση λήψεων</string>
-    <string name="exo_item_list">%1$s, %2$s</string>
-    <string name="exo_track_bitrate">%1$.2f Mbps</string>
-    <string name="exo_track_mono">Μονοφωνικό</string>
-    <string name="exo_track_resolution">%1$d × %2$d</string>
-    <string name="exo_track_role_alternate">Εναλλακτικό</string>
-    <string name="exo_track_role_closed_captions">Υπότιτλοι</string>
-    <string name="exo_track_role_commentary">Σχολιασμός</string>
-    <string name="exo_track_role_supplementary">Συμπληρωματικό</string>
-    <string name="exo_track_selection_auto">Αυτόματο</string>
-    <string name="exo_track_selection_none">Κανένα</string>
-    <string name="exo_track_selection_title_audio">Ήχος</string>
-    <string name="exo_track_selection_title_text">Κείμενο</string>
-    <string name="exo_track_selection_title_video">Βίντεο</string>
-    <string name="exo_track_stereo">Στερεοφωνικό</string>
-    <string name="exo_track_surround">Περιφερειακός ήχος</string>
-    <string name="exo_track_surround_5_point_1">Περιφερειακός ήχος 5.1</string>
-    <string name="exo_track_surround_7_point_1">Περιφερειακός ήχος 7.1</string>
-    <string name="exo_track_unknown">Άγνωστο</string>
     <string msgid="5974471714631304645" name="expanded">"Ανεπτυγμένο"</string>
     <string name="exposed_dropdown_menu_content_description">Εμφάνιση αναπτυσσόμενου μενού</string>
     <string name="icon_content_description">Εικονίδιο παραθύρου διαλόγου</string>
@@ -178,12 +108,6 @@
     <string name="material_timepicker_pm">ΜΜ</string>
     <string name="material_timepicker_select_time">Επιλέξτε ώρα</string>
     <string name="material_timepicker_text_input_mode_description">Κάντε εναλλαγή στη λειτουργία εισαγωγής κειμένου, για την εισαγωγή της ώρας.</string>
-    <string name="media3_controls_pause_description">Παύση</string>
-    <string name="media3_controls_play_description">Αναπαραγωγή</string>
-    <string name="media3_controls_seek_back_description">Αναζήτηση προς τα πίσω</string>
-    <string name="media3_controls_seek_forward_description">Αναζήτηση προς τα εμπρός</string>
-    <string name="media3_controls_seek_to_next_description">Αναζήτηση προς επόμενο στοιχείο</string>
-    <string name="media3_controls_seek_to_previous_description">Αναζήτηση προς προηγούμενο στοιχείο</string>
     <string name="mtrl_badge_numberless_content_description">Νέα ειδοποίηση</string>
     <string name="mtrl_chip_close_icon_content_description">Κατάργηση %1$s</string>
     <string name="mtrl_exceed_max_badge_number_content_description" ns2:ignore="PluralsCandidate">Πάνω από %1$d νέες ειδοποιήσεις</string>

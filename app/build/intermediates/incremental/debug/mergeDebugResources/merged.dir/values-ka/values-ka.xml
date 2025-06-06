@@ -1,22 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:ns1="urn:oasis:names:tc:xliff:document:1.2" xmlns:ns2="http://schemas.android.com/tools">
-    <string-array name="exo_controls_playback_speeds">
-    <item>0,25x</item>
-    <item>0,5x</item>
-    <item>0,75x</item>
-    <item>ჩვეულებრივი</item>
-    <item>1,25x</item>
-    <item>1,5x</item>
-    <item>2x</item>
-  </string-array>
-    <plurals name="exo_controls_fastforward_by_amount_description">
-    <item quantity="one">წინ გადახვევა %d წამით</item>
-    <item quantity="other">წინ გადახვევა %d წამით</item>
-  </plurals>
-    <plurals name="exo_controls_rewind_by_amount_description">
-    <item quantity="one">უკან გადახვევა %d წამით</item>
-    <item quantity="other">უკან გადახვევა %d წამით</item>
-  </plurals>
     <plurals name="mtrl_badge_content_description">
     <item quantity="one">%d ახალი შეტყობინება</item>
     <item quantity="other">%d ახალი შეტყობინება</item>
@@ -48,7 +31,6 @@
     <string msgid="8875138169939072951" name="abc_shareactionprovider_share_with">"გაზიარება:"</string>
     <string msgid="9055268688411532828" name="abc_shareactionprovider_share_with_application">"<ns1:g id="APPLICATION_NAME">%s</ns1:g>-ით გაზიარება"</string>
     <string msgid="1656852541809559762" name="abc_toolbar_collapse_description">"ჩაკეცვა"</string>
-    <string name="authentication_required">საჭიროა ავტორიზაცია</string>
     <string msgid="6128938260108474660" name="bottom_sheet_collapse_description">"ქვედა ფურცლის ჩაკეცვა"</string>
     <string msgid="1918297411568599192" name="bottom_sheet_dismiss_description">"ქვედა ფურცლის უარყოფა"</string>
     <string msgid="7772321844937772780" name="bottom_sheet_drag_handle_description">"სახელური ჩავლებისთვის"</string>
@@ -103,62 +85,10 @@
     <string msgid="5759491386723090559" name="date_range_picker_start_headline">"დაწყების თარიღი"</string>
     <string msgid="690080476639943577" name="date_range_picker_title">"თარიღების არჩევა"</string>
     <string msgid="8038256446254964252" name="default_error_message">"შენატანი არასწორია"</string>
-    <string name="default_notification_channel_name">ამჟამად უკრავს</string>
     <string msgid="6312721426453364202" name="default_popup_window_title">"ამომხტარი ფანჯარა"</string>
     <string msgid="4057925834421392736" name="dialog">"დიალოგი"</string>
     <string msgid="1890207353314751437" name="dropdown_menu">"ჩამოსაშლელი მენიუ"</string>
     <string name="error_icon_content_description">შეცდომა</string>
-    <string name="exo_controls_cc_disabled_description">სუბტიტრების ჩართვა</string>
-    <string name="exo_controls_cc_enabled_description">სუბტიტრების გათიშვა</string>
-    <string name="exo_controls_fastforward_description">წინ გადახვევა</string>
-    <string name="exo_controls_fullscreen_enter_description">სრულეკრანიან რეჟიმში შესვლა</string>
-    <string name="exo_controls_fullscreen_exit_description">სრულეკრანიანი რეჟიმიდან გამოსვლა</string>
-    <string name="exo_controls_hide">დამკვრელის სამართავი ღილაკების დამალვა</string>
-    <string name="exo_controls_next_description">შემდეგ</string>
-    <string name="exo_controls_overflow_hide_description">დამატებითი პარამეტრების დამალვა</string>
-    <string name="exo_controls_overflow_show_description">დამატებითი პარამეტრების ჩვენება</string>
-    <string name="exo_controls_pause_description">პაუზა</string>
-    <string name="exo_controls_play_description">დაკვრა</string>
-    <string name="exo_controls_playback_speed">სიჩქარე</string>
-    <string name="exo_controls_previous_description">წინა</string>
-    <string name="exo_controls_repeat_all_description">მიმდინარე რეჟიმი: ყველას გამეორება. გადართეთ გამეორების რეჟიმი.</string>
-    <string name="exo_controls_repeat_off_description">მიმდინარე რეჟიმი: არაფრის გამეორება. გადართეთ გამეორების რეჟიმი.</string>
-    <string name="exo_controls_repeat_one_description">მიმდინარე რეჟიმი: ერთის გამეორება. გადართეთ გამეორების რეჟიმი.</string>
-    <string name="exo_controls_rewind_description">უკან გადახვევა</string>
-    <string name="exo_controls_seek_bar_description">დაკვრის პროგრესი</string>
-    <string name="exo_controls_settings_description">პარამეტრები</string>
-    <string name="exo_controls_show">დამკვრელის სამართავი ღილაკების ჩვენება</string>
-    <string name="exo_controls_shuffle_off_description">არეულად დაკვრის რეჟიმის ჩართვა</string>
-    <string name="exo_controls_shuffle_on_description">არეულად დაკვრის რეჟიმის გათიშვა</string>
-    <string name="exo_controls_stop_description">შეწყვეტა</string>
-    <string name="exo_controls_vr_description">VR რეჟიმი</string>
-    <string name="exo_download_completed">ჩამოტვირთვა დასრულდა</string>
-    <string name="exo_download_description">ჩამოტვირთვა</string>
-    <string name="exo_download_downloading">მიმდინარეობს ჩამოტვირთვა</string>
-    <string name="exo_download_failed">ჩამოტვირთვა ვერ მოხერხდა</string>
-    <string name="exo_download_notification_channel_name">ჩამოტვირთვები</string>
-    <string name="exo_download_paused">ჩამოტვირთვები დაპაუზებულია</string>
-    <string name="exo_download_paused_for_network">ჩამოტვირთვები ქსელს ელოდება</string>
-    <string name="exo_download_paused_for_wifi">ჩამოტვირთვები Wi-Fi-ს ელოდება</string>
-    <string name="exo_download_removing">მიმდინარეობს ჩამოტვირთვების ამოშლა</string>
-    <string name="exo_item_list">%1$s, %2$s</string>
-    <string name="exo_track_bitrate">%1$.2f მბიტ/წმ</string>
-    <string name="exo_track_mono">მონო</string>
-    <string name="exo_track_resolution">%1$d × %2$d</string>
-    <string name="exo_track_role_alternate">ალტერნატიული</string>
-    <string name="exo_track_role_closed_captions">დახურული სუბტიტრები</string>
-    <string name="exo_track_role_commentary">კომენტარი</string>
-    <string name="exo_track_role_supplementary">დამატებითი</string>
-    <string name="exo_track_selection_auto">ავტომატური</string>
-    <string name="exo_track_selection_none">არცერთი</string>
-    <string name="exo_track_selection_title_audio">აუდიო</string>
-    <string name="exo_track_selection_title_text">ტექსტი</string>
-    <string name="exo_track_selection_title_video">ვიდეო</string>
-    <string name="exo_track_stereo">სტერეო</string>
-    <string name="exo_track_surround">მოცულობითი ხმა</string>
-    <string name="exo_track_surround_5_point_1">5.1 მოცულობითი ხმა</string>
-    <string name="exo_track_surround_7_point_1">7.1 მოცულობითი ხმა</string>
-    <string name="exo_track_unknown">უცნობი</string>
     <string msgid="5974471714631304645" name="expanded">"გაფართოებულია"</string>
     <string name="exposed_dropdown_menu_content_description">ჩამოსაშლელი მენიუს ჩვენება</string>
     <string name="icon_content_description">დიალოგის ხატულა</string>
@@ -178,12 +108,6 @@
     <string name="material_timepicker_pm">PM</string>
     <string name="material_timepicker_select_time">აირჩიეთ დრო</string>
     <string name="material_timepicker_text_input_mode_description">დროის შეყვანისთვის ტექსტის შეყვანის რეჟიმზე გადართვა.</string>
-    <string name="media3_controls_pause_description">პაუზა</string>
-    <string name="media3_controls_play_description">დაკვრა</string>
-    <string name="media3_controls_seek_back_description">უკან გადახვევა</string>
-    <string name="media3_controls_seek_forward_description">წინ გადახვევა</string>
-    <string name="media3_controls_seek_to_next_description">შემდეგ ერთეულზე გადახვევა</string>
-    <string name="media3_controls_seek_to_previous_description">წინა ერთეულზე გადახვევა</string>
     <string name="mtrl_badge_numberless_content_description">ახალი შეტყობინება</string>
     <string name="mtrl_chip_close_icon_content_description">%1$s-ის ამოშლა</string>
     <string name="mtrl_exceed_max_badge_number_content_description" ns2:ignore="PluralsCandidate">%1$d-ზე მეტი ახალი შეტყობინება</string>

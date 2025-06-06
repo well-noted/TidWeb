@@ -1,24 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:ns1="urn:oasis:names:tc:xliff:document:1.2" xmlns:ns2="http://schemas.android.com/tools">
-    <string-array name="exo_controls_playback_speeds">
-    <item>0,25 x</item>
-    <item>0,5 x</item>
-    <item>0,75 x</item>
-    <item>Uobičajeno</item>
-    <item>1,25 x</item>
-    <item>1,5 x</item>
-    <item>2 x</item>
-  </string-array>
-    <plurals name="exo_controls_fastforward_by_amount_description">
-    <item quantity="one">Premotavanje unaprijed za %d sekundu</item>
-    <item quantity="few">Premotavanje unaprijed za %d sekunde</item>
-    <item quantity="other">Premotavanje unaprijed za %d sekundi</item>
-  </plurals>
-    <plurals name="exo_controls_rewind_by_amount_description">
-    <item quantity="one">Premotavanje unatrag za %d sekundu</item>
-    <item quantity="few">Premotavanje unatrag za %d sekunde</item>
-    <item quantity="other">Premotavanje unatrag za %d sekundi</item>
-  </plurals>
     <plurals name="mtrl_badge_content_description">
     <item quantity="one">%d nova obavijest</item>
     <item quantity="few">%d nove obavijesti</item>
@@ -51,7 +32,6 @@
     <string msgid="8875138169939072951" name="abc_shareactionprovider_share_with">"Dijeli s"</string>
     <string msgid="9055268688411532828" name="abc_shareactionprovider_share_with_application">"Dijeli putem aplikacije <ns1:g id="APPLICATION_NAME">%s</ns1:g>"</string>
     <string msgid="1656852541809559762" name="abc_toolbar_collapse_description">"Sažmi"</string>
-    <string name="authentication_required">Potrebna je autentifikacija</string>
     <string msgid="6128938260108474660" name="bottom_sheet_collapse_description">"Sažimanje donje tablice"</string>
     <string msgid="1918297411568599192" name="bottom_sheet_dismiss_description">"Odbacivanje donje tablice"</string>
     <string msgid="7772321844937772780" name="bottom_sheet_drag_handle_description">"Marker za povlačenje"</string>
@@ -106,62 +86,10 @@
     <string msgid="5759491386723090559" name="date_range_picker_start_headline">"Datum početka"</string>
     <string msgid="690080476639943577" name="date_range_picker_title">"Odabir datuma"</string>
     <string msgid="8038256446254964252" name="default_error_message">"Nevažeći unos"</string>
-    <string name="default_notification_channel_name">Upravo svira</string>
     <string msgid="6312721426453364202" name="default_popup_window_title">"Skočni prozor"</string>
     <string msgid="4057925834421392736" name="dialog">"Dijaloški okvir"</string>
     <string msgid="1890207353314751437" name="dropdown_menu">"Padajući izbornik"</string>
     <string name="error_icon_content_description">Pogreška</string>
-    <string name="exo_controls_cc_disabled_description">Omogući titlove</string>
-    <string name="exo_controls_cc_enabled_description">Onemogući titlove</string>
-    <string name="exo_controls_fastforward_description">Brzo unaprijed</string>
-    <string name="exo_controls_fullscreen_enter_description">Otvaranje prikaza na cijelom zaslonu</string>
-    <string name="exo_controls_fullscreen_exit_description">Zatvaranje prikaza na cijelom zaslonu</string>
-    <string name="exo_controls_hide">Sakrij kontrole playera</string>
-    <string name="exo_controls_next_description">Sljedeće</string>
-    <string name="exo_controls_overflow_hide_description">Sakrij dodatne postavke</string>
-    <string name="exo_controls_overflow_show_description">Prikaži dodatne postavke</string>
-    <string name="exo_controls_pause_description">Pauza</string>
-    <string name="exo_controls_play_description">Reproduciraj</string>
-    <string name="exo_controls_playback_speed">Brzina</string>
-    <string name="exo_controls_previous_description">Prethodno</string>
-    <string name="exo_controls_repeat_all_description">Trenutačno: Ponovi sve. Promijenite način ponavljanja.</string>
-    <string name="exo_controls_repeat_off_description">Trenutačno: Bez ponavljanja. Promijenite način ponavljanja.</string>
-    <string name="exo_controls_repeat_one_description">Trenutačno: Ponovi jedno. Promijenite način ponavljanja.</string>
-    <string name="exo_controls_rewind_description">Unatrag</string>
-    <string name="exo_controls_seek_bar_description">Napredak reprodukcije</string>
-    <string name="exo_controls_settings_description">Postavke</string>
-    <string name="exo_controls_show">Prikaži kontrole playera</string>
-    <string name="exo_controls_shuffle_off_description">Omogućite način nasumične reprodukcije</string>
-    <string name="exo_controls_shuffle_on_description">Onemogućite način nasumične reprodukcije</string>
-    <string name="exo_controls_stop_description">Zaustavi</string>
-    <string name="exo_controls_vr_description">VR način</string>
-    <string name="exo_download_completed">Preuzimanje je dovršeno</string>
-    <string name="exo_download_description">Preuzmi</string>
-    <string name="exo_download_downloading">Preuzimanje</string>
-    <string name="exo_download_failed">Preuzimanje nije uspjelo</string>
-    <string name="exo_download_notification_channel_name">Preuzimanja</string>
-    <string name="exo_download_paused">Preuzimanja su pauzirana</string>
-    <string name="exo_download_paused_for_network">Preuzimanja čekaju mrežu</string>
-    <string name="exo_download_paused_for_wifi">Preuzimanja čekaju Wi-Fi</string>
-    <string name="exo_download_removing">Uklanjanje preuzimanja</string>
-    <string name="exo_item_list">%1$s, %2$s</string>
-    <string name="exo_track_bitrate">%1$.2f Mbps</string>
-    <string name="exo_track_mono">Mono</string>
-    <string name="exo_track_resolution">%1$d × %2$d</string>
-    <string name="exo_track_role_alternate">Alternativna verzija</string>
-    <string name="exo_track_role_closed_captions">Verzija s titlovima</string>
-    <string name="exo_track_role_commentary">Verzija s komentarima</string>
-    <string name="exo_track_role_supplementary">Dopunska verzija</string>
-    <string name="exo_track_selection_auto">Automatski</string>
-    <string name="exo_track_selection_none">Ništa</string>
-    <string name="exo_track_selection_title_audio">Audiozapis</string>
-    <string name="exo_track_selection_title_text">Tekst</string>
-    <string name="exo_track_selection_title_video">Videozapis</string>
-    <string name="exo_track_stereo">Stereo</string>
-    <string name="exo_track_surround">Okružujući zvuk</string>
-    <string name="exo_track_surround_5_point_1">5.1-kanalni okružujući zvuk</string>
-    <string name="exo_track_surround_7_point_1">7.1-kanalni okružujući zvuk</string>
-    <string name="exo_track_unknown">Nepoznato</string>
     <string msgid="5974471714631304645" name="expanded">"Prošireno"</string>
     <string name="exposed_dropdown_menu_content_description">Prikaži padajući izbornik</string>
     <string name="icon_content_description">Ikona dijaloga</string>
@@ -181,12 +109,6 @@
     <string name="material_timepicker_pm">PM</string>
     <string name="material_timepicker_select_time">Odabir vremena</string>
     <string name="material_timepicker_text_input_mode_description">Prijeđite na način unosa teksta da biste unijeli vrijeme.</string>
-    <string name="media3_controls_pause_description">Pauziraj</string>
-    <string name="media3_controls_play_description">Reproduciraj</string>
-    <string name="media3_controls_seek_back_description">Skok unatrag</string>
-    <string name="media3_controls_seek_forward_description">Skok prema naprijed</string>
-    <string name="media3_controls_seek_to_next_description">Idi na sljedeću stavku</string>
-    <string name="media3_controls_seek_to_previous_description">Idi na prethodnu stavku</string>
     <string name="mtrl_badge_numberless_content_description">Nova obavijest</string>
     <string name="mtrl_chip_close_icon_content_description">Ukloni %1$s</string>
     <string name="mtrl_exceed_max_badge_number_content_description" ns2:ignore="PluralsCandidate">Više od %1$d novih obavijesti</string>

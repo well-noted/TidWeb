@@ -1,22 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:ns1="urn:oasis:names:tc:xliff:document:1.2" xmlns:ns2="http://schemas.android.com/tools">
-    <string-array name="exo_controls_playback_speeds">
-    <item>0.25x</item>
-    <item>0.5x</item>
-    <item>0.75x</item>
-    <item>ធម្មតា</item>
-    <item>1.25x</item>
-    <item>1.5x</item>
-    <item>2x</item>
-  </string-array>
-    <plurals name="exo_controls_fastforward_by_amount_description">
-    <item quantity="one">ខា​ទៅមុខ %d វិនាទី</item>
-    <item quantity="other">ខា​ទៅមុខ %d វិនាទី</item>
-  </plurals>
-    <plurals name="exo_controls_rewind_by_amount_description">
-    <item quantity="one">ខា​ថយក្រោយ %d វិនាទី</item>
-    <item quantity="other">ខា​ថយក្រោយ %d វិនាទី</item>
-  </plurals>
     <plurals name="mtrl_badge_content_description">
     <item quantity="one">ការជូនដំណឹងថ្មី %d</item>
     <item quantity="other">ការជូនដំណឹងថ្មី %d</item>
@@ -48,7 +31,6 @@
     <string msgid="8875138169939072951" name="abc_shareactionprovider_share_with">"ចែករំលែក​ជា​មួយ"</string>
     <string msgid="9055268688411532828" name="abc_shareactionprovider_share_with_application">"ចែក​រំលែក​ជា​មួយ <ns1:g id="APPLICATION_NAME">%s</ns1:g>"</string>
     <string msgid="1656852541809559762" name="abc_toolbar_collapse_description">"បង្រួម"</string>
-    <string name="authentication_required">តម្រូវឱ្យ​មាន​ការផ្ទៀងផ្ទាត់</string>
     <string msgid="6128938260108474660" name="bottom_sheet_collapse_description">"បង្រួម​សន្លឹកខាងក្រោម"</string>
     <string msgid="1918297411568599192" name="bottom_sheet_dismiss_description">"ច្រានចោល​សន្លឹកខាងក្រោម"</string>
     <string msgid="7772321844937772780" name="bottom_sheet_drag_handle_description">"ដង​អូស"</string>
@@ -103,62 +85,10 @@
     <string msgid="5759491386723090559" name="date_range_picker_start_headline">"កាលបរិច្ឆេទ​ចាប់ផ្ដើម"</string>
     <string msgid="690080476639943577" name="date_range_picker_title">"ជ្រើសរើស​កាល​បរិច្ឆេទ"</string>
     <string msgid="8038256446254964252" name="default_error_message">"ការបញ្ចូល​មិនត្រឹមត្រូវ"</string>
-    <string name="default_notification_channel_name">កំពុងចាក់</string>
     <string msgid="6312721426453364202" name="default_popup_window_title">"វិនដូ​លោតឡើង"</string>
     <string msgid="4057925834421392736" name="dialog">"ប្រអប់"</string>
     <string msgid="1890207353314751437" name="dropdown_menu">"ម៉ឺនុយធ្លាក់ចុះ"</string>
     <string name="error_icon_content_description">បញ្ហា</string>
-    <string name="exo_controls_cc_disabled_description">បើកអក្សររត់</string>
-    <string name="exo_controls_cc_enabled_description">បិទអក្សររត់</string>
-    <string name="exo_controls_fastforward_description">ទៅ​មុខ​​​រហ័ស</string>
-    <string name="exo_controls_fullscreen_enter_description">ចូលអេក្រង់ពេញ</string>
-    <string name="exo_controls_fullscreen_exit_description">ចាកចេញពីអេក្រង់ពេញ</string>
-    <string name="exo_controls_hide">លាក់ការគ្រប់គ្រងកម្មវិធីចាក់ចម្រៀង</string>
-    <string name="exo_controls_next_description">បន្ទាប់</string>
-    <string name="exo_controls_overflow_hide_description">លាក់ការកំណត់​បន្ថែម</string>
-    <string name="exo_controls_overflow_show_description">បង្ហាញការកំណត់​បន្ថែម</string>
-    <string name="exo_controls_pause_description">ផ្អាក</string>
-    <string name="exo_controls_play_description">លេង</string>
-    <string name="exo_controls_playback_speed">ល្បឿន</string>
-    <string name="exo_controls_previous_description">មុន</string>
-    <string name="exo_controls_repeat_all_description">មុខងារបច្ចុប្បន្ន៖ ចាក់ឡើងវិញទាំងអស់។ បិទ/បើកមុខងារចាក់ឡើងវិញ។</string>
-    <string name="exo_controls_repeat_off_description">មុខងារបច្ចុប្បន្ន៖ មិនចាក់ឡើងវិញ។ បិទ/បើកមុខងារចាក់ឡើងវិញ។</string>
-    <string name="exo_controls_repeat_one_description">មុខងារបច្ចុប្បន្ន៖ ចាក់ឡើងវិញមួយ។ បិទ/បើកមុខងារចាក់ឡើងវិញ។</string>
-    <string name="exo_controls_rewind_description">ខា​ថយ​ក្រោយ</string>
-    <string name="exo_controls_seek_bar_description">ការចាក់​កំពុង​ដំណើរការ</string>
-    <string name="exo_controls_settings_description">ការកំណត់</string>
-    <string name="exo_controls_show">បង្ហាញការគ្រប់គ្រងកម្មវិធីចាក់ចម្រៀង</string>
-    <string name="exo_controls_shuffle_off_description">បើក​មុខងារច្របល់</string>
-    <string name="exo_controls_shuffle_on_description">បិទ​មុខងារច្របល់</string>
-    <string name="exo_controls_stop_description">ឈប់</string>
-    <string name="exo_controls_vr_description">មុខងារ VR</string>
-    <string name="exo_download_completed">បាន​បញ្ចប់​ការទាញយក</string>
-    <string name="exo_download_description">ទាញយក</string>
-    <string name="exo_download_downloading">កំពុង​ទាញ​យក</string>
-    <string name="exo_download_failed">មិន​អាច​ទាញយក​បាន​ទេ</string>
-    <string name="exo_download_notification_channel_name">ទាញយក</string>
-    <string name="exo_download_paused">ការទាញយក​ត្រូវបានផ្អាក</string>
-    <string name="exo_download_paused_for_network">ការទាញយក​កំពុងរង់ចាំ​ការតភ្ជាប់បណ្ដាញ</string>
-    <string name="exo_download_paused_for_wifi">ការទាញយក​កំពុងរង់ចាំ​ការតភ្ជាប់ Wi-Fi</string>
-    <string name="exo_download_removing">កំពុង​លុប​ការទាញយក</string>
-    <string name="exo_item_list">%1$s, %2$s</string>
-    <string name="exo_track_bitrate">%1$.2f Mbps</string>
-    <string name="exo_track_mono">ម៉ូ​ណូ</string>
-    <string name="exo_track_resolution">%1$d × %2$d</string>
-    <string name="exo_track_role_alternate">ជំនួស</string>
-    <string name="exo_track_role_closed_captions">អក្សររត់</string>
-    <string name="exo_track_role_commentary">ការអត្ថាធិប្បាយ</string>
-    <string name="exo_track_role_supplementary">បំពេញបន្ថែម</string>
-    <string name="exo_track_selection_auto">ស្វ័យប្រវត្តិ</string>
-    <string name="exo_track_selection_none">គ្មាន</string>
-    <string name="exo_track_selection_title_audio">សំឡេង</string>
-    <string name="exo_track_selection_title_text">អក្សរ</string>
-    <string name="exo_track_selection_title_video">វីដេអូ</string>
-    <string name="exo_track_stereo">ស្តេរ៉េអូ</string>
-    <string name="exo_track_surround">សំឡេង​រងំ</string>
-    <string name="exo_track_surround_5_point_1">សំឡេង​រងំ​ខ្នាត 5.1</string>
-    <string name="exo_track_surround_7_point_1">សំឡេង​រងំ​ខ្នាត 7.1</string>
-    <string name="exo_track_unknown">មិនស្គាល់</string>
     <string msgid="5974471714631304645" name="expanded">"បាន​ពង្រីក"</string>
     <string name="exposed_dropdown_menu_content_description">បង្ហាញ​ម៉ឺនុយ​ធ្លាក់ចុះ</string>
     <string name="icon_content_description">រូប​ប្រអប់បញ្ចូល</string>
@@ -178,12 +108,6 @@
     <string name="material_timepicker_pm">ល្ងាច</string>
     <string name="material_timepicker_select_time">ជ្រើស​ម៉ោង</string>
     <string name="material_timepicker_text_input_mode_description">ប្តូរ​ទៅ​មុខងារ​បញ្ចូល​អក្សរ​សម្រាប់​ការ​បញ្ចូល​ម៉ោង។</string>
-    <string name="media3_controls_pause_description">ផ្អាក</string>
-    <string name="media3_controls_play_description">ចាក់</string>
-    <string name="media3_controls_seek_back_description">ថយក្រោយ</string>
-    <string name="media3_controls_seek_forward_description">រំលង​​ទៅ​មុខ</string>
-    <string name="media3_controls_seek_to_next_description">ទៅកាន់ធាតុបន្ទាប់</string>
-    <string name="media3_controls_seek_to_previous_description">ទៅកាន់ធាតុមុន</string>
     <string name="mtrl_badge_numberless_content_description">ការជូនដំណឹងថ្មី</string>
     <string name="mtrl_chip_close_icon_content_description">លុប %1$s</string>
     <string name="mtrl_exceed_max_badge_number_content_description" ns2:ignore="PluralsCandidate">ការជូនដំណឹង​ថ្មីៗ​លើស %1$d ហើយ</string>

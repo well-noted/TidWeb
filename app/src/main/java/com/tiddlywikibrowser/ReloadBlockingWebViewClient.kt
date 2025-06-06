@@ -663,166 +663,84 @@ class ReloadBlockingWebViewClient(
                 }
             })();
         """.trimIndent(), null)
-        
-        // Apply video background playback detection script
+          // Apply media background playback detection script
         webView.evaluateJavascript("""
             (function() {
                 // Skip if already initialized
-                if (window.__videoBackgroundPlaybackInitialized) return true;
+                if (window.__mediaBackgroundPlaybackInitialized) return true;
                 
-                // Create a flag to track if ExoPlayer routing is enabled
-                // This enables background media control support
-                window.__useExoPlayerForMedia = true;
-                
-                // Function to intercept media play events and route through ExoPlayer
-                function interceptMediaPlayback(mediaElement) {
-                    if (!mediaElement || mediaElement.__exoPlayerIntercepted) return;
+                // Function to enable background playback for media elements
+                function enableBackgroundPlayback(mediaElement) {
+                    if (!mediaElement || mediaElement.__backgroundPlaybackEnabled) return;
                     
-                    // Mark as intercepted
-                    mediaElement.__exoPlayerIntercepted = true;
+                    // Mark this media as processed
+                    mediaElement.__backgroundPlaybackEnabled = true;
                     
-                    // Store the original play method
-                    const originalPlay = mediaElement.play.bind(mediaElement);
-                    
-                    // Override the play method
-                    mediaElement.play = function() {
-                        console.log('[Media Intercept] Play called on:', mediaElement.src);
+                    // Enable inline playback for videos
+                    if (mediaElement.tagName.toLowerCase() === 'video') {
+                        mediaElement.setAttribute('playsinline', 'true');
+                        mediaElement.setAttribute('webkit-playsinline', 'true');
+                        mediaElement.setAttribute('x-webkit-airplay', 'allow');
                         
-                        // If we have ExoPlayer interface and a valid source, route through ExoPlayer
-                        if (window.__useExoPlayerForMedia && window.ExoPlayerInterface && mediaElement.src && 
-                            !mediaElement.src.startsWith('blob:') && !mediaElement.src.startsWith('data:')) {
-                            
-                            console.log('[Media Intercept] Routing to ExoPlayer:', mediaElement.src);
-                            
-                            // Hide controls on the WebView media element since ExoPlayer will handle playback
-                            mediaElement.style.visibility = 'hidden';
-                            mediaElement.style.height = '0';
-                            
-                            // Get media title
-                            const title = mediaElement.getAttribute('title') || 
-                                         mediaElement.closest('.tc-tiddler-frame')?.querySelector('.tc-title')?.textContent || 
-                                         'TiddlyWiki Media';
-                            
-                            // Notify MediaInterface about metadata
-                            if (window.MediaInterface) {
-                                window.MediaInterface.onMediaEvent(
-                                    'loadedmetadata',
-                                    mediaElement.id || 'media-' + Math.random().toString(36).substring(2, 9),
-                                    0,
-                                    mediaElement.duration || 0,
-                                    mediaElement.src,
-                                    title
-                                );
-                            }
-                            
-                            // Play through ExoPlayer
-                            window.ExoPlayerInterface.playMedia(mediaElement.src);
-                            
-                            // Return a resolved promise to satisfy the play() API
-                            return Promise.resolve();
-                        } else {
-                            // Fallback to normal playback
-                            return originalPlay();
+                        // Disable picture-in-picture auto-exit
+                        if ('disablePictureInPicture' in mediaElement) {
+                            mediaElement.disablePictureInPicture = false;
                         }
-                    };
-                    
-                    // Also intercept pause to ensure ExoPlayer stops
-                    const originalPause = mediaElement.pause.bind(mediaElement);
-                    mediaElement.pause = function() {
-                        console.log('[Media Intercept] Pause called');
-                        
-                        // If using ExoPlayer, we need to pause it through media controls
-                        if (window.__useExoPlayerForMedia && window.ExoPlayerInterface && mediaElement.style.visibility === 'hidden') {
-                            // The pause will be handled by MediaSession controls
-                            console.log('[Media Intercept] Pause should be handled by MediaSession');
-                        }
-                        
-                        // Always call original pause
-                        return originalPause();
-                    };
-                }
-                
-                // Create a MutationObserver to detect new video elements
-                const videoObserver = new MutationObserver(function(mutations) {
-                    mutations.forEach(function(mutation) {
-                        if (mutation.addedNodes && mutation.addedNodes.length > 0) {
-                            for (let i = 0; i < mutation.addedNodes.length; i++) {
-                                const node = mutation.addedNodes[i];
-                                // Check direct node if it's a video or audio
-                                if (node.tagName && (node.tagName.toLowerCase() === 'video' || node.tagName.toLowerCase() === 'audio')) {
-                                    enableBackgroundPlayback(node);
-                                    interceptMediaPlayback(node);
-                                }
-                                // Check if the added node contains videos or audio
-                                if (node.querySelectorAll) {
-                                    const mediaElements = node.querySelectorAll('video, audio');
-                                    mediaElements.forEach(function(media) {
-                                        enableBackgroundPlayback(media);
-                                        interceptMediaPlayback(media);
-                                    });
-                                }
-                            }
-                        }
-                    });
-                });
-                
-                // Start observing the document with configured parameters
-                videoObserver.observe(document.documentElement, {
-                    childList: true,
-                    subtree: true
-                });
-                
-                // Process any existing videos and audio elements
-                document.querySelectorAll('video, audio').forEach(function(media) {
-                    enableBackgroundPlayback(media);
-                    interceptMediaPlayback(media);
-                });
-                
-                // Function to enable background playback for a video element
-                function enableBackgroundPlayback(videoElement) {
-                    if (!videoElement || videoElement.__backgroundPlaybackEnabled) return;
-                    
-                    // Mark this video as processed
-                    videoElement.__backgroundPlaybackEnabled = true;
-                    
-                    // Enable inline playback
-                    videoElement.setAttribute('playsinline', 'true');
-                    videoElement.setAttribute('webkit-playsinline', 'true');
-                    videoElement.setAttribute('x-webkit-airplay', 'allow');
-                    
-                    // Set critical flags for Android WebView
-                    if (!videoElement.hasAttribute('crossorigin')) {
-                        videoElement.setAttribute('crossorigin', 'anonymous');
                     }
-                            
+                    
+                    // Set up media session integration
+                    function setupMediaSession(element) {
+                        // Listen to all media events to update MediaSession
+                        ['loadedmetadata', 'play', 'pause', 'ended', 'timeupdate'].forEach(function(eventType) {
+                            element.addEventListener(eventType, function() {
+                                const title = element.getAttribute('title') || 
+                                             element.closest('.tc-tiddler-frame')?.querySelector('.tc-title')?.textContent || 
+                                             'TiddlyWiki Media';
+                                
+                                if (window.MediaInterface) {
+                                    window.MediaInterface.onMediaEvent(
+                                        eventType,
+                                        element.id || 'media-' + Math.random().toString(36).substring(2, 9),
+                                        element.currentTime || 0,
+                                        element.duration || 0,
+                                        element.src,
+                                        title
+                                    );
+                                }
+                            });
+                        });
+                    }
+                    
+                    setupMediaSession(mediaElement);
+                    
+                    // Add data to identify media for background service
+                    mediaElement.setAttribute('data-background-playback', 'enabled');
+                    
                     // Ensure controls are enabled for better user experience
-                    videoElement.controls = true;
+                    mediaElement.controls = true;
                     
-                    // Disable picture-in-picture auto-exit
-                    if ('disablePictureInPicture' in videoElement) {
-                        videoElement.disablePictureInPicture = false;
+                    // Set crossorigin for better compatibility
+                    if (!mediaElement.hasAttribute('crossorigin')) {
+                        mediaElement.setAttribute('crossorigin', 'anonymous');
                     }
-                    
-                    // Add data to identify video for background service
-                    videoElement.setAttribute('data-background-playback', 'enabled');
                     
                     // Override pause to prevent system from pausing during background playback
-                    if (!videoElement.__pauseOverridden) {
-                        videoElement.__pauseOverridden = true;
-                        videoElement.__shouldBePlaying = !videoElement.paused && !videoElement.ended;
+                    if (!mediaElement.__pauseOverridden) {
+                        mediaElement.__pauseOverridden = true;
+                        mediaElement.__shouldBePlaying = !mediaElement.paused && !mediaElement.ended;
                         
-                        const originalPause = videoElement.pause;
-                        videoElement.pause = function() {
-                            // If we're in background and this video should be playing,
+                        const originalPause = mediaElement.pause;
+                        mediaElement.pause = function() {
+                            // If we're in background and this media should be playing,
                             // prevent the pause
-                            if (document.visibilityState === 'hidden' && videoElement.__shouldBePlaying) {
-                                console.log('[Background Video] Preventing system pause');
+                            if (document.visibilityState === 'hidden' && mediaElement.__shouldBePlaying) {
+                                console.log('[Background Media] Preventing system pause');
                                 return undefined;
                             }
                             
                             // If this is a deliberate pause, update our tracking flag
                             if (document.visibilityState === 'visible') {
-                                videoElement.__shouldBePlaying = false;
+                                mediaElement.__shouldBePlaying = false;
                             }
                             
                             // Call the original pause method
@@ -830,28 +748,28 @@ class ReloadBlockingWebViewClient(
                         };
                         
                         // Track play/ended states
-                        videoElement.addEventListener('play', function() {
-                            videoElement.__shouldBePlaying = true;
+                        mediaElement.addEventListener('play', function() {
+                            mediaElement.__shouldBePlaying = true;
                         });
                         
-                        videoElement.addEventListener('ended', function() {
-                            videoElement.__shouldBePlaying = false;
+                        mediaElement.addEventListener('ended', function() {
+                            mediaElement.__shouldBePlaying = false;
                         });
                         
                         // Add visibilitychange handler to resume if paused in background
-                        if (!window.__videoVisibilityHandlerAdded) {
-                            window.__videoVisibilityHandlerAdded = true;
+                        if (!window.__mediaVisibilityHandlerAdded) {
+                            window.__mediaVisibilityHandlerAdded = true;
                             
                             document.addEventListener('visibilitychange', function() {
                                 if (document.visibilityState === 'visible') {
-                                    // When page becomes visible again, resume any videos that should be playing
-                                    document.querySelectorAll('video[data-background-playback="enabled"]').forEach(function(video) {
-                                        if (video.__shouldBePlaying && video.paused) {
+                                    // When page becomes visible again, resume any media that should be playing
+                                    document.querySelectorAll('video[data-background-playback="enabled"], audio[data-background-playback="enabled"]').forEach(function(media) {
+                                        if (media.__shouldBePlaying && media.paused) {
                                             try {
-                                                console.log('[Background Video] Resuming after visibility change');
-                                                video.play().catch(e => console.error('Failed to resume video:', e));
+                                                console.log('[Background Media] Resuming after visibility change');
+                                                media.play().catch(e => console.error('Failed to resume media:', e));
                                             } catch(e) {
-                                                console.error('[Background Video] Error resuming:', e);
+                                                console.error('[Background Media] Error resuming:', e);
                                             }
                                         }
                                     });
@@ -861,11 +779,44 @@ class ReloadBlockingWebViewClient(
                     }
                     
                     // Log for debugging
-                    console.log('[Background Video] Enabled for:', videoElement.src || 'video element');
+                    console.log('[Background Media] Enabled for:', mediaElement.src || 'media element');
                 }
                 
+                // Create a MutationObserver to detect new media elements
+                const mediaObserver = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+                            for (let i = 0; i < mutation.addedNodes.length; i++) {
+                                const node = mutation.addedNodes[i];
+                                // Check direct node if it's a video or audio
+                                if (node.tagName && (node.tagName.toLowerCase() === 'video' || node.tagName.toLowerCase() === 'audio')) {
+                                    enableBackgroundPlayback(node);
+                                }
+                                // Check if the added node contains videos or audio
+                                if (node.querySelectorAll) {
+                                    const mediaElements = node.querySelectorAll('video, audio');
+                                    mediaElements.forEach(function(media) {
+                                        enableBackgroundPlayback(media);
+                                    });
+                                }
+                            }
+                        }
+                    });
+                });
+                
+                // Start observing the document with configured parameters
+                mediaObserver.observe(document.documentElement, {
+                    childList: true,
+                    subtree: true
+                });
+                
+                // Process any existing videos and audio elements
+                document.querySelectorAll('video, audio').forEach(function(media) {
+                    enableBackgroundPlayback(media);
+                });
+                
                 // Mark as initialized
-                window.__videoBackgroundPlaybackInitialized = true;
+                window.__mediaBackgroundPlaybackInitialized = true;
                 return true;
             })();
         """.trimIndent(), null)

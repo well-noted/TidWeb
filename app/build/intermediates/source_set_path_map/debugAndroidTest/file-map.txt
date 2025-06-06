@@ -1,0 +1,4 @@
+com.tiddlywikibrowser.test.app-androidTest-0 C:\Users\tetuo\TidWeb\app\build\generated\res\resValues\androidTest\debug
+com.tiddlywikibrowser.test.app-mergeDebugAndroidTestResources-1 C:\Users\tetuo\TidWeb\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\merged.dir
+com.tiddlywikibrowser.test.app-mergeDebugAndroidTestResources-2 C:\Users\tetuo\TidWeb\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\stripped.dir
+com.tiddlywikibrowser.test.app-merged_res-3 C:\Users\tetuo\TidWeb\app\build\intermediates\merged_res\debugAndroidTest

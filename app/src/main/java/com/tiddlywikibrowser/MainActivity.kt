@@ -72,10 +72,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.PlayerView
 import androidx.webkit.WebViewAssetLoader
 import com.google.accompanist.permissions.rememberPermissionState
 import java.io.ByteArrayInputStream
@@ -129,7 +125,6 @@ private const val MEMORY_THRESHOLD = 50L * 1024L * 1024L
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
     internal lateinit var mediaSessionManager: MediaSessionManager
-    internal lateinit var exoPlayerManager: ExoPlayerManager
     internal lateinit var backgroundWebViewManager: BackgroundWebViewManager
     private val TAG = "MainActivity"
     var viewModel: WikiViewModel? = null
@@ -452,13 +447,9 @@ class MainActivity : ComponentActivity() {
                 } ?: run {
                     callback(null, null, null, null, false)
                 }
-            }
-        })
+            }        })
 
-        exoPlayerManager = ExoPlayerManager(this)
-        backgroundWebViewManager = BackgroundWebViewManager(applicationContext)
-
-        // Initialize other managers
+        backgroundWebViewManager = BackgroundWebViewManager(applicationContext)        // Initialize other managers
         dialogStateManager = DialogStateManager()
         backgroundModeManager = BackgroundModeManager(
             applicationContext, 
@@ -471,8 +462,7 @@ class MainActivity : ComponentActivity() {
             { viewModel },
             backgroundModeManager,
             backgroundWebViewManager,
-            mediaSessionManager,
-            exoPlayerManager
+            mediaSessionManager
         )
         sharedContentHandler = SharedContentHandler(this, viewModel!!)
         intentHandler = IntentHandler(
@@ -845,7 +835,6 @@ class MainActivity : ComponentActivity() {
         }
         
         // Release other managers
-        exoPlayerManager.release()
         backgroundWebViewManager.release()
         networkManager.release()
 

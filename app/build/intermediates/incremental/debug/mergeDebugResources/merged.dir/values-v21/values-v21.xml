@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="notification_action_color_filter">@color/androidx_core_secondary_text_default_material_light</color>
-    <dimen name="exo_styled_controls_padding">24dp</dimen>
     <item format="float" name="m3_sys_state_dragged_state_layer_opacity" type="dimen">0.32</item>
     <item format="float" name="m3_sys_state_focus_state_layer_opacity" type="dimen">0.20</item>
     <item format="float" name="m3_sys_state_hover_state_layer_opacity" type="dimen">0.16</item>
@@ -291,11 +290,6 @@
       <item name="android:popupElevation">8dp</item>
       <item name="android:dropDownVerticalOffset">1dp</item>
     </style>
-    <style name="ExoStyledControls.Button.Center">
-    <item name="android:layout_width">@dimen/exo_icon_size</item>
-    <item name="android:layout_height">@dimen/exo_icon_size</item>
-    <item name="android:background">?android:attr/selectableItemBackgroundBorderless</item>
-  </style>
     <style name="MaterialAlertDialog.MaterialComponents.Picker.Date.Calendar" parent="android:Widget.DeviceDefault.DatePicker">
     <item name="backgroundInsetTop">@dimen/mtrl_alert_dialog_picker_background_inset</item>
     <item name="backgroundInsetBottom">@dimen/mtrl_alert_dialog_picker_background_inset</item>
