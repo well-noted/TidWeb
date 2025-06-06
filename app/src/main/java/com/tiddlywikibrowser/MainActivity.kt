@@ -350,11 +350,15 @@ class MainActivity : ComponentActivity() {
             Log.e("MainActivity", "Error during app initialization", e)
             Toast.makeText(this, "Error initializing app. Please try again.", Toast.LENGTH_LONG).show()
         }
-    }
-
-    private fun initializeManagers() {
+    }    private fun initializeManagers() {
         // Initialize MediaSessionManager
         mediaSessionManager = MediaSessionManager.getInstance(this)
+          // Initialize BackgroundWebViewManager first so we can pass it to MediaSessionManager
+        backgroundWebViewManager = BackgroundWebViewManager(applicationContext)
+        backgroundWebViewManager.startBackgroundService()
+        
+        // Set the background manager in MediaSessionManager for background JavaScript execution
+        mediaSessionManager.setBackgroundWebViewManager(backgroundWebViewManager)
         
         // Set up media session callbacks
         mediaSessionManager.setWebViewProvider(object : WebViewProvider {
@@ -446,10 +450,9 @@ class MainActivity : ComponentActivity() {
                     }
                 } ?: run {
                     callback(null, null, null, null, false)
-                }
-            }        })
+                }            }        })
 
-        backgroundWebViewManager = BackgroundWebViewManager(applicationContext)        // Initialize other managers
+        // Initialize other managers (backgroundWebViewManager already initialized above)
         dialogStateManager = DialogStateManager()
         backgroundModeManager = BackgroundModeManager(
             applicationContext, 
@@ -801,13 +804,16 @@ class MainActivity : ComponentActivity() {
             { startMediaService() },
             { stopService(serviceIntent) }
         )
-    }
-
-
-
-    override fun onPause() {
+    }    override fun onPause() {
         super.onPause()
         lifecycleHandler.onPause()
+        
+        // Notify MediaSessionManager that app is backgrounded
+        try {
+            mediaSessionManager.onAppBackgrounded()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error notifying MediaSessionManager of app background", e)
+        }
         
         // Update media session state when activity is paused
         updateMediaSession()
@@ -816,6 +822,13 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         lifecycleHandler.onResume()
+        
+        // Notify MediaSessionManager that app is foregrounded
+        try {
+            mediaSessionManager.onAppForegrounded()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error notifying MediaSessionManager of app foreground", e)
+        }
         
         // Update media session state when activity is resumed
         updateMediaSession()

@@ -68,9 +68,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build()
-    }
-
-    fun setMediaSession(session: MediaSessionCompat) {
+    }    fun setMediaSession(session: MediaSessionCompat) {
         synchronized(this) {
             Log.d("MediaPlaybackService", "setMediaSession CALLED. Session: ${session.sessionToken}")
             mediaSession = session
@@ -88,7 +86,43 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 Log.d("MediaPlaybackService", "Session token already set, not setting again")
             }
 
-            Log.d("MediaPlaybackService", "MediaSession set in service. Notification will be updated by explicit calls from MediaSessionManager.")
+            // Set up the session callback to handle media controls in the service
+            mediaSession?.setCallback(object : MediaSessionCompat.Callback() {
+                override fun onPlay() {
+                    Log.d("MediaPlaybackService", "Service MediaSession callback: onPlay")
+                    mediaPlayerCallback?.onPlay()
+                }
+                
+                override fun onPause() {
+                    Log.d("MediaPlaybackService", "Service MediaSession callback: onPause")
+                    mediaPlayerCallback?.onPause()
+                }
+                
+                override fun onSkipToNext() {
+                    Log.d("MediaPlaybackService", "Service MediaSession callback: onSkipToNext")
+                    mediaPlayerCallback?.onSkipForward()
+                }
+                
+                override fun onSkipToPrevious() {
+                    Log.d("MediaPlaybackService", "Service MediaSession callback: onSkipToPrevious")
+                    mediaPlayerCallback?.onSkipBackward()
+                }
+                
+                override fun onSeekTo(pos: Long) {
+                    Log.d("MediaPlaybackService", "Service MediaSession callback: onSeekTo $pos")
+                    mediaPlayerCallback?.onSeekTo(pos)
+                }
+                
+                override fun onCustomAction(action: String?, extras: Bundle?) {
+                    Log.d("MediaPlaybackService", "Service MediaSession callback: onCustomAction $action")
+                    when (action) {
+                        "SKIP_FORWARD" -> mediaPlayerCallback?.onSkipForward()
+                        "SKIP_BACKWARD" -> mediaPlayerCallback?.onSkipBackward()
+                    }
+                }
+            })
+
+            Log.d("MediaPlaybackService", "MediaSession set in service with callback. Notification will be updated by explicit calls from MediaSessionManager.")
         }
     }
 
@@ -164,8 +198,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                     PlaybackStateCompat.CustomAction.Builder("SKIP_BACKWARD", "Skip Backward", R.drawable.ic_skip_backward_15)
                         .build()
                 )
-                
-                // When in the playing state, make sure the service is in foreground
+                  // When in the playing state, make sure the service is in foreground
                 if (state == PlaybackStateCompat.STATE_PLAYING) {
                     if (!isForegroundService) {
                         // If there's a mediaSession, use it to create a notification
@@ -189,11 +222,33 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         }
                     }
                 } 
-                // In paused state, only update the notification but keep the service foreground
+                // In paused state, keep the service foreground but update the notification
                 else if (state == PlaybackStateCompat.STATE_PAUSED) {
-                    mediaSession?.let { session ->
-                        val metadata = session.controller.metadata
-                        updateNotification(session, metadata, stateBuilder.build())
+                    if (isForegroundService) {
+                        mediaSession?.let { session ->
+                            val metadata = session.controller.metadata
+                            updateNotification(session, metadata, stateBuilder.build())
+                        }
+                    } else {
+                        // If not foreground but we have paused media, make it foreground
+                        mediaSession?.let { session ->
+                            val metadata = session.controller.metadata
+                            val notification = updateNotification(session, metadata, stateBuilder.build())
+                            
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+                            } else {
+                                startForeground(NOTIFICATION_ID, notification)
+                            }
+                            isForegroundService = true
+                        }
+                    }
+                }
+                // In stopped state, we can stop foreground but keep service running
+                else if (state == PlaybackStateCompat.STATE_STOPPED) {
+                    if (isForegroundService) {
+                        stopForeground(true) // Remove notification
+                        isForegroundService = false
                     }
                 }
                 
@@ -363,28 +418,61 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         
         when (intent?.action) {
             ACTION_SKIP_FORWARD_SERVICE -> {
+                Log.d("MediaPlaybackService", "Processing skip forward action")
                 mediaSession?.controller?.transportControls?.sendCustomAction("SKIP_FORWARD", null)
-                Log.d("MediaPlaybackService", "Forward skip action sent to MediaSession")
+                // Also call the callback directly in case session is not responding                mediaPlayerCallback?.onSkipForward()
             }
             ACTION_SKIP_BACKWARD_SERVICE -> {
+                Log.d("MediaPlaybackService", "Processing skip backward action")
                 mediaSession?.controller?.transportControls?.sendCustomAction("SKIP_BACKWARD", null)
-                Log.d("MediaPlaybackService", "Backward skip action sent to MediaSession")
+                // Also call the callback directly in case session is not responding
+                mediaPlayerCallback?.onSkipBackward()
             }
             else -> {
                 // Let MediaButtonReceiver handle standard media button actions
                 // It's important that mediaSession is not null here
                 mediaSession?.let { session ->
-                    MediaButtonReceiver.handleIntent(session, intent)
+                    try {
+                        MediaButtonReceiver.handleIntent(session, intent)
+                        Log.d("MediaPlaybackService", "MediaButtonReceiver processed intent for action: ${intent?.action}")
+                    } catch (e: Exception) {
+                        Log.e("MediaPlaybackService", "Error handling media button intent", e)
+                        // If MediaButtonReceiver fails, try to handle it ourselves
+                        if (intent?.action == "android.intent.action.MEDIA_BUTTON") {
+                            // Handle media button directly
+                            Log.d("MediaPlaybackService", "Handling media button directly")
+                        }
+                        else {
+                            
+                        }
+                    }
                 } ?: Log.w("MediaPlaybackService", "MediaSession is null, cannot handle intent: ${intent?.action}")
             }
         }
         
-        // Make sure we're running as a foreground service
+        // Make sure we're running as a foreground service when we have media
         if (!isForegroundService && mediaSession != null) {
             try {
-                startForeground(NOTIFICATION_ID, createInitialNotification())
-                isForegroundService = true
-                Log.d("MediaPlaybackService", "Started as foreground service from onStartCommand")
+                val metadata = mediaSession?.controller?.metadata
+                val playbackState = mediaSession?.controller?.playbackState
+                
+                // Only start foreground if we have valid media or are playing
+                if (metadata != null && (playbackState?.state == PlaybackStateCompat.STATE_PLAYING || 
+                    playbackState?.state == PlaybackStateCompat.STATE_PAUSED)) {
+                    val notification = updateNotification(mediaSession!!, metadata, playbackState)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+                    } else {
+                        startForeground(NOTIFICATION_ID, notification)
+                    }
+                    isForegroundService = true
+                    Log.d("MediaPlaybackService", "Started as foreground service from onStartCommand")
+                } else {
+                    // Start with initial notification if we don't have metadata yet
+                    startForeground(NOTIFICATION_ID, createInitialNotification())
+                    isForegroundService = true
+                    Log.d("MediaPlaybackService", "Started as foreground service with initial notification")
+                }
             } catch (e: Exception) {
                 Log.e("MediaPlaybackService", "Failed to start as foreground service", e)
             }

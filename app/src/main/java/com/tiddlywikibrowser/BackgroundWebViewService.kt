@@ -118,8 +118,7 @@ class BackgroundWebViewService : Service() {
                 forceResumeVideos()
             }
         }
-        
-        // Handle actions from the intent
+          // Handle actions from the intent
         intent?.action?.let { action ->
             when (action) {
                 ACTION_REGISTER_WEBVIEW -> {
@@ -142,6 +141,12 @@ class BackgroundWebViewService : Service() {
                 ACTION_APP_BACKGROUND -> {
                     Log.d(TAG, "App went to background, ensuring videos continue playing")
                     forceResumeVideos()
+                }
+                ACTION_EXECUTE_JAVASCRIPT -> {
+                    val script = intent.getStringExtra(EXTRA_JAVASCRIPT_CODE)
+                    val webViewKey = intent.getStringExtra(EXTRA_WEBVIEW_KEY)
+                    Log.d(TAG, "Received JavaScript execution request for key: $webViewKey")
+                    executeJavaScriptOnWebView(script, webViewKey)
                 }
             }
         }
@@ -775,6 +780,46 @@ class BackgroundWebViewService : Service() {
     }
     
     /**
+     * Execute JavaScript on a specific WebView or all WebViews if key is null
+     */
+    fun executeJavaScriptOnWebView(script: String?, webViewKey: String?) {
+        if (script.isNullOrEmpty()) {
+            Log.w(TAG, "Empty script provided for JavaScript execution")
+            return
+        }
+        
+        ThreadManager.runOnMain {
+            try {                if (webViewKey != null) {
+                    // Execute on specific WebView
+                    val webView = activeWebViews[webViewKey]
+                    if (webView != null) {
+                        Log.d(TAG, "Executing JavaScript on WebView: $webViewKey")
+                        webView.evaluateJavascript(script) { result ->
+                            Log.d(TAG, "JavaScript execution result on $webViewKey: $result")
+                        }
+                    } else {
+                        Log.w(TAG, "WebView with key $webViewKey not found")
+                    }
+                } else {
+                    // Execute on all registered WebViews
+                    Log.d(TAG, "Executing JavaScript on all ${activeWebViews.size} WebViews")
+                    for ((key, webView) in activeWebViews) {
+                        try {
+                            webView.evaluateJavascript(script) { result ->
+                                Log.d(TAG, "JavaScript execution result on $key: $result")
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error executing JavaScript on WebView $key", e)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in executeJavaScriptOnWebView", e)
+            }
+        }
+    }
+    
+    /**
      * Check if the service has a registered WebView for the given key
      */
     fun hasWebView(key: String): Boolean {
@@ -1381,13 +1426,14 @@ class BackgroundWebViewService : Service() {
             Log.e(TAG, "Error stopping silent audio: ${e.message}")
         }
     }
-    
-    companion object {
+      companion object {
         const val ACTION_REGISTER_WEBVIEW = "com.tiddlywikibrowser.action.REGISTER_WEBVIEW"
         const val ACTION_UNREGISTER_WEBVIEW = "com.tiddlywikibrowser.action.UNREGISTER_WEBVIEW"
         const val ACTION_STOP_SERVICE = "com.tiddlywikibrowser.action.STOP_SERVICE"
         const val ACTION_FORCE_RESUME_VIDEOS = "com.tiddlywikibrowser.action.FORCE_RESUME_VIDEOS"
         const val ACTION_APP_BACKGROUND = "com.tiddlywikibrowser.action.APP_BACKGROUND"
+        const val ACTION_EXECUTE_JAVASCRIPT = "com.tiddlywikibrowser.action.EXECUTE_JAVASCRIPT"
         const val EXTRA_WEBVIEW_KEY = "webview_key"
+        const val EXTRA_JAVASCRIPT_CODE = "javascript_code"
     }
 }
