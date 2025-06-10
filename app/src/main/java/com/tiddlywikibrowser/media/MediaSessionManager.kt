@@ -717,15 +717,17 @@ class MediaSessionManager private constructor(private val context: Context) {
         lastKnownMediaState.isPlaying = false
         updatePlaybackState(false, lastKnownMediaState.position)
     }
-    
-    /**
+      /**
      * Handle skip forward command
      */
     private fun handleSkipForward() {
         Log.d(TAG, "Handling skip forward command")
         executeJavaScriptSafely("""
             (function() {
-                if (window.skipForward) {
+                if (window.MediaInterface?.skipForward) {
+                    window.MediaInterface.skipForward();
+                    return 'skip_forward_enhanced';
+                } else if (window.skipForward) {
                     window.skipForward();
                     return 'skip_forward_custom';
                 } else {
@@ -749,10 +751,12 @@ class MediaSessionManager private constructor(private val context: Context) {
         Log.d(TAG, "Handling skip backward command")
         executeJavaScriptSafely("""
             (function() {
-                if (window.skipBackward) {
+                if (window.MediaInterface?.skipBackward) {
+                    window.MediaInterface.skipBackward();
+                    return 'skip_backward_enhanced';
+                } else if (window.skipBackward) {
                     window.skipBackward();
-                    return 'skip_backward_custom';
-                } else {
+                    return 'skip_backward_custom';                } else {
                     const media = document.querySelector('audio,video');
                     if (media) {
                         media.currentTime = Math.max(0, media.currentTime - 15);
