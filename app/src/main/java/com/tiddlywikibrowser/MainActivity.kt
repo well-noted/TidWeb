@@ -803,29 +803,30 @@ class MainActivity : ComponentActivity() {
             this,
             { startMediaService() },
             { stopService(serviceIntent) }
-        )
-    }    override fun onPause() {
+        )    }    override fun onPause() {
         super.onPause()
         lifecycleHandler.onPause()
         
         // Notify MediaSessionManager that app is backgrounded
         try {
             mediaSessionManager.onAppBackgrounded()
+            // Also notify RobustMediaController
+            RobustMediaController.getInstance(this).onAppBackgrounded()
         } catch (e: Exception) {
             Log.e(TAG, "Error notifying MediaSessionManager of app background", e)
         }
         
         // Update media session state when activity is paused
         updateMediaSession()
-    }
-
-    override fun onResume() {
+    }    override fun onResume() {
         super.onResume()
         lifecycleHandler.onResume()
         
         // Notify MediaSessionManager that app is foregrounded
         try {
             mediaSessionManager.onAppForegrounded()
+            // Also notify RobustMediaController
+            RobustMediaController.getInstance(this).onAppForegrounded()
         } catch (e: Exception) {
             Log.e(TAG, "Error notifying MediaSessionManager of app foreground", e)
         }

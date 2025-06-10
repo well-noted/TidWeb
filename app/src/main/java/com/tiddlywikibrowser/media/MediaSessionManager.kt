@@ -19,6 +19,7 @@ import com.tiddlywikibrowser.BackgroundWebViewManager
 import com.tiddlywikibrowser.BackgroundWebViewService
 import com.tiddlywikibrowser.MediaPlaybackService
 import com.tiddlywikibrowser.R
+import com.tiddlywikibrowser.RobustMediaController
 import com.tiddlywikibrowser.WebViewProvider
 import org.json.JSONObject
 
@@ -691,46 +692,30 @@ class MediaSessionManager private constructor(private val context: Context) {
     
     /**
      * Handle play command
-     */
-    private fun handlePlay() {
+     */    private fun handlePlay() {
         Log.d(TAG, "Handling play command")
-        executeJavaScriptSafely("""
-            (function() {
-                const media = document.querySelector('audio,video');
-                if (media) {
-                    media.play().catch(e => console.log('Play failed:', e));
-                    return 'play_executed';
-                }
-                return 'no_media_found';
-            })();
-        """.trimIndent()) { result ->
-            Log.d(TAG, "Play JavaScript result: $result")
-            // Update our state immediately
-            lastKnownMediaState.isPlaying = true
-            updatePlaybackState(true, lastKnownMediaState.position)
-        }
+        
+        // Use RobustMediaController for reliable execution
+        val robustController = RobustMediaController.getInstance(context)
+        robustController.executeMediaControl(RobustMediaController.MediaAction.PLAY)
+        
+        // Also update our state immediately for responsiveness
+        lastKnownMediaState.isPlaying = true
+        updatePlaybackState(true, lastKnownMediaState.position)
     }
-    
-    /**
+      /**
      * Handle pause command
      */
     private fun handlePause() {
         Log.d(TAG, "Handling pause command")
-        executeJavaScriptSafely("""
-            (function() {
-                const media = document.querySelector('audio,video');
-                if (media) {
-                    media.pause();
-                    return 'pause_executed';
-                }
-                return 'no_media_found';
-            })();
-        """.trimIndent()) { result ->
-            Log.d(TAG, "Pause JavaScript result: $result")
-            // Update our state immediately
-            lastKnownMediaState.isPlaying = false
-            updatePlaybackState(false, lastKnownMediaState.position)
-        }
+        
+        // Use RobustMediaController for reliable execution
+        val robustController = RobustMediaController.getInstance(context)
+        robustController.executeMediaControl(RobustMediaController.MediaAction.PAUSE)
+        
+        // Also update our state immediately for responsiveness
+        lastKnownMediaState.isPlaying = false
+        updatePlaybackState(false, lastKnownMediaState.position)
     }
     
     /**
