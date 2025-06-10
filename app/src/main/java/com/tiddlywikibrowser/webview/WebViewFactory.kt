@@ -16,7 +16,7 @@ import com.tiddlywikibrowser.R
 import com.tiddlywikibrowser.ThreadManager
 import com.tiddlywikibrowser.ScreenUtils
 import com.tiddlywikibrowser.WebViewDownloadManager
-import com.tiddlywikibrowser.media.MediaSessionManager
+import com.tiddlywikibrowser.media.SimpleMediaManager
 
 object WebViewFactory {
     
@@ -221,8 +221,7 @@ object WebViewFactory {
             }
         }
     }
-    
-    private fun setupJavaScriptInterfaces(webView: WebView, context: Context) {
+      private fun setupJavaScriptInterfaces(webView: WebView, context: Context) {
         try {
             webView.addJavascriptInterface(
                 ScrollInterface(context.applicationContext), 
@@ -235,6 +234,10 @@ object WebViewFactory {
                 MediaInterface(context.applicationContext), 
                 "MediaInterface"
             )
+            
+            // Connect WebView to media manager for control callbacks
+            val mediaManager = SimpleMediaManager.getInstance(context.applicationContext)
+            mediaManager.setWebView(webView)
         } catch (e: Exception) {
             Log.e(TAG, "Error adding JavaScript interfaces", e)
         }
@@ -522,15 +525,29 @@ class ScrollInterface(private val context: Context) {
 }
 
 class MediaInterface(private val context: Context) {
+    private val mediaManager = com.tiddlywikibrowser.media.SimpleMediaManager.getInstance(context)
+    private val notificationManager = com.tiddlywikibrowser.media.MediaNotificationManager(context)
+    
     @JavascriptInterface
     fun onMediaStateChange(title: String?, artist: String?, duration: Long, position: Long, isPlaying: Boolean) {
         Log.d("MediaInterface", "onMediaStateChange - Title: $title, IsPlaying: $isPlaying")
         
         ThreadManager.runOnMain {
             try {
-                val msm = MediaSessionManager.getInstance(context)
-                msm.updateMetadata(title, artist, duration)
-                msm.updatePlaybackState(isPlaying, position)
+                if (duration > 0) {
+                    mediaManager.updateMetadata(title, artist, duration)
+                }
+                mediaManager.updatePlaybackState(isPlaying, position)
+                
+                // Update notification
+                val mediaInfo = mediaManager.getCurrentMediaInfo()
+                if (mediaInfo.isActive) {
+                    mediaManager.getMediaSession()?.let { session ->
+                        notificationManager.showNotification(session, mediaInfo)
+                    }
+                } else {
+                    notificationManager.hideNotification()
+                }
             } catch (e: Exception) {
                 Log.e("MediaInterface", "Error in onMediaStateChange", e)
             }
@@ -538,11 +555,22 @@ class MediaInterface(private val context: Context) {
     }
     
     @JavascriptInterface
-    fun updateMediaMetadata(title: String?, artist: String?, album: String?, artworkUrl: String?, duration: Long) {
-        Log.d("MediaInterface", "updateMediaMetadata - title='$title', artist='$artist'")
+    fun updateMediaMetadata(title: String?, artist: String?, duration: Long) {
+        Log.d("MediaInterface", "updateMediaMetadata - title='$title', artist='$artist', duration='$duration'")
         ThreadManager.runOnMain {
-            val msm = MediaSessionManager.getInstance(context)
-            msm.updateMetadata(title, artist, duration, null)
+            try {
+                mediaManager.updateMetadata(title, artist, duration)
+                
+                // Update notification if media is active
+                val mediaInfo = mediaManager.getCurrentMediaInfo()
+                if (mediaInfo.isActive) {
+                    mediaManager.getMediaSession()?.let { session ->
+                        notificationManager.showNotification(session, mediaInfo)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MediaInterface", "Error in updateMediaMetadata", e)
+            }
         }
     }
     
@@ -550,8 +578,21 @@ class MediaInterface(private val context: Context) {
     fun updatePlaybackState(isPlaying: Boolean, position: Long) {
         Log.d("MediaInterface", "updatePlaybackState - isPlaying='$isPlaying', position='$position'")
         ThreadManager.runOnMain {
-            val msm = MediaSessionManager.getInstance(context)
-            msm.updatePlaybackState(isPlaying, position)
+            try {
+                mediaManager.updatePlaybackState(isPlaying, position)
+                
+                // Update notification
+                val mediaInfo = mediaManager.getCurrentMediaInfo()
+                if (mediaInfo.isActive) {
+                    mediaManager.getMediaSession()?.let { session ->
+                        notificationManager.showNotification(session, mediaInfo)
+                    }
+                } else {
+                    notificationManager.hideNotification()
+                }
+            } catch (e: Exception) {
+                Log.e("MediaInterface", "Error in updatePlaybackState", e)
+            }
         }
     }
     
@@ -566,26 +607,40 @@ class MediaInterface(private val context: Context) {
     ) {
         Log.d("MediaInterface", "onMediaEvent - event='$event', title='$title'")
         ThreadManager.runOnMain {
-            val effectiveTitle = if (title.isNullOrBlank()) "TiddlyWiki Audio" else title
-            val msm = MediaSessionManager.getInstance(context)
-            
-            when (event.lowercase()) {
-                "play", "playing" -> {
-                    msm.updateMetadata(effectiveTitle, "TiddlyWiki", (duration * 1000).toLong())
-                    msm.updatePlaybackState(true, (currentTime * 1000).toLong())
+            try {
+                val effectiveTitle = if (title.isNullOrBlank()) "TiddlyWiki Audio" else title
+                val durationMs = (duration * 1000).toLong()
+                val positionMs = (currentTime * 1000).toLong()
+                
+                when (event.lowercase()) {
+                    "play", "playing" -> {
+                        mediaManager.updateMetadata(effectiveTitle, "TiddlyWiki", durationMs)
+                        mediaManager.updatePlaybackState(true, positionMs)
+                    }
+                    "pause" -> {
+                        mediaManager.updatePlaybackState(false, positionMs)
+                    }
+                    "ended" -> {
+                        mediaManager.updatePlaybackState(false, durationMs)
+                        mediaManager.onMediaInactive()
+                        notificationManager.hideNotification()
+                        return@runOnMain
+                    }
+                    "loadedmetadata" -> {
+                        mediaManager.updateMetadata(effectiveTitle, "TiddlyWiki", durationMs)
+                    }
                 }
-                "pause" -> {
-                    msm.updatePlaybackState(false, (currentTime * 1000).toLong())
+                
+                // Update notification for active events
+                val mediaInfo = mediaManager.getCurrentMediaInfo()
+                if (mediaInfo.isActive) {
+                    mediaManager.getMediaSession()?.let { session ->
+                        notificationManager.showNotification(session, mediaInfo)
+                    }
                 }
-                "ended" -> {
-                    msm.updatePlaybackState(false, (duration * 1000).toLong())
-                }
-                "timeupdate" -> {
-                    msm.updatePlaybackState(true, (currentTime * 1000).toLong())
-                }
-                "loadedmetadata" -> {
-                    msm.updateMetadata(effectiveTitle, "TiddlyWiki", (duration * 1000).toLong())
-                }
-            }        }
+            } catch (e: Exception) {
+                Log.e("MediaInterface", "Error in onMediaEvent", e)
+            }
+        }
     }
 }
