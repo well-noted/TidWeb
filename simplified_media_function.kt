@@ -7,18 +7,18 @@
             (function() {
                 // Early exit if already initialized
                 if (window.MediaInterface?.initialized) return;
-                
-                // Create unified MediaInterface with enhanced background support
+                  // Create unified MediaInterface with enhanced background support
                 window.MediaInterface = {
                     initialized: true,
                     activeElement: null,
                     lastKnownState: { playing: false, position: 0, title: "" },
                     backgroundModeActive: false,
                     stateVerificationInterval: null,
+                    intentionallyPaused: false,
                     
-                    // Enhanced control methods with background reliability
-                    play() {
+                    // Enhanced control methods with background reliability                    play() {
                         console.log('MediaInterface: Play command received');
+                        this.intentionallyPaused = false; // Clear any intentional pause flag
                         const media = this.activeElement || this.findActiveMedia();
                         if (media?.paused) {
                             console.log('MediaInterface: Starting playback');
@@ -52,16 +52,24 @@
                             this.updateState(media);
                         }
                     },
-                    
-                    pause() {
+                      pause() {
                         console.log('MediaInterface: Pause command received');
                         const media = this.activeElement || this.findActiveMedia();
                         if (media && !media.paused) {
                             console.log('MediaInterface: Pausing playback');
-                            media.pause();
+                            
+                            // Mark as intentionally paused to prevent background monitoring from resuming
+                            this.intentionallyPaused = true;
                             this.lastKnownState.playing = false;
+                            
+                            media.pause();
                             this.updateState(media);
                             this.stopBackgroundMonitoring();
+                            
+                            // Clear the intentional pause flag after a short delay
+                            setTimeout(() => {
+                                this.intentionallyPaused = false;
+                            }, 5000); // 5 second grace period
                         } else {
                             console.log('MediaInterface: Media already paused or not found');
                         }
@@ -148,19 +156,20 @@
                         
                         console.log('MediaInterface: Starting background monitoring');
                         this.backgroundModeActive = true;
-                        
-                        // Check media state every 2 seconds to ensure it stays playing
+                          // Check media state every 2 seconds to ensure it stays playing
                         this.stateVerificationInterval = setInterval(() => {
                             const media = this.activeElement || this.findActiveMedia();
                             if (media) {
-                                // Verify state and correct if needed
-                                if (this.lastKnownState.playing && media.paused) {
+                                // Verify state and correct if needed, but respect intentional pauses
+                                if (this.lastKnownState.playing && media.paused && !this.intentionallyPaused) {
                                     console.log('MediaInterface: Detected unexpected pause, attempting resume');
                                     this.forcePlay(media);
                                 } else if (!this.lastKnownState.playing && !media.paused) {
                                     console.log('MediaInterface: Detected unexpected play, syncing state');
                                     this.lastKnownState.playing = true;
                                     this.updateState(media);
+                                } else if (media.paused && this.intentionallyPaused) {
+                                    console.log('MediaInterface: Media intentionally paused, not resuming');
                                 }
                                 
                                 // Regular state update
