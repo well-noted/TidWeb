@@ -343,7 +343,14 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                                     if (success) {
                                         WikiViewEnhancer.injectScrollDetectionScript(webView)
                                         WikiViewEnhancer.injectSmallScreenOptimizations(webView, ctx)
-                                        WikiViewEnhancer.injectMediaFunctionalityScript(webView)
+                                        
+                                        // Use optimized media functionality instead of complex version
+                                        WikiViewEnhancer.injectOptimizedMediaFunctionalityScript(webView)
+                                        
+                                        // Initialize thermal management for better performance
+                                        val thermalManager = ThermalMediaManager.getInstance(ctx)
+                                        thermalManager.setWebView(webView)
+                                        
                                         if (isBackgroundEnabled) {
                                              WikiViewEnhancer.injectBackgroundRunningScript(webView)
                                         }
