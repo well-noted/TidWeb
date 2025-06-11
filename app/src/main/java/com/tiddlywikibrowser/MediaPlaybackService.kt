@@ -17,6 +17,7 @@ import androidx.media.app.NotificationCompat.MediaStyle
 import androidx.media.session.MediaButtonReceiver
 import androidx.media.MediaBrowserServiceCompat
 import android.util.Log
+import com.tiddlywikibrowser.media.MediaSessionManager
 
 class MediaPlaybackService : MediaBrowserServiceCompat() {
     private var sessionTokenSet = false
@@ -26,12 +27,11 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         private const val SEEK_INTERVAL = 15000L // 15 seconds in milliseconds
         const val ACTION_SKIP_FORWARD_SERVICE = "com.tiddlywikibrowser.ACTION_SKIP_FORWARD_SERVICE"
         const val ACTION_SKIP_BACKWARD_SERVICE = "com.tiddlywikibrowser.ACTION_SKIP_BACKWARD_SERVICE"
-    }
-
-    private var mediaSession: MediaSessionCompat? = null
+    }    private var mediaSession: MediaSessionCompat? = null
     private var playbackState: PlaybackStateCompat? = null
     private var mediaPlayerCallback: MediaPlayerCallback? = null
     private var isForegroundService = false
+    private var isTaskRemoved = false // Track if app was dismissed from recent apps
 
     interface MediaPlayerCallback {
         fun onPlay()
@@ -411,10 +411,30 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         builder.addAction(R.drawable.ic_skip_forward_15, "Skip Forward", skipForwardIntent)
-    }
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    }    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d("MediaPlaybackService", "onStartCommand received action: ${intent?.action}")
+          // Check persistent flag to see if app was previously dismissed
+        try {
+            if (MainApplication.wasTaskRemoved(this)) {
+                Log.d("MediaPlaybackService", "App was previously dismissed, stopping service")
+                stopSelf()
+                return START_NOT_STICKY
+            }
+        } catch (e: Exception) {
+            Log.e("MediaPlaybackService", "Error checking task removal flag", e)
+        }
+        
+        // If task was removed, don't process any commands and stop the service
+        if (isTaskRemoved) {
+            Log.d("MediaPlaybackService", "Service marked for removal, stopping immediately")
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        
+        // Reset the task removed flag if service is being started normally
+        if (intent?.action == null) {
+            isTaskRemoved = false
+        }
         
         when (intent?.action) {
             ACTION_SKIP_FORWARD_SERVICE -> {
@@ -475,11 +495,16 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 }
             } catch (e: Exception) {
                 Log.e("MediaPlaybackService", "Failed to start as foreground service", e)
-            }
-        }
+            }        }
         
-        // Return START_STICKY to ensure the service is restarted if it's killed
-        return START_STICKY
+        // Return START_NOT_STICKY if app was dismissed from recent apps to prevent restart
+        // Otherwise return START_STICKY to ensure the service is restarted if it's killed
+        return if (isTaskRemoved) {
+            Log.d("MediaPlaybackService", "Returning START_NOT_STICKY due to task removal")
+            START_NOT_STICKY
+        } else {
+            START_STICKY
+        }
     }
 
     override fun onDestroy() {
@@ -506,5 +531,74 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         }
         
         super.onDestroy()
+    }    override fun onTaskRemoved(rootIntent: Intent?) {
+        Log.d("MediaPlaybackService", "onTaskRemoved: App removed from recent apps, cleaning up")
+        
+        // Set flag to prevent service restart
+        isTaskRemoved = true
+          // Store persistent flag to prevent restart when app is relaunched
+        try {
+            MainApplication.markTaskRemoved(this)
+        } catch (e: Exception) {
+            Log.e("MediaPlaybackService", "Error storing task removal flag", e)
+        }
+        
+        try {
+            // Release the MediaSessionManager singleton to ensure complete cleanup
+            try {
+                MediaSessionManager.getInstance(this).release()
+                Log.d("MediaPlaybackService", "MediaSessionManager released from onTaskRemoved")
+            } catch (e: Exception) {
+                Log.e("MediaPlaybackService", "Error releasing MediaSessionManager", e)
+            }
+            
+            // Clear the media session and stop playback
+            mediaSession?.let { session ->
+                session.isActive = false
+                // Set playback state to stopped
+                val stoppedState = PlaybackStateCompat.Builder()
+                    .setState(PlaybackStateCompat.STATE_STOPPED, 0, 0f)
+                    .build()
+                session.setPlaybackState(stoppedState)
+            }
+              // Stop foreground service and remove notification immediately
+            if (isForegroundService) {
+                stopForeground(true) // true = remove notification
+                isForegroundService = false
+            }
+            
+            // Also explicitly cancel the notification to ensure it's removed
+            try {
+                val notificationManager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
+                notificationManager.cancel(NOTIFICATION_ID)
+                notificationManager.cancelAll() // Cancel any other notifications from this service
+                Log.d("MediaPlaybackService", "Explicitly cancelled all notifications")
+            } catch (e: Exception) {
+                Log.e("MediaPlaybackService", "Error cancelling notifications", e)
+            }// Clear callbacks to prevent any further interaction
+            mediaPlayerCallback = null
+              // Stop the service completely - don't restart
+            stopSelf()
+            
+            Log.d("MediaPlaybackService", "onTaskRemoved: Service stopped and notification removed")
+            
+            // Force process termination to ensure complete cleanup
+            try {
+                Log.d("MediaPlaybackService", "Force terminating process from service onTaskRemoved")
+                android.os.Process.killProcess(android.os.Process.myPid())
+            } catch (e: Exception) {
+                Log.e("MediaPlaybackService", "Error terminating process from service", e)
+            }
+        } catch (e: Exception) {
+            Log.e("MediaPlaybackService", "Error during onTaskRemoved", e)
+            // Even if there's an error, try to stop the service
+            try {
+                stopSelf()
+            } catch (ex: Exception) {
+                Log.e("MediaPlaybackService", "Failed to stop service in error handler", ex)
+            }
+        }
+        
+        super.onTaskRemoved(rootIntent)
     }
 }

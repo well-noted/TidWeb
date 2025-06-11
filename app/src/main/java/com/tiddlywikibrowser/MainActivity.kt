@@ -298,13 +298,39 @@ class MainActivity : ComponentActivity() {
                 requestPermissions(arrayOf(permission), 100)
             }
         }
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        // Initialize ViewModel with ViewModelFactory
+    }    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)        // Check if app was previously dismissed and force fresh start
+        var wasPreviouslyDismissed = false
+        try {
+            if (MainApplication.wasTaskRemoved(this)) {
+                Log.d(TAG, "App was previously dismissed - forcing fresh start")
+                wasPreviouslyDismissed = true
+                MainApplication.clearTaskRemovedFlag(this)
+                
+                // Clear all WebView cache and state
+                try {
+                    WebViewCache.clearAll()
+                    android.webkit.WebView(this).clearCache(true)
+                    android.webkit.WebView(this).clearHistory()
+                    Log.d(TAG, "Cleared all WebView cache, history, and state")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error clearing WebView state", e)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking task removal flag", e)
+        }        // Initialize ViewModel with ViewModelFactory
         viewModel = ViewModelProvider(this, ViewModelFactory(applicationContext)).get(WikiViewModel::class.java)
+
+        // If app was previously dismissed, clear all state
+        if (wasPreviouslyDismissed) {
+            try {
+                viewModel?.clearWebViews()
+                Log.d(TAG, "Cleared ViewModel WebViews after dismissal")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error clearing ViewModel state", e)
+            }
+        }
 
         // Initialize managers
         initializeManagers()
@@ -827,14 +853,23 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         lifecycleHandler.onStop(isChangingConfigurations)
-    }
-
-    override fun onDestroy() {
+    }    override fun onDestroy() {
+        Log.d(TAG, "MainActivity onDestroy: Starting cleanup")
+        
         // Release media session manager first
         try {
             mediaSessionManager.release()
+            Log.d(TAG, "MediaSessionManager released from MainActivity onDestroy")
         } catch (e: Exception) {
             Log.e(TAG, "Error releasing MediaSessionManager", e)
+        }
+        
+        // Stop the media service to ensure notification is cleaned up
+        try {
+            stopService(serviceIntent)
+            Log.d(TAG, "Media service stopped from MainActivity onDestroy")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping media service", e)
         }
         
         // Release other managers
@@ -845,12 +880,14 @@ class MainActivity : ComponentActivity() {
         serviceConnection?.let { connection ->
             try {
                 unbindService(connection)
+                Log.d(TAG, "Service unbound from MainActivity onDestroy")
             } catch (e: Exception) {
                 Log.e(TAG, "Error unbinding service", e)
             }
             serviceConnection = null
         }
 
+        Log.d(TAG, "MainActivity onDestroy: Cleanup complete")
         super.onDestroy()
     }
 

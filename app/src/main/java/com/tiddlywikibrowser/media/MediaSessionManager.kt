@@ -614,6 +614,34 @@ class MediaSessionManager private constructor(private val context: Context) {
             }
             mediaStateUpdateRunnable = null
             
+            // Pause all media in WebView before cleanup
+            try {
+                webView?.let { wv ->
+                    Log.d(TAG, "Pausing all media in WebView before release")
+                    wv.evaluateJavascript("""
+                        try {
+                            // Pause all audio and video elements
+                            const mediaElements = document.querySelectorAll('audio, video');
+                            mediaElements.forEach(element => {
+                                if (!element.paused) {
+                                    element.pause();
+                                    console.log('Paused media element:', element.src || element.currentSrc);
+                                }
+                            });
+                            
+                            // Clear any media session if it exists
+                            if (navigator.mediaSession) {
+                                navigator.mediaSession.playbackState = 'none';
+                            }
+                        } catch (e) {
+                            console.error('Error pausing media:', e);
+                        }
+                    """.trimIndent(), null)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error pausing WebView media during release", e)
+            }
+            
             // Stop any ongoing playback
             updatePlaybackState(false, 0)
             
