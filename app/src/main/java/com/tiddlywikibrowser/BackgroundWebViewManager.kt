@@ -96,8 +96,7 @@ class BackgroundWebViewManager(private val context: Context) {
         _isBackgroundEnabled.value = false
         Log.d(TAG, "Stopping BackgroundWebViewService")
     }
-    
-    /**
+      /**
      * Register a WebView to be kept running in the background
      */
     fun registerWebView(key: String, webView: WebView) {
@@ -106,10 +105,12 @@ class BackgroundWebViewManager(private val context: Context) {
             return
         }
         
+        // Protect this WebView from cache trimming while in background mode
+        com.tiddlywikibrowser.cache.WebViewCache.protectBackgroundWebView(key)
+        
         service?.registerWebView(key, webView)
     }
-    
-    /**
+      /**
      * Unregister a WebView from background processing
      */
     fun unregisterWebView(key: String) {
@@ -117,6 +118,9 @@ class BackgroundWebViewManager(private val context: Context) {
             Log.d(TAG, "Service not bound, cannot unregister WebView")
             return
         }
+        
+        // Unprotect this WebView from cache trimming as it's no longer in background
+        com.tiddlywikibrowser.cache.WebViewCache.unprotectBackgroundWebView(key)
         
         service?.unregisterWebView(key)
     }

@@ -47,13 +47,14 @@ class LifecycleHandler(
                     WebViewCache.cacheWebView(key, vm.getOrCreateWebView(wiki, activity))
                 }
                 vm.pauseAllWebViews()
-            }        } else {
-            Log.d("MEDIA_TRANSITION", "Background mode enabled - maintaining background state")
+            }        } else {            Log.d("MEDIA_TRANSITION", "Background mode enabled - maintaining background state")
             Log.d(TAG, "onPause - Background mode enabled, skipping standard pause actions.")
             viewModelProvider()?.currentWiki?.value?.let { wiki ->
                 Log.d("MEDIA_TRANSITION", "Current wiki: ${wiki.name}")
+                android.util.Log.d("WEBVIEW_LIFECYCLE", "Getting WebView for wiki: ${wiki.name} (${wiki.idFromUrl ?: wiki.url})")
                 viewModelProvider()?.getOrCreateWebView(wiki, activity)?.let { webView ->
                     Log.d("MEDIA_TRANSITION", "Current WebView: ${webView.hashCode()}")
+                    android.util.Log.d("WEBVIEW_LIFECYCLE", "Got WebView: ${webView.hashCode()} for ${wiki.name}")
                     val key = wiki.idFromUrl ?: wiki.url
                     if (!backgroundWebViewManager.hasWebView(key)) {
                         Log.w("MEDIA_TRANSITION", "WebView not registered in background manager, re-registering")
@@ -120,9 +121,8 @@ class LifecycleHandler(
         Log.d("MEDIA_TRANSITION", "MediaSession active: ${mediaSessionManager.getMediaSession()?.isActive}")
         Log.d("MEDIA_TRANSITION", "Service bound: ${mediaSessionManager.isServiceBound()}")
         Log.d("MEDIA_TRANSITION", "=== BACKGROUND TRANSITION COMPLETE ===")    }
-    
-    fun onResume() {
-        android.util.Log.d("MEDIA_TRANSITION", "=== APP FOREGROUNDED ===")
+      fun onResume() {
+        android.util.Log.d("MEDIA_TRANSITION", "=== APP FOREGROUNDED === (${System.currentTimeMillis()})")
         android.util.Log.d("MEDIA_TRANSITION", "Background mode enabled: ${backgroundModeManager.isBackgroundEnabled.value}")
         android.util.Log.d("MEDIA_TRANSITION", "MediaSessionManager service bound: ${mediaSessionManager.isServiceBound()}")
         android.util.Log.d("MEDIA_TRANSITION", "MediaSession active: ${mediaSessionManager.getMediaSession()?.isActive}")
@@ -153,15 +153,18 @@ class LifecycleHandler(
             if (currentWiki != null) {
                 val key = currentWiki.idFromUrl ?: currentWiki.url
                 var webView = backgroundWebViewManager.getWebView(key)
-                
-                if (webView == null) {
+                  if (webView == null) {
+                    android.util.Log.w("WEBVIEW_LIFECYCLE", "WebView not found in BackgroundWebViewManager on resume - creating new one")
                     Log.w(TAG, "WebView not found in BackgroundWebViewManager on resume")
                     webView = viewModelProvider()?.getOrCreateWebView(currentWiki, activity)
                     
                     if (webView != null && !backgroundWebViewManager.hasWebView(key)) {
+                        android.util.Log.d("WEBVIEW_LIFECYCLE", "Re-registering NEW WebView for background mode: ${webView.hashCode()}")
                         Log.d(TAG, "Re-registering WebView for background mode on resume")
                         backgroundModeManager.registerWebViewForBackground(currentWiki, webView, activity)
                     }
+                } else {
+                    android.util.Log.d("WEBVIEW_LIFECYCLE", "Using existing WebView from BackgroundWebViewManager: ${webView.hashCode()}")
                 }
                 
                 webView?.let { wv ->

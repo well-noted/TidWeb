@@ -346,15 +346,23 @@ class WikiViewModel(private val context: Context) : ViewModel() {
                 throw e
             }
         }
-    }
-
-    // WebView creation with optimized settings
+    }    // WebView creation with optimized settings
     fun getOrCreateWebView(wiki: WikiInstance, context: Context): WebView {
+        android.util.Log.d("WEBVIEW_LIFECYCLE", "=== getOrCreateWebView CALLED ===")
         val key = wiki.idFromUrl ?: wiki.url
         android.util.Log.d("WikiViewModel", "getOrCreateWebView: PARAMETER context type: ${context.javaClass.name}")
         android.util.Log.d("WikiViewModel", "getOrCreateWebView: VIEWMODEL this.context type: ${this.context.javaClass.name}")
         
-        return WebViewCache.getCachedWebView(key) ?: createNewWebView(wiki, context)
+        val cachedWebView = WebViewCache.getCachedWebView(key)
+        return if (cachedWebView != null) {
+            android.util.Log.d("WEBVIEW_LIFECYCLE", "Returning CACHED WebView for $key: ${cachedWebView.hashCode()}")
+            cachedWebView
+        } else {
+            android.util.Log.d("WEBVIEW_LIFECYCLE", "Creating NEW WebView for $key")
+            val newWebView = createNewWebView(wiki, context)
+            android.util.Log.d("WEBVIEW_LIFECYCLE", "Created NEW WebView for $key: ${newWebView.hashCode()}")
+            newWebView
+        }
     }
 
     private fun createNewWebView(wiki: WikiInstance, context: Context): WebView {

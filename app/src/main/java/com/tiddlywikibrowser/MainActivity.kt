@@ -816,9 +816,15 @@ class MainActivity : ComponentActivity() {
             Log.e(TAG, "Error notifying MediaSessionManager of app background", e)
         }
         
-        // Update media session state when activity is paused
-        updateMediaSession()
-    }    override fun onStop() {
+        // Update media session state when activity is paused        updateMediaSession()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        lifecycleHandler.onResume()
+    }
+
+    override fun onStop() {
         super.onStop()
         lifecycleHandler.onStop(isChangingConfigurations)
     }
@@ -913,10 +919,12 @@ class MainActivity : ComponentActivity() {
     /**
      * Get the current WebView instance from the ViewModel
      * @return The current WebView or null if not available
-     */
-    internal fun getCurrentWebView(): WebView? {
+     */    internal fun getCurrentWebView(): WebView? {
+        android.util.Log.d("WEBVIEW_LIFECYCLE", "MainActivity.getCurrentWebView() called")
         return viewModel?.currentWiki?.value?.let { wiki ->
+            android.util.Log.d("WEBVIEW_LIFECYCLE", "Getting WebView for wiki: ${wiki.name}")
             viewModel?.getOrCreateWebView(wiki, this)?.also { webView ->
+                android.util.Log.d("WEBVIEW_LIFECYCLE", "MainActivity.getCurrentWebView() returning WebView: ${webView.hashCode()}")
                 // Ensure media monitoring is set up for the WebView
                 if (webView.webViewClient == null) {
                     setupMediaMonitoring(webView)

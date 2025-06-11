@@ -22,9 +22,11 @@ object WebViewCache {
     private val webViewStates = ConcurrentHashMap<String, Bundle>()
     private val webViewLoadedState = ConcurrentHashMap<String, Boolean>()
     private val lastAccessTime = LinkedHashMap<String, Long>()  // Track LRU
+    
     private var tempWebView: WebView? = null
     private var isConfigurationChanging = false
     private var currentActiveKey: String? = null
+    private val backgroundProtectedKeys = mutableSetOf<String>()
     private const val MAX_CACHE_SIZE = 5  // Limit total cached WebViews
     private const val TAG = "WebViewCache"
     
@@ -46,9 +48,22 @@ object WebViewCache {
             currentActiveKey = key
         }
     }
-    
-    fun getCurrentActiveKey(): String? {
+      fun getCurrentActiveKey(): String? {
         return cacheLock.read { currentActiveKey }
+    }
+
+    fun protectBackgroundWebView(key: String) {
+        cacheLock.write {
+            backgroundProtectedKeys.add(key)
+            android.util.Log.d("WEBVIEW_LIFECYCLE", "PROTECTING background WebView from trimming: $key")
+        }
+    }
+    
+    fun unprotectBackgroundWebView(key: String) {
+        cacheLock.write {
+            backgroundProtectedKeys.remove(key)
+            android.util.Log.d("WEBVIEW_LIFECYCLE", "UNPROTECTING background WebView: $key")
+        }
     }
 
     fun clearCache(context: Context) {
@@ -182,12 +197,14 @@ object WebViewCache {
                     
                     // Update access time
                     updateAccessTime(key)
-                    
-                    // Store in cache if not already there
+                      // Store in cache if not already there
                     if (!webViewCache.containsKey(key)) {
                         // Ensure WebView is detached from any parent
                         (webView.parent as? ViewGroup)?.removeView(webView)
                         webViewCache[key] = webView
+                        android.util.Log.d("WEBVIEW_LIFECYCLE", "CACHED WebView for $key: ${webView.hashCode()}")
+                    } else {
+                        android.util.Log.d("WEBVIEW_LIFECYCLE", "WebView already cached for $key: ${webView.hashCode()}")
                     }
                     
                     // Trim cache if needed
@@ -216,35 +233,47 @@ object WebViewCache {
     }
 
     private fun updateAccessTime(key: String) {
-        lastAccessTime[key] = System.currentTimeMillis()
-    }
-
-    private fun trimCache() {
+        lastAccessTime[key] = System.currentTimeMillis()    }    private fun trimCache() {
         if (webViewCache.size > MAX_CACHE_SIZE) {
-            // Find oldest WebView that isn't the current active one
+            android.util.Log.d("WEBVIEW_LIFECYCLE", "TRIMMING cache - size: ${webViewCache.size}, max: $MAX_CACHE_SIZE")
+            android.util.Log.d("WEBVIEW_LIFECYCLE", "Current active: $currentActiveKey, Protected background: $backgroundProtectedKeys")
+            
+            // Be more conservative about trimming - don't trim if we only have 2 or fewer WebViews
+            // to avoid removing background WebViews that might be playing media
+            if (webViewCache.size <= 2) {
+                android.util.Log.d("WEBVIEW_LIFECYCLE", "Skipping trim - too few WebViews to safely trim (${webViewCache.size} <= 2)")
+                return
+            }
+            
+            // Find oldest WebView that isn't the current active one or protected
             val oldestKey = lastAccessTime.entries
                 .sortedBy { it.value }
-                .firstOrNull { it.key != currentActiveKey }
+                .firstOrNull { it.key != currentActiveKey && it.key !in backgroundProtectedKeys }
                 ?.key
 
             oldestKey?.let { key ->
+                android.util.Log.d("WEBVIEW_LIFECYCLE", "TRIMMING oldest WebView: $key (current active: $currentActiveKey, protected: $backgroundProtectedKeys)")
                 ThreadManager.runOnMain { 
                     removeCachedWebView(key)
                 }
                 Log.d(TAG, "Trimmed cached WebView: $key")
+            } ?: run {
+                android.util.Log.d("WEBVIEW_LIFECYCLE", "No WebViews available for trimming - current active: $currentActiveKey, protected: $backgroundProtectedKeys")
             }
         }
     }
 
     /**
      * Get a cached WebView if available
-     */
-    fun getCachedWebView(key: String): WebView? {
+     */    fun getCachedWebView(key: String): WebView? {
         return cacheLock.read {
             val webView = webViewCache[key]
             if (webView != null) {
                 updateAccessTime(key)
+                android.util.Log.d("WEBVIEW_LIFECYCLE", "Cache HIT for $key: WebView ${webView.hashCode()}")
                 Log.d(TAG, "Retrieved cached WebView for key: $key")
+            } else {
+                android.util.Log.d("WEBVIEW_LIFECYCLE", "Cache MISS for $key")
             }
             webView
         }
@@ -595,10 +624,17 @@ object WebViewCache {
     /**
      * Remove a cached WebView if it's no longer needed
      * IMPORTANT: When background mode is enabled, WebViews registered with the BackgroundWebViewService
-     * should not be destroyed
-     */
-    fun removeCachedWebView(key: String) {
+     * should not be destroyed     */    fun removeCachedWebView(key: String) {
+        android.util.Log.d("WEBVIEW_LIFECYCLE", "REMOVING cached WebView for $key")
         if (isConfigurationChanging) return
+        
+        // Check if this WebView is protected as a background WebView
+        cacheLock.read {
+            if (key in backgroundProtectedKeys) {
+                android.util.Log.w("WEBVIEW_LIFECYCLE", "SKIPPING removal of protected background WebView: $key")
+                return
+            }
+        }
         
         if (isActiveOperation()) {
             Log.d(TAG, "Postponing WebView removal - another operation in progress")
