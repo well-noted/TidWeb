@@ -818,24 +818,7 @@ class MainActivity : ComponentActivity() {
         
         // Update media session state when activity is paused
         updateMediaSession()
-    }    override fun onResume() {
-        super.onResume()
-        lifecycleHandler.onResume()
-        
-        // Notify MediaSessionManager that app is foregrounded
-        try {
-            mediaSessionManager.onAppForegrounded()
-            // Also notify RobustMediaController
-            RobustMediaController.getInstance(this).onAppForegrounded()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error notifying MediaSessionManager of app foreground", e)
-        }
-        
-        // Update media session state when activity is resumed
-        updateMediaSession()
-    }
-
-    override fun onStop() {
+    }    override fun onStop() {
         super.onStop()
         lifecycleHandler.onStop(isChangingConfigurations)
     }

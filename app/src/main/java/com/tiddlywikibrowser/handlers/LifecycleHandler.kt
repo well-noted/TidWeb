@@ -13,6 +13,7 @@ import com.tiddlywikibrowser.*
 import com.tiddlywikibrowser.cache.WebViewCache
 import com.tiddlywikibrowser.managers.BackgroundModeManager
 import com.tiddlywikibrowser.media.MediaSessionManager
+import org.json.JSONObject
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -29,10 +30,16 @@ class LifecycleHandler(
     private var webViewPaused = false
     
     val isBackgroundEnabled: StateFlow<Boolean> get() = backgroundModeManager.isBackgroundEnabled
-    
-    fun onPause() {
+      fun onPause() {
         webViewPaused = true
+        
+        Log.d("MEDIA_TRANSITION", "=== APP BACKGROUNDED ===")
+        Log.d("MEDIA_TRANSITION", "Background mode enabled: ${backgroundModeManager.isBackgroundEnabled.value}")
+        Log.d("MEDIA_TRANSITION", "MediaSessionManager service bound: ${mediaSessionManager.isServiceBound()}")
+        Log.d("MEDIA_TRANSITION", "MediaSession active: ${mediaSessionManager.getMediaSession()?.isActive}")
+        Log.d("MEDIA_TRANSITION", "Current media state: ${mediaSessionManager.getCurrentMediaState()}")
           if (!backgroundModeManager.isBackgroundEnabled.value) {
+            Log.d("MEDIA_TRANSITION", "Background mode disabled - performing standard pause")
             Log.d(TAG, "onPause - Background mode disabled, performing standard pause.")
             viewModelProvider()?.let { vm ->
                 vm.currentWiki.value?.let { wiki ->
@@ -40,15 +47,20 @@ class LifecycleHandler(
                     WebViewCache.cacheWebView(key, vm.getOrCreateWebView(wiki, activity))
                 }
                 vm.pauseAllWebViews()
-            }
-        } else {
+            }        } else {
+            Log.d("MEDIA_TRANSITION", "Background mode enabled - maintaining background state")
             Log.d(TAG, "onPause - Background mode enabled, skipping standard pause actions.")
             viewModelProvider()?.currentWiki?.value?.let { wiki ->
+                Log.d("MEDIA_TRANSITION", "Current wiki: ${wiki.name}")
                 viewModelProvider()?.getOrCreateWebView(wiki, activity)?.let { webView ->
+                    Log.d("MEDIA_TRANSITION", "Current WebView: ${webView.hashCode()}")
                     val key = wiki.idFromUrl ?: wiki.url
                     if (!backgroundWebViewManager.hasWebView(key)) {
+                        Log.w("MEDIA_TRANSITION", "WebView not registered in background manager, re-registering")
                         Log.w(TAG, "Re-registering WebView for background mode on pause")
                         backgroundModeManager.registerWebViewForBackground(wiki, webView, activity)
+                    } else {
+                        Log.d("MEDIA_TRANSITION", "WebView already registered in background manager")
                     }
                     
                     // Start media service
@@ -99,30 +111,31 @@ class LifecycleHandler(
                                 }
                             });
                             return true;
-                        })();
-                    """.trimIndent(), null)
+                        })();                    """.trimIndent(), null)
                 }
             }
         }
-    }
-      fun onResume() {
+        
+        Log.d("MEDIA_TRANSITION", "Final state after pause:")
+        Log.d("MEDIA_TRANSITION", "MediaSession active: ${mediaSessionManager.getMediaSession()?.isActive}")
+        Log.d("MEDIA_TRANSITION", "Service bound: ${mediaSessionManager.isServiceBound()}")
+        Log.d("MEDIA_TRANSITION", "=== BACKGROUND TRANSITION COMPLETE ===")    }
+    
+    fun onResume() {
+        android.util.Log.d("MEDIA_TRANSITION", "=== APP FOREGROUNDED ===")
+        android.util.Log.d("MEDIA_TRANSITION", "Background mode enabled: ${backgroundModeManager.isBackgroundEnabled.value}")
+        android.util.Log.d("MEDIA_TRANSITION", "MediaSessionManager service bound: ${mediaSessionManager.isServiceBound()}")
+        android.util.Log.d("MEDIA_TRANSITION", "MediaSession active: ${mediaSessionManager.getMediaSession()?.isActive}")
+        android.util.Log.d("MEDIA_TRANSITION", "Current media state: ${mediaSessionManager.getCurrentMediaState()}")
+        
         webViewPaused = false
         
-        Log.d(TAG, "onResume - Background mode is ${if (backgroundModeManager.isBackgroundEnabled.value) "ENABLED" else "DISABLED"}")
+        Log.d("MEDIA_TRANSITION", "=== APP FOREGROUNDED ===")
+        Log.d("MEDIA_TRANSITION", "Background mode enabled: ${backgroundModeManager.isBackgroundEnabled.value}")
+        Log.d("MEDIA_TRANSITION", "MediaSessionManager service bound: ${mediaSessionManager.isServiceBound()}")
+        Log.d("MEDIA_TRANSITION", "Current media state: ${mediaSessionManager.getCurrentMediaState()}")
         
-        // Set WebViewProvider for MediaSessionManager
-        mediaSessionManager.setWebViewProvider(object : WebViewProvider {
-            override fun executeJavascript(script: String, callback: ((String) -> Unit)?) {
-                activity.getCurrentWebView()?.evaluateJavascript(script, callback)
-            }
-            
-            override fun getCurrentMediaState(callback: (title: String?, artist: String?, duration: Long?, position: Long?, isPlaying: Boolean?) -> Unit) {
-                activity.getCurrentWebView()?.evaluateJavascript(MainActivity.mediaMonitorScript) { result ->
-                    // Implementation here
-                    callback(null, null, null, null, null)
-                }
-            }
-        })
+        Log.d(TAG, "onResume - Background mode is ${if (backgroundModeManager.isBackgroundEnabled.value) "ENABLED" else "DISABLED"}")
         
         if (webViewPaused) {
             activity.getCurrentWebView()?.onResume()
@@ -181,19 +194,34 @@ class LifecycleHandler(
                     Log.e(TAG, "Failed to get WebView instance on resume in background mode")
                 }
             }
-        }
-        
-        // Update media session
+        }        // Update media session - but only ensure connection, don't disrupt working state
         try {
+            Log.d("MEDIA_TRANSITION", "Checking media session state before potential changes...")
+            Log.d("MEDIA_TRANSITION", "MediaSession active: ${mediaSessionManager.getMediaSession()?.isActive}")
+            Log.d("MEDIA_TRANSITION", "Service bound: ${mediaSessionManager.isServiceBound()}")
+            
             activity.getCurrentWebView()?.let { webView ->
+                Log.d("MEDIA_TRANSITION", "Current WebView: ${webView.hashCode()}")
                 if (!isWebViewDestroyed(webView)) {
-                    mediaSessionManager.setWebView(webView)
+                    // Only bind to service if not already bound - don't disrupt working state
                     if (!mediaSessionManager.isServiceBound()) {
+                        Log.d("MEDIA_TRANSITION", "Service not bound, attempting to rebind...")
                         mediaSessionManager.bindToService()
+                        Log.d(TAG, "Re-bound to media service on resume")
+                    } else {
+                        Log.d("MEDIA_TRANSITION", "Service already bound, leaving state intact")
+                        Log.d(TAG, "Media service already bound, leaving state intact")
                     }
                 }
             }
+            
+            Log.d("MEDIA_TRANSITION", "Final media session state after resume:")
+            Log.d("MEDIA_TRANSITION", "MediaSession active: ${mediaSessionManager.getMediaSession()?.isActive}")
+            Log.d("MEDIA_TRANSITION", "Service bound: ${mediaSessionManager.isServiceBound()}")
+            Log.d("MEDIA_TRANSITION", "Current media state: ${mediaSessionManager.getCurrentMediaState()}")
+            Log.d("MEDIA_TRANSITION", "=== FOREGROUND TRANSITION COMPLETE ===")
         } catch (e: Exception) {
+            Log.e("MEDIA_TRANSITION", "Error during media session update: ${e.message}", e)
             Log.e(TAG, "Error updating media session: ${e.message}")
         }
     }

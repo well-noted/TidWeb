@@ -616,14 +616,8 @@
                                             window.MediaInterface.forcePlay(media);
                                         }
                                     }, 1000);
-                                }
-                            } else {
+                                }                            } else {
                                 console.log('Page visible, foreground mode active');
-                                
-                                // Notify Android that we're in foreground
-                                if (window.Android?.onAppForegrounded) {
-                                    window.Android.onAppForegrounded();
-                                }
                                 
                                 // Sync state when returning to foreground
                                 if (media) {

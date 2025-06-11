@@ -306,19 +306,7 @@ class RobustMediaController(private val context: Context) {
         // Immediately sync state with background service
         backgroundWebViewManager?.forceResumeVideos()
     }
-    
-    /**
-     * Called when app returns to foreground
-     */
-    fun onAppForegrounded() {
-        isAppInBackground = false
-        Log.d(TAG, "App foregrounded - switching to foreground mode")
-        
-        // Refresh state from current WebView
-        handler.postDelayed({
-            verifyMediaState("FOREGROUND_REFRESH")
-        }, 500) // Give WebView time to settle
-    }
+  
       enum class MediaAction {
         PLAY, PAUSE, TOGGLE
     }

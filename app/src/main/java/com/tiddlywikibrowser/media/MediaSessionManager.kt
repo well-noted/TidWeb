@@ -285,27 +285,7 @@ class MediaSessionManager private constructor(private val context: Context) {
             ensurePeriodicUpdatesRunning()
         }
     }
-    
-    /**
-     * Called when the app comes to foreground
-     */
-    fun onAppForegrounded() {
-        isAppInBackground = false
-        Log.d(TAG, "App foregrounded - refreshing media state")
-        
-        // Immediately refresh media state from WebView
-        if (webViewProvider != null) {
-            updateMediaStateFromWebView()
-        }
-        
-        // Re-establish service connection if needed
-        if (!isServiceBound && lastKnownMediaState.hasActiveMedia) {
-            bindToService()
-        }
-        
-        // Restart periodic updates
-        ensurePeriodicUpdatesRunning()
-    }
+  
     
     private fun ensurePeriodicUpdatesRunning() {
         // Remove any existing callbacks
