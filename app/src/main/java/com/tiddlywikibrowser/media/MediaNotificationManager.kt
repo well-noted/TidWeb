@@ -21,10 +21,9 @@ import com.tiddlywikibrowser.R
  * Handles media playback notifications without the complexity of a foreground service
  */
 class MediaNotificationManager(private val context: Context) {
-    
-    companion object {
+      companion object {
         private const val TAG = "MediaNotificationManager"
-        private const val NOTIFICATION_ID = 1001
+        private const val NOTIFICATION_ID = 1002  // Changed from 1001 to avoid conflict with BackgroundWebViewService
         private const val CHANNEL_ID = "media_playback"
     }
     

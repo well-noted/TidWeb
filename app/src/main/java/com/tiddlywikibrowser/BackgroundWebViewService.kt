@@ -468,20 +468,8 @@ class BackgroundWebViewService : Service() {
                     // Notify Android when video starts playing
                     video.addEventListener('play', function() {
                         video.__shouldBePlaying = true;
-                        
-                        if (window.MediaInterface) {
-                            try {
-                                window.MediaInterface.onMediaStateChange(
-                                    video.getAttribute('title') || 'TiddlyWiki Video',
-                                    'TiddlyWiki',
-                                    Math.floor(video.duration * 1000 || 0),
-                                    Math.floor(video.currentTime * 1000 || 0),
-                                    true
-                                );
-                            } catch(e) {
-                                console.error('[BackgroundVideo] MediaInterface error:', e);
-                            }
-                        }
+                          // Skip MediaInterface notification - service handles its own notification
+                        console.log('[BackgroundVideo] Video started, service notification will be updated');
                     });
                     
                     // Notify when video is done
@@ -493,20 +481,8 @@ class BackgroundWebViewService : Service() {
                         document.querySelectorAll('video').forEach(function(v) {
                             if (v !== video && !v.paused && !v.ended) otherPlaying = true;
                         });
-                        
-                        if (!otherPlaying && window.MediaInterface) {
-                            try {
-                                window.MediaInterface.onMediaStateChange(
-                                    'TiddlyWiki Video',
-                                    'TiddlyWiki',
-                                    0,
-                                    0,
-                                    false
-                                );
-                            } catch(e) {
-                                console.error('[BackgroundVideo] MediaInterface error:', e);
-                            }
-                        }
+                          // Skip MediaInterface notification - service handles its own notification
+                        console.log('[BackgroundVideo] Video ended, service notification will be updated');
                     });
                 }
                 
@@ -701,26 +677,8 @@ class BackgroundWebViewService : Service() {
                             hasPlayingVideo = true;
                         }
                     });
-                    
-                    // Update Android about playback state
-                    if (hasPlayingVideo && window.MediaInterface) {
-                        const playingVideo = Array.from(document.querySelectorAll('video'))
-                            .find(v => !v.paused && !v.ended);
-                            
-                        if (playingVideo) {
-                            try {
-                                window.MediaInterface.onMediaStateChange(
-                                    playingVideo.getAttribute('title') || 'TiddlyWiki Video',
-                                    'TiddlyWiki',
-                                    Math.floor(playingVideo.duration * 1000 || 0),
-                                    Math.floor(playingVideo.currentTime * 1000 || 0),
-                                    true
-                                );
-                            } catch(e) {
-                                console.error('[BackgroundVideo] MediaInterface error:', e);
-                            }
-                        }
-                    }
+                      // Skip MediaInterface calls - service handles its own notifications
+                    console.log('[BackgroundVideo] Periodic check - service will handle notifications');
                 }, 2000);
                 
                 // Add a helper function to force resume all videos that should be playing
