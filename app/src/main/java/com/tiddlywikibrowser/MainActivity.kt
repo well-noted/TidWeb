@@ -836,8 +836,6 @@ class MainActivity : ComponentActivity() {
         // Notify MediaSessionManager that app is backgrounded
         try {
             mediaSessionManager.onAppBackgrounded()
-            // Also notify RobustMediaController
-            RobustMediaController.getInstance(this).onAppBackgrounded()
         } catch (e: Exception) {
             Log.e(TAG, "Error notifying MediaSessionManager of app background", e)
         }

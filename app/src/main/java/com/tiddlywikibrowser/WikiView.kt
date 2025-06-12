@@ -341,18 +341,10 @@ fun WikiViewComposable(wiki: WikiInstance, viewModel: WikiViewModel) {
                                     hasContent = success
                                     lastLoadTime = System.currentTimeMillis()
                                     if (success) {
-                                        WikiViewEnhancer.injectScrollDetectionScript(webView)
-                                        WikiViewEnhancer.injectSmallScreenOptimizations(webView, ctx)
-                                        
-                                        // Use optimized media functionality instead of complex version
-                                        WikiViewEnhancer.injectOptimizedMediaFunctionalityScript(webView)
-                                        
-                                        // Initialize thermal management for better performance
-                                        val thermalManager = ThermalMediaManager.getInstance(ctx)
-                                        thermalManager.setWebView(webView)
+                                        // Basic scroll detection and optimizations are handled by SimpleMediaManager
                                         
                                         if (isBackgroundEnabled) {
-                                             WikiViewEnhancer.injectBackgroundRunningScript(webView)
+                                            // Background functionality is handled by BackgroundWebViewService
                                         }
                                     }
                                 },

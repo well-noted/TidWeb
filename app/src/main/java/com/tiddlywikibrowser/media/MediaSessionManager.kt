@@ -19,7 +19,7 @@ import com.tiddlywikibrowser.BackgroundWebViewManager
 import com.tiddlywikibrowser.BackgroundWebViewService
 import com.tiddlywikibrowser.MediaPlaybackService
 import com.tiddlywikibrowser.R
-import com.tiddlywikibrowser.RobustMediaController
+
 import com.tiddlywikibrowser.WebViewProvider
 import org.json.JSONObject
 
@@ -723,10 +723,18 @@ class MediaSessionManager private constructor(private val context: Context) {
      * Handle play command
      */    private fun handlePlay() {
         Log.d(TAG, "Handling play command")
-        
-        // Use RobustMediaController for reliable execution
-        val robustController = RobustMediaController.getInstance(context)
-        robustController.executeMediaControl(RobustMediaController.MediaAction.PLAY)
+          // Execute play command directly through WebView
+        webView?.evaluateJavascript("""
+            // Find and play the audio element
+            const audioElement = document.querySelector('audio');
+            if (audioElement) {
+                audioElement.play().catch(e => console.log('Play failed:', e));
+            } else {
+                console.log('No audio element found');
+            }
+        """.trimIndent()) { result ->
+            Log.d(TAG, "Play command executed, result: $result")
+        }
         
         // Also update our state immediately for responsiveness
         lastKnownMediaState.isPlaying = true
@@ -734,18 +742,23 @@ class MediaSessionManager private constructor(private val context: Context) {
     }    /**
      * Handle pause command
      */    private fun handlePause() {
-        android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 MediaSessionManager: Handling pause command")
-        Log.d(TAG, "🎵PAUSEFIX🎵 MediaSessionManager: Handling pause command")
+        Log.d(TAG, "MediaSessionManager: Handling pause command")
         
-        // Use RobustMediaController for reliable execution
-        val robustController = RobustMediaController.getInstance(context)
-        android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 MediaSessionManager: Calling executeMediaControl(PAUSE)")
-        Log.d(TAG, "🎵PAUSEFIX🎵 MediaSessionManager: Calling executeMediaControl(PAUSE)")
-        robustController.executeMediaControl(RobustMediaController.MediaAction.PAUSE)
+        // Execute pause command directly through WebView
+        webView?.evaluateJavascript("""
+            // Find and pause the audio element
+            const audioElement = document.querySelector('audio');
+            if (audioElement) {
+                audioElement.pause();
+            } else {
+                console.log('No audio element found');
+            }
+        """.trimIndent()) { result ->
+            Log.d(TAG, "Pause command executed, result: $result")
+        }
         
         // Also update our state immediately for responsiveness
-        android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 MediaSessionManager: Updating state to paused")
-        Log.d(TAG, "🎵PAUSEFIX🎵 MediaSessionManager: Updating state to paused")
+        Log.d(TAG, "MediaSessionManager: Updating state to paused")
         lastKnownMediaState.isPlaying = false
         updatePlaybackState(false, lastKnownMediaState.position)
     }
