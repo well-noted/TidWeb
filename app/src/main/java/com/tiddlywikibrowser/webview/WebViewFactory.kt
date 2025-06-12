@@ -153,6 +153,9 @@ object WebViewFactory {
                 if (ScreenUtils.isVerySmallScreen(context)) {
                     injectSmallScreenCSS(view)
                 }
+                
+                // Inject custom select popup handler
+                view?.let { injectCustomSelectPopup(it) }
             }
         }
     }
@@ -272,86 +275,402 @@ object WebViewFactory {
     }
     
     private fun injectCustomSelectPopup(webView: WebView) {
+        // Try multiple timing strategies for injection
+        
+        // Strategy 1: Immediate injection
         webView.post {
+            performSelectPopupInjection(webView, "immediate")
+        }
+        
+        // Strategy 2: Delayed injection (in case DOM is not ready)
+        webView.postDelayed({
+            performSelectPopupInjection(webView, "delayed-500ms")
+        }, 500)
+        
+        // Strategy 3: Very delayed injection (for dynamic content)
+        webView.postDelayed({
+            performSelectPopupInjection(webView, "delayed-2000ms")
+        }, 2000)
+    }
+    
+    private fun performSelectPopupInjection(webView: WebView, strategy: String) {
+        try {
             webView.evaluateJavascript("""
                 (function() {
-                    if (window.__tidwebSelectPopupInjected) return;
-                    window.__tidwebSelectPopupInjected = true;
+                    console.log('TidWeb: Starting select popup injection [$strategy]...');
+                    
+                    // Create unique injection key for this strategy
+                    const injectionKey = '__tidwebSelectPopupInjected_$strategy';
+                    
+                    if (window[injectionKey]) {
+                        console.log('TidWeb: Select popup already injected for strategy $strategy, skipping');
+                        return 'ALREADY_INJECTED';
+                    }
+                    window[injectionKey] = true;
+                    
+                    console.log('TidWeb: Injecting custom select popup handler [$strategy]');
+                    
+                    // Test if we can find any select elements immediately
+                    const existingSelects = document.querySelectorAll('select');
+                    console.log('TidWeb: Found ' + existingSelects.length + ' existing select elements [$strategy]');
+                    
+                    // Add a test function to manually trigger (unique per strategy)
+                    window['testSelectPopup_$strategy'] = function() {
+                        console.log('TidWeb: Testing select popup [$strategy]...');
+                        const select = document.querySelector('select');
+                        if (select) {
+                            console.log('TidWeb: Found select element for test:', select);
+                            createSelectPopup(select);
+                        } else {
+                            console.log('TidWeb: No select elements found for test [$strategy]');
+                            
+                            // Create a test select element
+                            const testSelect = document.createElement('select');
+                            testSelect.id = 'test-select-$strategy';
+                            testSelect.style.cssText = 'position: fixed; top: 10px; left: 10px; z-index: 1000; background: red; color: white;';
+                            const option1 = document.createElement('option');
+                            option1.value = '1';
+                            option1.text = 'Test Option 1';
+                            const option2 = document.createElement('option');
+                            option2.value = '2';
+                            option2.text = 'Test Option 2';
+                            testSelect.appendChild(option1);
+                            testSelect.appendChild(option2);
+                            document.body.appendChild(testSelect);
+                            console.log('TidWeb: Created test select element [$strategy]');
+                        }
+                    };
+                    
+                    function getComputedStyleSafe(element, property) {
+                        try {
+                            const style = window.getComputedStyle(element);
+                            return style.getPropertyValue(property) || '';
+                        } catch (e) {
+                            console.error('Error getting computed style:', e);
+                            return '';
+                        }
+                    }
+                    
                     function createSelectPopup(select) {
+                        console.log('TidWeb: Creating select popup for', select);
+                        
+                        // Prevent multiple popups
                         let oldPopup = document.getElementById('tidweb-select-popup');
-                        if (oldPopup) oldPopup.parentNode.removeChild(oldPopup);
-                        let overlay = document.createElement('div');
+                        if (oldPopup) document.body.removeChild(oldPopup);
+                        
+                        // Create overlay
+                        const overlay = document.createElement('div');
                         overlay.id = 'tidweb-select-popup';
-                        overlay.style.position = 'fixed';
-                        overlay.style.left = '0';
-                        overlay.style.top = '0';
-                        overlay.style.width = '100vw';
-                        overlay.style.height = '100vh';
-                        overlay.style.background = 'rgba(0,0,0,0.4)';
-                        overlay.style.zIndex = '99999';
-                        overlay.style.display = 'flex';
-                        overlay.style.alignItems = 'center';
-                        overlay.style.justifyContent = 'center';
-                        let modal = document.createElement('div');
-                        modal.style.background = '#74992e';
-                        modal.style.borderRadius = '8px';
-                        modal.style.minWidth = '220px';
-                        modal.style.maxWidth = '90vw';
-                        modal.style.maxHeight = '70vh';
-                        modal.style.overflowY = 'auto';
-                        modal.style.boxShadow = '0 2px 16px rgba(0,0,0,0.25)';
-                        modal.style.padding = '12px 0';
-                        Array.from(select.options).forEach(function(opt, idx) {
-                            let btn = document.createElement('button');
+                        Object.assign(overlay.style, {
+                            position: 'fixed',
+                            left: '0',
+                            top: '0',
+                            width: '100vw',
+                            height: '100vh',
+                            background: 'rgba(0,0,0,0.5)',
+                            zIndex: '99999',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backdropFilter: 'blur(2px)'
+                        });
+                        
+                        // Create modal container
+                        const modal = document.createElement('div');
+                        Object.assign(modal.style, {
+                            background: '#2c3e50',
+                            borderRadius: '12px',
+                            minWidth: '280px',
+                            maxWidth: '90vw',
+                            maxHeight: '70vh',
+                            overflowY: 'auto',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                            padding: '8px 0',
+                            fontFamily: 'sans-serif'
+                        });
+                        
+                        // Add title
+                        const title = document.createElement('div');
+                        title.textContent = select.title || 'Select an option';
+                        title.style.padding = '12px 16px';
+                        title.style.fontWeight = 'bold';
+                        title.style.borderBottom = '1px solid rgba(255,255,255,0.1)';
+                        title.style.color = '#ecf0f1';
+                        modal.appendChild(title);
+                        
+                        // Create options container
+                        const optionsContainer = document.createElement('div');
+                        optionsContainer.style.maxHeight = '50vh';
+                        optionsContainer.style.overflowY = 'auto';
+                        
+                        // Add options
+                        Array.from(select.options).forEach((opt, idx) => {
+                            const btn = document.createElement('button');
                             btn.textContent = opt.text;
-                            btn.style.display = 'block';
-                            btn.style.width = '100%';
-                            btn.style.padding = '12px 18px';
-                            btn.style.background = idx === select.selectedIndex ? '#0076bd' : 'transparent';
-                            btn.style.border = 'none';
-                            btn.style.textAlign = 'left';
-                            btn.style.fontSize = '16px';
-                            btn.style.cursor = 'pointer';
-                            btn.style.outline = 'none';
-                            btn.onmouseover = function() { btn.style.background = '#f0f4ff'; };
-                            btn.onmouseout = function() { btn.style.background = idx === select.selectedIndex ? '#e0e7ff' : 'transparent'; };
-                            btn.onclick = function(e) {
-                                select.selectedIndex = idx;
-                                select.value = opt.value;
-                                select.dispatchEvent(new Event('change', {bubbles:true}));
+                            
+                            // Preserve original option styles
+                            const originalColor = opt.style.color || getComputedStyleSafe(opt, 'color');
+                            const originalBg = opt.style.backgroundColor || getComputedStyleSafe(opt, 'background-color');
+                            
+                            Object.assign(btn.style, {
+                                display: 'flex',
+                                alignItems: 'center',
+                                width: '100%',
+                                padding: '14px 20px',
+                                background: idx === select.selectedIndex ? 'rgba(52, 152, 219, 0.2)' : 'transparent',
+                                border: 'none',
+                                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                color: originalColor || (idx === select.selectedIndex ? '#3498db' : '#ecf0f1'),
+                                textAlign: 'left',
+                                fontSize: '16px',
+                                cursor: 'pointer',
+                                outline: 'none',
+                                transition: 'all 0.2s ease',
+                                fontFamily: 'inherit',
+                                justifyContent: 'space-between',
+                                backgroundColor: originalBg || 'transparent'
+                            });
+                            
+                            // Add checkmark for selected item
+                            if (idx === select.selectedIndex) {
+                                const checkmark = document.createElement('span');
+                                checkmark.textContent = '✓';
+                                checkmark.style.marginLeft = '10px';
+                                checkmark.style.color = '#3498db';
+                                btn.appendChild(checkmark);
+                            }
+                            
+                            btn.onmouseover = () => {
+                                if (idx !== select.selectedIndex) {
+                                    btn.style.background = 'rgba(255,255,255,0.1)';
+                                }
+                            };
+                            
+                            btn.onmouseout = () => {
+                                if (idx !== select.selectedIndex) {
+                                    btn.style.background = 'transparent';
+                                }
+                            };
+                            
+                            btn.onclick = (e) => {
+                                e.stopPropagation();
+                                if (select.selectedIndex !== idx) {
+                                    select.selectedIndex = idx;
+                                    select.value = opt.value;
+                                    const event = new Event('change', { bubbles: true });
+                                    select.dispatchEvent(event);
+                                }
                                 document.body.removeChild(overlay);
                             };
-                            modal.appendChild(btn);
+                            
+                            optionsContainer.appendChild(btn);
                         });
-                        let cancel = document.createElement('button');
+                        
+                        modal.appendChild(optionsContainer);
+                        
+                        // Add cancel button
+                        const cancel = document.createElement('button');
                         cancel.textContent = 'Cancel';
-                        cancel.style.display = 'block';
-                        cancel.style.width = '100%';
-                        cancel.style.padding = '12px 18px';
-                        cancel.style.background = '#ef4a53';
-                        cancel.style.border = 'none';
-                        cancel.style.textAlign = 'center';
-                        cancel.style.fontSize = '16px';
-                        cancel.style.marginTop = '8px';
-                        cancel.onclick = function() {
+                        Object.assign(cancel.style, {
+                            display: 'block',
+                            width: '100%',
+                            padding: '14px',
+                            background: 'transparent',
+                            color: '#e74c3c',
+                            border: 'none',
+                            borderTop: '1px solid rgba(255,255,255,0.1)',
+                            textAlign: 'center',
+                            fontSize: '16px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            borderRadius: '0 0 12px 12px',
+                            transition: 'background 0.2s ease'
+                        });
+                        
+                        cancel.onmouseover = () => {
+                            cancel.style.background = 'rgba(231, 76, 60, 0.1)';
+                        };
+                        
+                        cancel.onmouseout = () => {
+                            cancel.style.background = 'transparent';
+                        };
+                        
+                        cancel.onclick = () => {
                             document.body.removeChild(overlay);
                         };
+                        
+                        // Close on overlay click (outside modal)
+                        overlay.onclick = (e) => {
+                            if (e.target === overlay) {
+                                document.body.removeChild(overlay);
+                            }
+                        };
+                        
+                        // Close on Escape key
+                        const handleKeyDown = (e) => {
+                            if (e.key === 'Escape') {
+                                document.body.removeChild(overlay);
+                                document.removeEventListener('keydown', handleKeyDown);
+                            }
+                        };
+                        
+                        document.addEventListener('keydown', handleKeyDown);
+                        
+                        // Cleanup on remove
+                        overlay.addEventListener('removed', () => {
+                            document.removeEventListener('keydown', handleKeyDown);
+                        });
+                        
                         modal.appendChild(cancel);
                         overlay.appendChild(modal);
                         document.body.appendChild(overlay);
+                        
+                        // Focus the selected option or first option
+                        const selectedBtn = optionsContainer.children[select.selectedIndex] || optionsContainer.firstElementChild;
+                        if (selectedBtn) selectedBtn.focus();
                     }
-                    document.addEventListener('click', function(e) {
-                        if (e.target && e.target.tagName === 'SELECT') {
-                            e.preventDefault();
-                            createSelectPopup(e.target);
+                    
+                    // Store references to our handlers for potential cleanup (strategy-specific)
+                    const handlersKey = '__tidwebSelectHandlers_$strategy';
+                    window[handlersKey] = window[handlersKey] || [];
+                    
+                    // Handle select element clicks with better event handling
+                    const clickHandler = function(e) {
+                        try {
+                            let target = e.target;
+                            console.log('TidWeb: Click event on', target.tagName, target.className || 'no-class', target.id || 'no-id', '[$strategy]');
+                            
+                            // Find the select element (could be a parent of the clicked element)
+                            while (target && target !== document && target.tagName !== 'SELECT') {
+                                target = target.parentElement;
+                            }
+                            
+                            if (target && target.tagName === 'SELECT') {
+                                console.log('TidWeb: Select element clicked! Preventing default and showing popup [$strategy]');
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.stopImmediatePropagation();
+                                createSelectPopup(target);
+                                return false;
+                            }
+                        } catch (error) {
+                            console.error('TidWeb: Error in click handler [$strategy]:', error);
                         }
-                    }, true);
+                    };
+                    
+                    // Also handle mousedown to catch events earlier
+                    const mousedownHandler = function(e) {
+                        try {
+                            let target = e.target;
+                            while (target && target !== document && target.tagName !== 'SELECT') {
+                                target = target.parentElement;
+                            }
+                            
+                            if (target && target.tagName === 'SELECT') {
+                                console.log('TidWeb: Select mousedown, preventing default [$strategy]');
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.stopImmediatePropagation();
+                                return false;
+                            }
+                        } catch (error) {
+                            console.error('TidWeb: Error in mousedown handler [$strategy]:', error);
+                        }
+                    };
+                    
+                    // Handle touch events for better mobile support
+                    const touchHandler = function(e) {
+                        try {
+                            let target = e.target;
+                            while (target && target !== document && target.tagName !== 'SELECT') {
+                                target = target.parentElement;
+                            }
+                            
+                            if (target && target.tagName === 'SELECT') {
+                                console.log('TidWeb: Select touch event, preventing default and showing popup [$strategy]');
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.stopImmediatePropagation();
+                                createSelectPopup(target);
+                                return false;
+                            }
+                        } catch (error) {
+                            console.error('TidWeb: Error in touch handler [$strategy]:', error);
+                        }
+                    };
+                    
+                    // Remove old handlers if they exist
+                    window[handlersKey].forEach(handler => {
+                        document.removeEventListener('click', handler.click, true);
+                        document.removeEventListener('mousedown', handler.mousedown, true);
+                        document.removeEventListener('touchstart', handler.touch, { passive: false });
+                        document.removeEventListener('touchend', handler.touch, { passive: false });
+                    });
+                    
+                    // Add new handlers
+                    document.addEventListener('click', clickHandler, true);
+                    document.addEventListener('mousedown', mousedownHandler, true);
+                    document.addEventListener('touchstart', touchHandler, { passive: false });
+                    document.addEventListener('touchend', touchHandler, { passive: false });
+                    
+                    // Store current handlers
+                    window[handlersKey] = [{
+                        click: clickHandler,
+                        mousedown: mousedownHandler,
+                        touch: touchHandler
+                    }];
+                    
+                    console.log('TidWeb: Custom select popup injection complete');
+                    
+                    // Monitor for dynamically added select elements
+                    if (window.MutationObserver) {
+                        const observerKey = '__tidwebSelectObserver_$strategy';
+                        if (window[observerKey]) {
+                            window[observerKey].disconnect();
+                        }
+                        
+                        const observer = new MutationObserver(function(mutations) {
+                            mutations.forEach(function(mutation) {
+                                if (mutation.type === 'childList') {
+                                    mutation.addedNodes.forEach(function(node) {
+                                        if (node.nodeType === 1) { // Element node
+                                            const selects = node.tagName === 'SELECT' ? [node] : node.querySelectorAll && node.querySelectorAll('select') || [];
+                                            if (selects.length > 0) {
+                                                console.log('TidWeb: Found', selects.length, 'new select elements [$strategy]');
+                                            }
+                                        }
+                                    });
+                                }
+                            });
+                        });
+                        
+                        observer.observe(document.body, {
+                            childList: true,
+                            subtree: true
+                        });
+                        
+                        // Store observer for cleanup
+                        window[observerKey] = observer;
+                    }
+                    
+                    console.log('TidWeb: Custom select popup injection completed successfully! [$strategy]');
+                    
+                    // Also try to notify Android that injection is complete
+                    if (window.Android && window.Android.onSelectPopupInjected) {
+                        window.Android.onSelectPopupInjected('$strategy');
+                    }
+                    
+                    return 'SUCCESS_$strategy';
                 })();
-            """, null)
+            """) { result ->
+                Log.d("TidWeb", "Select popup injection result [$strategy]: $result")
+            }
+        } catch (e: Exception) {
+            Log.e("TidWeb", "Error injecting custom select popup [$strategy]", e)
         }
     }
     
-    fun injectSmallScreenCSS(webView: WebView?) {
+    private fun injectSmallScreenCSS(webView: WebView?) {
         webView?.evaluateJavascript("""
             (function() {
                 let existingStyle = document.getElementById('tidweb-small-screen-styles');
