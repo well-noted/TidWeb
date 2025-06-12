@@ -331,21 +331,23 @@ class OptimizedMediaManager private constructor(private val context: Context) {
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> executeWebViewCommand("pause")
             AudioManager.AUDIOFOCUS_GAIN -> if (isPlaying) executeWebViewCommand("play")
         }
-    }
-      private fun executeWebViewCommand(command: String) {
+    }    private fun executeWebViewCommand(command: String) {
+        android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 OptimizedMediaManager executeWebViewCommand: $command")
         try {
             val currentWebView = webView
             if (currentWebView != null) {
                 // Check if WebView is still valid
                 currentWebView.settings // This will throw if destroyed
                 
+                android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 Executing WebView command: $command")
                 Log.d(TAG, "Executing WebView command: $command")
                 currentWebView.evaluateJavascript("window.MediaInterface?.$command?.()", null)
             } else {
+                android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 No WebView available for command: $command")
                 Log.w(TAG, "No WebView available for command: $command")
                 // Try to find active WebView through MainActivity
                 tryExecuteViaMainActivity(command)
-            }        } catch (e: Exception) {
+            }} catch (e: Exception) {
             Log.e(TAG, "Failed to execute WebView command: $command", e)
             // Fallback to MainActivity approach
             tryExecuteViaMainActivity(command)
@@ -374,8 +376,8 @@ class OptimizedMediaManager private constructor(private val context: Context) {
             requestAudioFocus()
             executeWebViewCommand("play")
         }
-        
-        override fun onPause() {
+          override fun onPause() {
+            android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 OptimizedMediaManager: onPause() - Background pause requested")
             Log.d(TAG, "MediaSession.onPause() - Background pause requested")
             isPlaying = false
             updatePlaybackState(false, currentPosition)

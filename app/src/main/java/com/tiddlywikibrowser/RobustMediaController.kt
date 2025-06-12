@@ -11,18 +11,20 @@ import android.webkit.WebView
  * Addresses race conditions and timing issues that cause inconsistent play/pause behavior
  */
 class RobustMediaController(private val context: Context) {
-    
-    companion object {
+      companion object {
         private const val TAG = "RobustMediaController"
         private const val RETRY_DELAY_MS = 500L
         private const val MAX_RETRIES = 3
         
         @Volatile
         private var INSTANCE: RobustMediaController? = null
-        
-        fun getInstance(context: Context): RobustMediaController {
+          fun getInstance(context: Context): RobustMediaController {
+            android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 RobustMediaController.getInstance called")
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: RobustMediaController(context.applicationContext).also { INSTANCE = it }
+                INSTANCE ?: RobustMediaController(context.applicationContext).also { 
+                    INSTANCE = it
+                    android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 RobustMediaController created new instance")
+                }
             }
         }
     }
@@ -36,20 +38,29 @@ class RobustMediaController(private val context: Context) {
     private var lastKnownPlayState = false
     private var lastCommandTimestamp = 0L
     private var isAppInBackground = false
-    
-    /**
+      /**
      * Execute media control with robust retry logic and fallback mechanisms
      */
     fun executeMediaControl(action: MediaAction, retryCount: Int = 0) {
         val now = System.currentTimeMillis()
         lastCommandTimestamp = now
         
+        Log.d(TAG, "🎵PAUSEFIX🎵 executeMediaControl called with action: $action")
         Log.d(TAG, "Executing media action: $action (retry: $retryCount, background: $isAppInBackground)")
         
         when (action) {
-            MediaAction.PLAY -> executePlay(retryCount)
-            MediaAction.PAUSE -> executePause(retryCount) 
-            MediaAction.TOGGLE -> executeToggle(retryCount)
+            MediaAction.PLAY -> {
+                Log.d(TAG, "🎵PAUSEFIX🎵 Routing to executePlay")
+                executePlay(retryCount)
+            }
+            MediaAction.PAUSE -> {
+                Log.d(TAG, "🎵PAUSEFIX🎵 Routing to executePause")
+                executePause(retryCount)
+            }
+            MediaAction.TOGGLE -> {
+                Log.d(TAG, "🎵PAUSEFIX🎵 Routing to executeToggle")
+                executeToggle(retryCount)
+            }
         }
     }
     
@@ -97,45 +108,69 @@ class RobustMediaController(private val context: Context) {
                 }
             }
         }
-    }
-    
-    private fun executePause(retryCount: Int) {
+    }      private fun executePause(retryCount: Int) {
+        Log.d(TAG, "🎵PAUSEFIX🎵 Executing pause command (attempt ${retryCount + 1})")
+        Log.d(TAG, "🎵PAUSEFIX🎵 App in background: $isAppInBackground")
+        Log.d(TAG, "🎵PAUSEFIX🎵 Main activity available: ${mainActivity != null}")
+        Log.d(TAG, "🎵PAUSEFIX🎵 Background service available: ${backgroundWebViewManager?.service != null}")
+        
         val script = """
             (function() {
-                console.log('RobustMediaController: Executing PAUSE command');
+                console.log('🎵PAUSEFIX🎵 RobustMediaController: Executing PAUSE command');
+                console.log('🎵PAUSEFIX🎵 Document visibility state: ' + document.visibilityState);
+                
+                // Flag that this is a media session command
+                window.__mediaSessionCommandInProgress = true;
+                console.log('🎵PAUSEFIX🎵 Set __mediaSessionCommandInProgress flag');
+                
                 const media = document.querySelector('audio,video');
                 if (media) {
+                    console.log('🎵PAUSEFIX🎵 Media element found, current paused state: ' + media.paused);
                     if (!media.paused) {
+                        console.log('🎵PAUSEFIX🎵 Calling media.pause()');
                         media.pause();
-                        console.log('Pause succeeded');
+                        console.log('🎵PAUSEFIX🎵 Pause call completed, new paused state: ' + media.paused);
+                        // Clear the flag after a delay
+                        setTimeout(() => { 
+                            window.__mediaSessionCommandInProgress = false; 
+                            console.log('🎵PAUSEFIX🎵 Cleared __mediaSessionCommandInProgress flag');
+                        }, 100);
                         return 'pause_success';
                     } else {
-                        console.log('Media already paused');
+                        console.log('🎵PAUSEFIX🎵 Media already paused');
+                        // Clear the flag
+                        window.__mediaSessionCommandInProgress = false;
                         return 'already_paused';
                     }
                 } else {
-                    console.log('No media element found');
+                    console.log('🎵PAUSEFIX🎵 No media element found');
+                    // Clear the flag
+                    window.__mediaSessionCommandInProgress = false;
                     return 'no_media';
                 }
             })();
-        """.trimIndent()
-        
+        """.trimIndent()        
         executeWithFallback(script, "PAUSE", retryCount) { result ->
-            Log.d(TAG, "Pause command result: $result")
+            Log.d(TAG, "🎵PAUSEFIX🎵 Pause command result: $result")
             when (result) {
                 "pause_success", "already_paused" -> {
+                    Log.d(TAG, "🎵PAUSEFIX🎵 Pause successful, updating playback state")
                     lastKnownPlayState = false
                     mediaSessionManager?.updatePlaybackState(false, 0)
                 }
                 "no_media" -> {
+                    Log.w(TAG, "🎵PAUSEFIX🎵 No media found for pause")
                     if (retryCount < MAX_RETRIES) {
-                        Log.d(TAG, "Pause failed, retrying in ${RETRY_DELAY_MS}ms")
+                        Log.d(TAG, "🎵PAUSEFIX🎵 Pause failed, retrying in ${RETRY_DELAY_MS}ms")
                         handler.postDelayed({
                             executePause(retryCount + 1)
                         }, RETRY_DELAY_MS)
                     } else {
-                        Log.w(TAG, "Pause command failed after $MAX_RETRIES retries")
+                        Log.w(TAG, "🎵PAUSEFIX🎵 Pause command failed after $MAX_RETRIES retries")
                     }
+                }
+                else -> {
+                    Log.w(TAG, "🎵PAUSEFIX🎵 Unexpected pause result: $result")
                 }
             }
         }
@@ -164,35 +199,42 @@ class RobustMediaController(private val context: Context) {
     
     /**
      * Execute JavaScript with multiple fallback mechanisms
-     */
-    private fun executeWithFallback(
+     */    private fun executeWithFallback(
         script: String, 
         action: String, 
         retryCount: Int,
         callback: (String?) -> Unit
     ) {
+        Log.d(TAG, "🎵PAUSEFIX🎵 executeWithFallback called for action: $action")
         var executed = false
         
         try {
             // Method 1: Try foreground WebView first (fastest)
             if (!isAppInBackground) {
+                Log.d(TAG, "🎵PAUSEFIX🎵 Trying foreground WebView for $action")
                 val webView = mainActivity?.getCurrentWebView()
                 if (webView != null && !isWebViewDestroyed(webView)) {
-                    Log.d(TAG, "Using foreground WebView for $action")
+                    Log.d(TAG, "🎵PAUSEFIX🎵 Using foreground WebView for $action")
                     webView.evaluateJavascript(script) { result ->
                         if (!executed) {
                             executed = true
+                            Log.d(TAG, "🎵PAUSEFIX🎵 Foreground WebView result for $action: $result")
                             callback(result?.replace("\"", ""))
                         }
                     }
                     return
+                } else {
+                    Log.d(TAG, "🎵PAUSEFIX🎵 Foreground WebView not available for $action")
                 }
+            } else {
+                Log.d(TAG, "🎵PAUSEFIX🎵 App is in background, skipping foreground WebView for $action")
             }
             
             // Method 2: Try background WebView service
-            Log.d(TAG, "Trying background WebView service for $action")
+            Log.d(TAG, "🎵PAUSEFIX🎵 Trying background WebView service for $action")
             val bgService = backgroundWebViewManager?.service
             if (bgService != null) {
+                Log.d(TAG, "🎵PAUSEFIX🎵 Using background WebView service for $action")
                 // Execute on all WebViews in background service
                 bgService.executeJavaScriptOnWebView(script, null)
                 
@@ -200,6 +242,7 @@ class RobustMediaController(private val context: Context) {
                 handler.postDelayed({
                     if (!executed) {
                         executed = true
+                        Log.d(TAG, "🎵PAUSEFIX🎵 Background service executed $action")
                         callback("background_executed")
                         
                         // Verify the action worked by checking state after a delay
@@ -209,29 +252,34 @@ class RobustMediaController(private val context: Context) {
                     }
                 }, 200)
                 return
+            } else {
+                Log.d(TAG, "🎵PAUSEFIX🎵 Background WebView service not available for $action")
             }
             
             // Method 3: Force foreground approach 
-            Log.d(TAG, "Forcing foreground approach for $action")
+            Log.d(TAG, "🎵PAUSEFIX🎵 Forcing foreground approach for $action")
             mainActivity?.let { activity ->
                 handler.post {
                     val webView = activity.getCurrentWebView()
                     if (webView != null) {
+                        Log.d(TAG, "🎵PAUSEFIX🎵 Using forced foreground WebView for $action")
                         webView.evaluateJavascript(script) { result ->
                             if (!executed) {
                                 executed = true
+                                Log.d(TAG, "🎵PAUSEFIX🎵 Forced foreground result for $action: $result")
                                 callback(result?.replace("\"", ""))
                             }
                         }
                     } else if (!executed) {
                         executed = true
+                        Log.w(TAG, "🎵PAUSEFIX🎵 No WebView available for $action")
                         callback("no_webview")
                     }
                 }
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error in executeWithFallback", e)
+            Log.e(TAG, "🎵PAUSEFIX🎵 Error in executeWithFallback for $action", e)
             if (!executed) {
                 executed = true
                 callback("error: ${e.message}")
@@ -349,10 +397,12 @@ enum class MediaCommand {
                     }
                 })();
             """.trimIndent()
-            
-            PAUSE -> """
+              PAUSE -> """
                 (function() {
                     try {
+                        // Flag that this is a media session command
+                        window.__mediaSessionCommandInProgress = true;
+                        
                         const mediaElements = document.querySelectorAll('audio, video');
                         let pausedCount = 0;
                         
@@ -367,9 +417,14 @@ enum class MediaCommand {
                             window.MediaInterface.pauseMedia();
                         }
                         
+                        // Clear the flag after a delay
+                        setTimeout(() => { window.__mediaSessionCommandInProgress = false; }, 100);
+                        
                         return 'pause_attempted_' + pausedCount;
                     } catch (e) {
                         console.error('Pause command error:', e);
+                        // Clear the flag on error
+                        window.__mediaSessionCommandInProgress = false;
                         return 'pause_error';
                     }
                 })();

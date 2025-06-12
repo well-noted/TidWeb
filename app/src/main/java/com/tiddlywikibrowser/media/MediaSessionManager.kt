@@ -179,9 +179,9 @@ class MediaSessionManager private constructor(private val context: Context) {
                     override fun onPlay() {
                         Log.d(TAG, "MediaSession direct callback: onPlay")
                         handlePlay()
-                    }
-                    
-                    override fun onPause() {
+                    }                    override fun onPause() {
+                        android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 MediaSession direct callback: onPause")
+                        Log.d(TAG, "🎵PAUSEFIX🎵 MediaSession direct callback: onPause")
                         Log.d(TAG, "MediaSession direct callback: onPause")
                         handlePause()
                     }
@@ -417,20 +417,41 @@ class MediaSessionManager private constructor(private val context: Context) {
                             // Update our state immediately
                             lastKnownMediaState.isPlaying = true
                         }
-                    }
-                    
-                    override fun onPause() {
+                    }                    override fun onPause() {
+                        android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 MediaPlayerCallback: onPause")
+                        Log.d(TAG, "🎵PAUSEFIX🎵 MediaPlayerCallback: onPause")
                         Log.d(TAG, "MediaPlayerCallback: onPause")
                         executeJavaScriptSafely("""
                             (function() {
+                                console.log('🎵PAUSEFIX🎵 MediaPlayerCallback: Executing direct pause');
+                                console.log('🎵PAUSEFIX🎵 Document visibility state: ' + document.visibilityState);
+                                
+                                // Flag that this is a media session command
+                                window.__mediaSessionCommandInProgress = true;
+                                console.log('🎵PAUSEFIX🎵 Set __mediaSessionCommandInProgress flag');
+                                
                                 const media = document.querySelector('audio,video');
                                 if (media) {
+                                    console.log('🎵PAUSEFIX🎵 Media element found, current paused state: ' + media.paused);
+                                    console.log('🎵PAUSEFIX🎵 Calling media.pause()');
                                     media.pause();
+                                    console.log('🎵PAUSEFIX🎵 Pause call completed, new paused state: ' + media.paused);
+                                    
+                                    // Clear the flag after a delay
+                                    setTimeout(() => { 
+                                        window.__mediaSessionCommandInProgress = false; 
+                                        console.log('🎵PAUSEFIX🎵 Cleared __mediaSessionCommandInProgress flag');
+                                    }, 100);
+                                    
                                     return 'pause_executed';
                                 }
+                                
+                                console.log('🎵PAUSEFIX🎵 No media element found');
+                                window.__mediaSessionCommandInProgress = false;
                                 return 'no_media_found';
                             })();
                         """.trimIndent()) { result ->
+                            Log.d(TAG, "🎵PAUSEFIX🎵 Pause JavaScript result: $result")
                             Log.d(TAG, "Pause JavaScript result: $result")
                             // Update our state immediately
                             lastKnownMediaState.isPlaying = false
@@ -710,18 +731,21 @@ class MediaSessionManager private constructor(private val context: Context) {
         // Also update our state immediately for responsiveness
         lastKnownMediaState.isPlaying = true
         updatePlaybackState(true, lastKnownMediaState.position)
-    }
-      /**
+    }    /**
      * Handle pause command
-     */
-    private fun handlePause() {
-        Log.d(TAG, "Handling pause command")
+     */    private fun handlePause() {
+        android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 MediaSessionManager: Handling pause command")
+        Log.d(TAG, "🎵PAUSEFIX🎵 MediaSessionManager: Handling pause command")
         
         // Use RobustMediaController for reliable execution
         val robustController = RobustMediaController.getInstance(context)
+        android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 MediaSessionManager: Calling executeMediaControl(PAUSE)")
+        Log.d(TAG, "🎵PAUSEFIX🎵 MediaSessionManager: Calling executeMediaControl(PAUSE)")
         robustController.executeMediaControl(RobustMediaController.MediaAction.PAUSE)
         
         // Also update our state immediately for responsiveness
+        android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 MediaSessionManager: Updating state to paused")
+        Log.d(TAG, "🎵PAUSEFIX🎵 MediaSessionManager: Updating state to paused")
         lastKnownMediaState.isPlaying = false
         updatePlaybackState(false, lastKnownMediaState.position)
     }

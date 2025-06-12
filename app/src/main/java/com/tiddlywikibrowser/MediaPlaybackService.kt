@@ -91,9 +91,9 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 override fun onPlay() {
                     Log.d("MediaPlaybackService", "Service MediaSession callback: onPlay")
                     mediaPlayerCallback?.onPlay()
-                }
-                
-                override fun onPause() {
+                }                override fun onPause() {
+                    android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 Service MediaSession callback: onPause")
+                    Log.d("MediaPlaybackService", "🎵PAUSEFIX🎵 Service MediaSession callback: onPause")
                     Log.d("MediaPlaybackService", "Service MediaSession callback: onPause")
                     mediaPlayerCallback?.onPause()
                 }

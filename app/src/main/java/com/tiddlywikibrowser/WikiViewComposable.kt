@@ -758,9 +758,12 @@ object WikiViewEnhancer {
                             }
                         }
                     },
-                    
-                    pause() {
+                      pause() {
                         console.log('OptimizedMedia: Pause command received');
+                        
+                        // Flag that this is a media session command
+                        window.__mediaSessionCommandInProgress = true;
+                        
                         const media = this.activeElement || this.findActiveMedia();
                         if (media && !media.paused) {
                             console.log('OptimizedMedia: Pausing playback');
@@ -769,6 +772,9 @@ object WikiViewEnhancer {
                             this.updateState(media);
                             this.stopLightweightMonitoring();
                         }
+                        
+                        // Clear the flag after a delay
+                        setTimeout(() => { window.__mediaSessionCommandInProgress = false; }, 100);
                     },
                     
                     // Lightweight monitoring - only when playing, less frequent checks
@@ -1168,15 +1174,22 @@ object WikiViewEnhancer {
                         console.error("Error in MediaInterface.play", e);
                     }
                 };
-                
-                MediaInterface.pause = function() {
+                  MediaInterface.pause = function() {
                     try {
+                        // Flag that this is a media session command
+                        window.__mediaSessionCommandInProgress = true;
+                        
                         const audio = mediaState.activeMediaElement;
                         if (audio && !audio.paused) {
                             audio.pause();
                         }
+                        
+                        // Clear the flag after a delay
+                        setTimeout(() => { window.__mediaSessionCommandInProgress = false; }, 100);
                     } catch (e) {
                         console.error("Error in MediaInterface.pause", e);
+                        // Clear the flag on error
+                        window.__mediaSessionCommandInProgress = false;
                     }
                 };
                 

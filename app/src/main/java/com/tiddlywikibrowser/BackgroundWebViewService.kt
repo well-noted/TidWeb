@@ -274,26 +274,45 @@ class BackgroundWebViewService : Service() {
                 if (window.__backgroundVideoHackApplied) return true;
                 
                 console.log("[BackgroundVideo] Applying critical background video hack");
-                
-                // HACK: Override the HTMLMediaElement.pause method to prevent auto-pausing
-                const originalPause = HTMLMediaElement.prototype.pause;
-                HTMLMediaElement.prototype.pause = function() {
+                  // HACK: Override the HTMLMediaElement.pause method to prevent auto-pausing
+                const originalPause = HTMLMediaElement.prototype.pause;                HTMLMediaElement.prototype.pause = function() {
+                    console.log('🎵PAUSEFIX🎵 Background pause override called');
+                    console.log('🎵PAUSEFIX🎵 Document visibility state:', document.visibilityState);
+                    console.log('🎵PAUSEFIX🎵 Media ended:', this.ended);
+                    console.log('🎵PAUSEFIX🎵 User paused flag:', this.userPaused);
+                    
+                    // Check if this is a user-initiated pause from media controls
+                    const isMediaSessionPause = window.__mediaSessionCommandInProgress;
+                    console.log('🎵PAUSEFIX🎵 Media session command in progress:', isMediaSessionPause);
+                    
                     // If this is a system initiated pause (page hidden), prevent it
-                    if (document.visibilityState === 'hidden' && !this.ended && !this.userPaused) {
-                        console.log('[BackgroundVideo] Prevented pause in background');
+                    // BUT allow media session commands to go through
+                    if (document.visibilityState === 'hidden' && !this.ended && !this.userPaused && !isMediaSessionPause) {
+                        console.log('🎵PAUSEFIX🎵 Prevented automatic pause in background');
                         return undefined; // Must return undefined to prevent error
                     }
                     
+                    // If this is a media session pause, mark it as user-initiated
+                    if (isMediaSessionPause) {
+                        console.log('🎵PAUSEFIX🎵 Media session pause - marking as user-initiated');
+                        this.userPaused = true;
+                        this.__shouldBePlaying = false;
+                        console.log('🎵PAUSEFIX🎵 Media session pause allowed');
+                    }
+                    
                     // Otherwise, allow the pause
+                    console.log('🎵PAUSEFIX🎵 Allowing pause - calling original pause');
                     return originalPause.apply(this, arguments);
                 };
-                
-                // Track play events to know which videos should be playing
+                  // Track play events to know which videos should be playing
                 const originalPlay = HTMLMediaElement.prototype.play;
                 HTMLMediaElement.prototype.play = function() {
                     // Mark that user wants this video to play
                     this.userPaused = false;
                     this.__shouldBePlaying = true;
+                    
+                    // Clear any media session command flag since this is a play command
+                    window.__mediaSessionCommandInProgress = false;
                     
                     console.log('[BackgroundVideo] Video play requested');
                     
@@ -781,10 +800,14 @@ class BackgroundWebViewService : Service() {
     
     /**
      * Execute JavaScript on a specific WebView or all WebViews if key is null
-     */
-    fun executeJavaScriptOnWebView(script: String?, webViewKey: String?) {
+     */    fun executeJavaScriptOnWebView(script: String?, webViewKey: String?) {
+        Log.d(TAG, "🎵PAUSEFIX🎵 executeJavaScriptOnWebView called")
+        Log.d(TAG, "🎵PAUSEFIX🎵 Script: ${script?.take(100)}...")
+        Log.d(TAG, "🎵PAUSEFIX🎵 WebView key: $webViewKey")
+        Log.d(TAG, "🎵PAUSEFIX🎵 Active WebViews count: ${activeWebViews.size}")
+        
         if (script.isNullOrEmpty()) {
-            Log.w(TAG, "Empty script provided for JavaScript execution")
+            Log.w(TAG, "🎵PAUSEFIX🎵 Empty script provided for JavaScript execution")
             return
         }
         
@@ -793,28 +816,29 @@ class BackgroundWebViewService : Service() {
                     // Execute on specific WebView
                     val webView = activeWebViews[webViewKey]
                     if (webView != null) {
-                        Log.d(TAG, "Executing JavaScript on WebView: $webViewKey")
+                        Log.d(TAG, "🎵PAUSEFIX🎵 Executing JavaScript on WebView: $webViewKey")
                         webView.evaluateJavascript(script) { result ->
-                            Log.d(TAG, "JavaScript execution result on $webViewKey: $result")
+                            Log.d(TAG, "🎵PAUSEFIX🎵 JavaScript execution result on $webViewKey: $result")
                         }
                     } else {
-                        Log.w(TAG, "WebView with key $webViewKey not found")
+                        Log.w(TAG, "🎵PAUSEFIX🎵 WebView with key $webViewKey not found")
                     }
                 } else {
                     // Execute on all registered WebViews
-                    Log.d(TAG, "Executing JavaScript on all ${activeWebViews.size} WebViews")
+                    Log.d(TAG, "🎵PAUSEFIX🎵 Executing JavaScript on all ${activeWebViews.size} WebViews")
                     for ((key, webView) in activeWebViews) {
                         try {
+                            Log.d(TAG, "🎵PAUSEFIX🎵 Executing on WebView: $key")
                             webView.evaluateJavascript(script) { result ->
-                                Log.d(TAG, "JavaScript execution result on $key: $result")
+                                Log.d(TAG, "🎵PAUSEFIX🎵 JavaScript execution result on $key: $result")
                             }
                         } catch (e: Exception) {
-                            Log.e(TAG, "Error executing JavaScript on WebView $key", e)
+                            Log.e(TAG, "🎵PAUSEFIX🎵 Error executing JavaScript on WebView $key", e)
                         }
                     }
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error in executeJavaScriptOnWebView", e)
+                Log.e(TAG, "🎵PAUSEFIX🎵 Error in executeJavaScriptOnWebView", e)
             }
         }
     }

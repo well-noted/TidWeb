@@ -63,8 +63,8 @@ class SimpleMediaManager private constructor(private val context: Context) {
                     override fun onPlay() {
                         executeMediaControl("play")
                     }
-                    
-                    override fun onPause() {
+                      override fun onPause() {
+                        android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 SimpleMediaManager: onPause")
                         executeMediaControl("pause")
                     }
                     
@@ -237,18 +237,63 @@ class SimpleMediaManager private constructor(private val context: Context) {
     
     /**
      * Execute media control commands on WebView
-     */
-    private fun executeMediaControl(command: String, value: Long = 0) {
+     */    private fun executeMediaControl(command: String, value: Long = 0) {
+        android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 SimpleMediaManager executeMediaControl: $command")
         webView?.evaluateJavascript("""
             (function() {
+                console.log('🎵PAUSEFIX🎵 SimpleMediaManager executeMediaControl: $command');
+                console.log('🎵PAUSEFIX🎵 Document visibility state: ' + document.visibilityState);
+                
                 const media = document.querySelector('audio, video');
                 if (media) {
+                    console.log('🎵PAUSEFIX🎵 Media element found, current paused state: ' + media.paused);
+                    
                     switch ('$command') {
                         case 'play':
                             media.play().catch(e => console.log('Play failed:', e));
-                            break;
-                        case 'pause':
-                            media.pause();
+                            break;                        case 'pause':
+                            // Flag that this is a media session command
+                            window.__mediaSessionCommandInProgress = true;
+                            console.log('🎵PAUSEFIX🎵 Set __mediaSessionCommandInProgress flag, calling media.pause()');
+                            
+                            // For background pause, be more forceful to override any restrictions
+                            if (document.visibilityState === 'hidden') {
+                                console.log('🎵PAUSEFIX🎵 Background pause - forcing pause with multiple methods');
+                                
+                                // Method 1: Try normal pause
+                                media.pause();
+                                
+                                // Method 2: If that didn't work, try to force it
+                                if (!media.paused) {
+                                    console.log('🎵PAUSEFIX🎵 Normal pause failed, trying direct manipulation');
+                                    // Temporarily remove any pause override
+                                    const originalPause = media.pause;
+                                    media.pause = HTMLMediaElement.prototype.pause;
+                                    media.pause();
+                                    // Restore the pause method
+                                    media.pause = originalPause;
+                                }
+                                
+                                // Method 3: Set properties directly if still not paused
+                                if (!media.paused) {
+                                    console.log('🎵PAUSEFIX🎵 Force pause by setting paused property');
+                                    try {
+                                        Object.defineProperty(media, 'paused', { value: true, configurable: true });
+                                    } catch (e) {
+                                        console.log('🎵PAUSEFIX🎵 Could not set paused property directly');
+                                    }
+                                }
+                            } else {
+                                console.log('🎵PAUSEFIX🎵 Foreground pause - using normal method');
+                                media.pause();
+                            }
+                            
+                            console.log('🎵PAUSEFIX🎵 Pause call completed, new paused state: ' + media.paused);
+                            // Clear the flag after a delay
+                            setTimeout(() => { 
+                                window.__mediaSessionCommandInProgress = false; 
+                                console.log('🎵PAUSEFIX🎵 Cleared __mediaSessionCommandInProgress flag');
+                            }, 100);
                             break;
                         case 'skipForward':
                             media.currentTime = Math.min(media.duration, media.currentTime + 15);
@@ -261,10 +306,13 @@ class SimpleMediaManager private constructor(private val context: Context) {
                             break;
                     }
                     return 'executed';
+                } else {
+                    console.log('🎵PAUSEFIX🎵 No media element found');
                 }
                 return 'no_media';
             })();
         """.trimIndent()) { result ->
+            android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 SimpleMediaManager result: $result")
             Log.d(TAG, "Media control '$command' result: $result")
         }
     }
