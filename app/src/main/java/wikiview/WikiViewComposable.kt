@@ -1240,13 +1240,23 @@ object WikiViewEnhancer {
                             
                             // Mark as processed
                             audio.setAttribute('data-media-observer-attached', 'true');
-                            
-                            // Add event listeners to track playback state
+                              // Add event listeners to track playback state
                             ['play', 'pause', 'timeupdate', 'seeked', 'ended', 'loadedmetadata'].forEach(function(eventName) {
                                 audio.addEventListener(eventName, function() {
                                     // Set as active media element when it plays
                                     if (eventName === 'play') {
                                         mediaState.activeMediaElement = this;
+                                    }
+                                    
+                                    // Update overlay button state immediately on play/pause events
+                                    if ((eventName === 'play' || eventName === 'pause') && window.AudioControls) {
+                                        const isPlaying = eventName === 'play';
+                                        // Use setTimeout to ensure the event has fully processed
+                                        setTimeout(() => {
+                                            if (typeof window.AudioControls.updateOverlayButton === 'function') {
+                                                window.AudioControls.updateOverlayButton(this, isPlaying);
+                                            }
+                                        }, 10);
                                     }
                                     
                                     // Update Android with media state
@@ -1447,6 +1457,30 @@ object WikiViewEnhancer {
                         this.elements.playButton = playButton;
                     };
                     
+                    // Function to update just the overlay button state
+                    this.updateOverlayButton = function(audioElement, isPlaying) {
+                        try {
+                            // Only update if this is the current audio element
+                            if (audioElement === this.currentAudio && this.elements.playButton) {
+                                // Use the explicit isPlaying parameter if provided, otherwise check paused state
+                                const shouldShowPause = (isPlaying !== undefined) ? isPlaying : !audioElement.paused;
+                                this.elements.playButton.innerHTML = shouldShowPause ? '⏸️' : '▶️';
+                                
+                                // Also update any other play buttons in the overlay
+                                const allPlayButtons = this.elements.overlay?.querySelectorAll('button[onclick*="play"], .play-button');
+                                if (allPlayButtons) {
+                                    allPlayButtons.forEach(btn => {
+                                        if (btn !== this.elements.playButton) {
+                                            btn.innerHTML = shouldShowPause ? '⏸️' : '▶️';
+                                        }
+                                    });
+                                }
+                            }
+                        } catch (e) {
+                            console.error("Error updating overlay button:", e);
+                        }
+                    };
+                    
                     // Function to update the overlay
                     this.updateOverlay = function() {
                         this.initOverlay();
@@ -1466,7 +1500,7 @@ object WikiViewEnhancer {
                         this.elements.titleDiv.textContent = title;
                         
                         // Update play/pause button
-                        this.elements.playButton.innerHTML = this.currentAudio.paused ? '▶️' : '⏸️';
+                        this.updateOverlayButton(this.currentAudio);
                     };
                     
                     // Initialize
@@ -1478,11 +1512,35 @@ object WikiViewEnhancer {
                 style.textContent = `
                     #audio-controls-overlay.active {
                         transform: translateY(0) !important;
-                    }
-                `;
+                    }                `;
                 document.head.appendChild(style);
                 
                 console.log("🎵 TiddlyWiki Media Integration loaded");
+                  // Set up periodic button state sync to prevent desync issues
+                if (!window.mediaButtonSyncInterval) {
+                    window.mediaButtonSyncInterval = setInterval(function() {
+                        try {
+                            // Check if we have an active audio element and overlay
+                            if (window.AudioControls && window.AudioControls.currentAudio && 
+                                window.AudioControls.elements && window.AudioControls.elements.playButton) {
+                                
+                                const audio = window.AudioControls.currentAudio;
+                                const playButton = window.AudioControls.elements.playButton;
+                                const shouldShowPause = !audio.paused;
+                                const currentIcon = playButton.innerHTML;
+                                const expectedIcon = shouldShowPause ? '⏸️' : '▶️';
+                                
+                                // Only update if there's a mismatch
+                                if (currentIcon !== expectedIcon) {
+                                    console.log('[MediaSync] Correcting button state from "' + currentIcon + '" to "' + expectedIcon + '"');
+                                    playButton.innerHTML = expectedIcon;
+                                }
+                            }
+                        } catch (e) {
+                            // Silently ignore errors to avoid log spam
+                        }
+                    }, 2000); // Check every 2 seconds
+                }
                 
                 return true;
             })();

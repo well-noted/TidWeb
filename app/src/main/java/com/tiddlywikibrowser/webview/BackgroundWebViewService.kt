@@ -22,7 +22,7 @@ import android.util.Log
 import android.webkit.WebView
 import androidx.core.app.NotificationCompat
 import com.tiddlywikibrowser.cache.WebViewCache
-import com.tiddlywikibrowser.utils.MediaPlaybackOptimizer
+import com.tiddlywikibrowser.media.MediaPlaybackOptimizer
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 

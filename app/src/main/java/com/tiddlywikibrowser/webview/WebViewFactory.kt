@@ -17,7 +17,7 @@ import com.tiddlywikibrowser.ThreadManager
 import com.tiddlywikibrowser.ScreenUtils
 import com.tiddlywikibrowser.WebViewDownloadManager
 import com.tiddlywikibrowser.media.SimpleMediaManager
-import com.tiddlywikibrowser.utils.MediaPlaybackOptimizer
+import com.tiddlywikibrowser.media.MediaPlaybackOptimizer
 
 object WebViewFactory {
     

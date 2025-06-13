@@ -16,7 +16,7 @@ import android.webkit.WebSettings
 import com.tiddlywikibrowser.MainActivity
 import com.tiddlywikibrowser.R
 import com.tiddlywikibrowser.ThreadManager
-import com.tiddlywikibrowser.utils.MediaPlaybackOptimizer
+import com.tiddlywikibrowser.media.MediaPlaybackOptimizer
 
 /**
  * A specialized WebViewClient that prevents TiddlyWiki from reloading unnecessarily.

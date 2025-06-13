@@ -1,4 +1,4 @@
-package com.tiddlywikibrowser.utils
+package com.tiddlywikibrowser.media
 
 import android.webkit.WebView
 import android.util.Log
@@ -96,15 +96,19 @@ object MediaPlaybackOptimizer {
                     const optimizedMediaCheck = throttle(function() {
                         try {
                             const media = document.querySelector('audio, video');
-                            if (media && window.MediaInterface) {
-                                // Only update if there's a significant change
+                            if (media && window.MediaInterface) {                                // Only update if there's a significant change
                                 const currentTime = media.currentTime || 0;
                                 const duration = media.duration || 0;
                                 const isPlaying = !media.paused;
                                 
-                                if (window.__lastMediaUpdate && 
-                                    Math.abs(currentTime - window.__lastMediaUpdate.time) < 1 &&
-                                    isPlaying === window.__lastMediaUpdate.playing) {
+                                // For play/pause state changes, always update immediately
+                                // For time updates, throttle to reduce load
+                                const playStateChanged = !window.__lastMediaUpdate || 
+                                    isPlaying !== window.__lastMediaUpdate.playing;
+                                const timeChanged = !window.__lastMediaUpdate || 
+                                    Math.abs(currentTime - window.__lastMediaUpdate.time) >= 1;
+                                
+                                if (!playStateChanged && !timeChanged) {
                                     return; // No significant change
                                 }
                                 
@@ -120,6 +124,18 @@ object MediaPlaybackOptimizer {
                                             Math.floor(currentTime * 1000),
                                             isPlaying
                                         );
+                                        
+                                        // Update any overlay controls to keep UI in sync
+                                        if (window.AudioControls && typeof window.AudioControls.updateOverlayButton === 'function') {
+                                            window.AudioControls.updateOverlayButton(media, isPlaying);
+                                        }
+                                        
+                                        // Also update any other UI elements that might show play/pause state
+                                        const overlayPlayButton = document.querySelector('#audio-controls-overlay .play-button, #audio-controls-overlay button[onclick*="play"]');
+                                        if (overlayPlayButton && window.AudioControls && window.AudioControls.currentAudio === media) {
+                                            overlayPlayButton.innerHTML = isPlaying ? '⏸️' : '▶️';
+                                        }
+                                        
                                     } catch (e) {
                                         console.error('[MediaOptimizer] Error in state update:', e);
                                     }
@@ -129,10 +145,34 @@ object MediaPlaybackOptimizer {
                             console.error('[MediaOptimizer] Error in media check:', e);
                         }
                     }, 2000); // Check every 2 seconds maximum
-                    
-                    // Set up optimized event listeners
+                      // Set up optimized event listeners
                     ['play', 'pause', 'timeupdate', 'ended'].forEach(event => {
                         document.addEventListener(event, optimizedMediaCheck, true);
+                    });
+                    
+                    // Set up immediate handlers for play/pause events to ensure UI responsiveness
+                    ['play', 'pause'].forEach(event => {
+                        document.addEventListener(event, function(e) {
+                            if (e.target && (e.target.tagName === 'AUDIO' || e.target.tagName === 'VIDEO')) {
+                                const media = e.target;
+                                const isPlaying = event === 'play';
+                                
+                                // Immediate UI update for play/pause buttons
+                                try {
+                                    if (window.AudioControls && typeof window.AudioControls.updateOverlayButton === 'function') {
+                                        window.AudioControls.updateOverlayButton(media, isPlaying);
+                                    }
+                                    
+                                    // Also update any other play buttons in the DOM
+                                    const overlayPlayButton = document.querySelector('#audio-controls-overlay .play-button, #audio-controls-overlay button[onclick*="play"]');
+                                    if (overlayPlayButton && window.AudioControls && window.AudioControls.currentAudio === media) {
+                                        overlayPlayButton.innerHTML = isPlaying ? '⏸️' : '▶️';
+                                    }
+                                } catch (e) {
+                                    console.error('[MediaOptimizer] Error in immediate UI update:', e);
+                                }
+                            }
+                        }, true);
                     });
                     
                     // Mark as applied
