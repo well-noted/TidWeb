@@ -8,6 +8,7 @@ The black screen and device unresponsiveness during media playback is caused by 
 2. **Blocking Service Operations**: Synchronous operations in MediaPlaybackService
 3. **Aggressive Resource Management**: Multiple wake locks and frequent service binding
 4. **WebView Thread Blocking**: Heavy operations on the main UI thread
+5. **Memory Pressure**: Accumulating memory usage leading to system resource exhaustion
 
 ## Applied Fixes
 
@@ -40,88 +41,54 @@ The black screen and device unresponsiveness during media playback is caused by 
 - Added error handling for service operations
 - Prevented blocking on main thread
 
-## Additional Recommendations
+### 5. Integrated MediaPlaybackOptimizer (COMPLETED)
 
-### 1. Use the New Optimizer
+**Files**: `WebViewFactory.kt`, `ReloadBlockingWebViewClient.kt`, `BackgroundWebViewService.kt`
+- Automatically applies media optimizations to all WebViews
+- Integrated into WebView creation process
+- Applied when pages finish loading
+- Applied to background WebViews
 
-Integrate the `MediaPlaybackOptimizer` in your main activity:
+### 6. Added Comprehensive Memory Management (NEW)
 
-```kotlin
-// In MainActivity or wherever WebView is initialized
-MediaPlaybackOptimizer.optimizeWebViewForMedia(webView, this)
-MediaPlaybackOptimizer.injectOptimizedMediaScript(webView)
+**File**: `BackgroundWebViewService.kt`
+- **Periodic Memory Cleanup**: Monitors memory usage every 30 seconds
+- **Smart Cleanup Thresholds**: 
+  - 75% usage: Standard cleanup (DOM optimization, cache clearing)
+  - 90% usage: Emergency cleanup (aggressive cache clearing, temporary pause/resume)
+- **Memory Monitoring**: Logs memory usage during WebView registration/unregistration
+- **Proactive Cleanup**: Automatically cleans up when memory usage becomes high
+- **WebView Memory Optimization**: Uses MediaPlaybackOptimizer cleanup during unregistration
 
-// When cleaning up
-MediaPlaybackOptimizer.cleanupWebViewForMedia(webView)
-```
+## Memory Management Features
 
-### 2. Reduce Wake Lock Usage
+### Automatic Memory Monitoring
+- Continuous monitoring of memory usage percentages
+- Detailed logging of memory states during WebView lifecycle
+- Warnings when memory usage exceeds safe thresholds
 
-Consider reducing the number of concurrent wake locks in `BackgroundWebViewService`:
+### Smart Cleanup Strategies
+- **Standard Cleanup (75% memory)**: 
+  - DOM element optimization (replace images with placeholders)
+  - Clear form data and unnecessary caches
+  - JavaScript garbage collection
+- **Emergency Cleanup (90% memory)**:
+  - Aggressive cache clearing
+  - Temporary WebView pause/resume cycles
+  - Multiple garbage collection passes
 
-```kotlin
-// Only acquire wake locks when absolutely necessary
-if (hasActiveVideo && !wakeLock?.isHeld) {
-    acquireVideoWakeLock()
-}
-```
+### Proactive Memory Management
+- Memory checks after WebView registration
+- Memory checks after WebView unregistration  
+- Automatic cleanup when adding new WebViews to prevent issues
+- Warning when too many WebViews are active simultaneously
 
-### 3. Optimize Media Session Updates
+## Integration Status - COMPLETED ✅
 
-Only update media session when there are significant changes:
+The MediaPlaybackOptimizer has been successfully integrated into:
 
-```kotlin
-// In MediaSessionManager
-private fun shouldUpdateState(newPosition: Long, newIsPlaying: Boolean): Boolean {
-    return Math.abs(newPosition - currentPosition) > 1000 || 
-           newIsPlaying != isPlaying
-}
-```
+1. **WebViewFactory.kt** - Applied during WebView creation
+2. **ReloadBlockingWebViewClient.kt** - Applied when pages finish loading
+3. **BackgroundWebViewService.kt** - Applied to background WebViews + memory cleanup
 
-### 4. Memory Management
-
-Add periodic memory cleanup:
-
-```kotlin
-// In BackgroundWebViewService
-private fun cleanupMemory() {
-    ThreadManager.runOnBackgroundWithDelay(30000) {
-        System.gc()
-        if (isServiceRunning.get()) {
-            cleanupMemory()
-        }
-    }
-}
-```
-
-## Testing Guidelines
-
-1. **Test with Different Media Types**: Audio, video, live streams
-2. **Test Background/Foreground Transitions**: Ensure no blocking when app goes to background
-3. **Test Device Resource Usage**: Monitor CPU, memory, and battery usage
-4. **Test Different Android Versions**: Ensure compatibility across API levels
-5. **Test Long Playback Sessions**: Verify no memory leaks during extended playback
-
-## Monitoring
-
-Add logging to track performance:
-
-```kotlin
-private fun logPerformanceMetrics() {
-    val runtime = Runtime.getRuntime()
-    val usedMemory = runtime.totalMemory() - runtime.freeMemory()
-    Log.d(TAG, "Memory usage: ${usedMemory / 1024 / 1024}MB")
-}
-```
-
-## Expected Results
-
-After applying these fixes:
-- ✅ Reduced JavaScript execution frequency
-- ✅ Non-blocking service operations  
-- ✅ Optimized WebView configuration
-- ✅ Better resource management
-- ✅ Improved error handling
-- ✅ Reduced memory pressure
-
-This should significantly reduce or eliminate the black screen and unresponsiveness issues during media playback.
+All WebViews in the app now automatically receive media optimizations and memory management.

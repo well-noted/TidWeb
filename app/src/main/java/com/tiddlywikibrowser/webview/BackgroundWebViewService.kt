@@ -70,6 +70,9 @@ class BackgroundWebViewService : Service() {
         // Configure WebView for background media
         WebView.setWebContentsDebuggingEnabled(true)
         
+        // Initialize memory monitoring
+        logInitialMemoryState()
+        
         // Register for lifecycle changes using broadcast receivers
         try {
             registerScreenStateReceiver()
@@ -267,6 +270,9 @@ class BackgroundWebViewService : Service() {
         
         // Update notification to show active WebView count
         updateNotification()
+        
+        // Check memory usage after adding new WebView
+        checkMemoryAfterWebViewRegistration()
         
         Log.d(TAG, "WebView registered with key: $key, total active: ${activeWebViews.size}")
     }
@@ -739,6 +745,9 @@ class BackgroundWebViewService : Service() {
                         })();
                     """.trimIndent(), null)
                     
+                    // Clean up WebView memory before caching
+                    MediaPlaybackOptimizer.cleanupWebViewForMedia(webView)
+                    
                     // Only pause the WebView but don't destroy it
                     // This is critical - we're intentionally NOT destroying the WebView
                     // just caching its state so it can be resumed later
@@ -755,6 +764,9 @@ class BackgroundWebViewService : Service() {
         
         // Update notification
         updateNotification()
+        
+        // Check memory usage after WebView removal
+        checkMemoryAfterWebViewUnregistration()
     }
     
     /**
@@ -1142,8 +1154,137 @@ class BackgroundWebViewService : Service() {
             if (isServiceRunning.get()) {
                 checkWebViewHealth()
                 checkForActiveVideo() // Also check for active video
+                performPeriodicMemoryCleanup() // Add memory cleanup
                 startHealthCheck() // Schedule next check
             }
+        }
+    }
+    
+    /**
+     * Perform periodic memory cleanup to prevent memory-related black screens and unresponsiveness
+     */
+    private fun performPeriodicMemoryCleanup() {
+        try {
+            val runtime = Runtime.getRuntime()
+            val totalMemory = runtime.totalMemory()
+            val freeMemory = runtime.freeMemory()
+            val usedMemory = totalMemory - freeMemory
+            val maxMemory = runtime.maxMemory()
+            val memoryUsagePercent = (usedMemory.toDouble() / maxMemory.toDouble()) * 100
+            
+            Log.d(TAG, "Memory usage: ${memoryUsagePercent.toInt()}% (${usedMemory / 1024 / 1024}MB / ${maxMemory / 1024 / 1024}MB)")
+            
+            // If memory usage is high (>75%), perform cleanup
+            if (memoryUsagePercent > 75.0) {
+                Log.w(TAG, "High memory usage detected (${memoryUsagePercent.toInt()}%), performing cleanup")
+                
+                // Clean up WebView caches and optimize
+                activeWebViews.forEach { (key, webView) ->
+                    ThreadManager.runOnMain {
+                        try {
+                            // Clear WebView cache but preserve essential data
+                            webView.evaluateJavascript("""
+                                (function() {
+                                    // Clear unnecessary DOM elements but preserve media
+                                    var elementsToClean = document.querySelectorAll('img:not([src*="data:"]):not(.essential), iframe:not(.essential)');
+                                    var cleanedCount = 0;
+                                    
+                                    elementsToClean.forEach(function(el) {
+                                        if (!el.closest('video') && !el.closest('audio')) {
+                                            var placeholder = document.createElement('div');
+                                            placeholder.style.cssText = 'width:' + el.offsetWidth + 'px;height:' + el.offsetHeight + 'px;background:#f0f0f0;border:1px solid #ccc;';
+                                            placeholder.textContent = 'Image cached';
+                                            el.parentNode.replaceChild(placeholder, el);
+                                            cleanedCount++;
+                                        }
+                                    });
+                                    
+                                    // Clear JavaScript execution contexts that might be hanging
+                                    if (window.gc && typeof window.gc === 'function') {
+                                        window.gc();
+                                    }
+                                    
+                                    console.log('[MemoryCleanup] Cleaned ' + cleanedCount + ' elements');
+                                    return cleanedCount;
+                                })();
+                            """.trimIndent()) { result ->
+                                Log.d(TAG, "Cleaned WebView $key: $result elements")
+                            }
+                            
+                            // Clear unnecessary WebView data
+                            webView.clearFormData()
+                            webView.clearMatches()
+                            
+                            // Force WebView memory optimization
+                            MediaPlaybackOptimizer.cleanupWebViewForMedia(webView)
+                            
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error during WebView memory cleanup for $key: ${e.message}")
+                        }
+                    }
+                }
+                
+                // System-level memory cleanup
+                System.gc()
+                Log.d(TAG, "Memory cleanup completed")
+                
+                // Log memory usage after cleanup
+                ThreadManager.runOnBackgroundWithDelay(2000) {
+                    val newUsedMemory = runtime.totalMemory() - runtime.freeMemory()
+                    val newMemoryPercent = (newUsedMemory.toDouble() / maxMemory.toDouble()) * 100
+                    Log.d(TAG, "Memory usage after cleanup: ${newMemoryPercent.toInt()}% (${newUsedMemory / 1024 / 1024}MB)")
+                }
+            }
+            
+            // Emergency cleanup if memory usage is critical (>90%)
+            if (memoryUsagePercent > 90.0) {
+                Log.e(TAG, "Critical memory usage detected (${memoryUsagePercent.toInt()}%), performing emergency cleanup")
+                performEmergencyMemoryCleanup()
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error during periodic memory cleanup: ${e.message}")
+        }
+    }
+    
+    /**
+     * Emergency memory cleanup when memory usage is critical
+     */
+    private fun performEmergencyMemoryCleanup() {
+        try {
+            // More aggressive cleanup
+            activeWebViews.forEach { (key, webView) ->
+                ThreadManager.runOnMain {
+                    try {
+                        // Clear all non-essential cache
+                        webView.clearCache(true)
+                        webView.clearHistory()
+                        
+                        // Pause WebView temporarily to free resources
+                        webView.onPause()
+                        
+                        // Resume after a short delay
+                        ThreadManager.runOnMainWithDelay(1000) {
+                            webView.onResume()
+                        }
+                        
+                        Log.w(TAG, "Emergency cleanup applied to WebView $key")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error during emergency cleanup for WebView $key: ${e.message}")
+                    }
+                }
+            }
+            
+            // Force aggressive garbage collection
+            repeat(3) {
+                System.gc()
+                Thread.sleep(100)
+            }
+            
+            Log.w(TAG, "Emergency memory cleanup completed")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error during emergency memory cleanup: ${e.message}")
         }
     }
     
@@ -1415,7 +1556,92 @@ class BackgroundWebViewService : Service() {
             Log.e(TAG, "Error stopping silent audio: ${e.message}")
         }
     }
-      companion object {
+      /**
+     * Log initial memory state for monitoring baseline
+     */
+    private fun logInitialMemoryState() {
+        try {
+            val runtime = Runtime.getRuntime()
+            val maxMemory = runtime.maxMemory()
+            val totalMemory = runtime.totalMemory()
+            val freeMemory = runtime.freeMemory()
+            val usedMemory = totalMemory - freeMemory
+            
+            Log.i(TAG, "Initial memory state: Max=${maxMemory/1024/1024}MB, " +
+                    "Used=${usedMemory/1024/1024}MB (${((usedMemory.toDouble()/maxMemory.toDouble())*100).toInt()}%)")
+            
+            // Warn if we're starting with high memory usage
+            val memoryUsagePercent = (usedMemory.toDouble() / maxMemory.toDouble()) * 100
+            if (memoryUsagePercent > 60.0) {
+                Log.w(TAG, "Service starting with high memory usage: ${memoryUsagePercent.toInt()}%")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error logging initial memory state: ${e.message}")
+        }
+    }
+    
+    /**
+     * Check memory usage after a WebView registration
+     */
+    private fun checkMemoryAfterWebViewRegistration() {
+        try {
+            val runtime = Runtime.getRuntime()
+            val totalMemory = runtime.totalMemory()
+            val freeMemory = runtime.freeMemory()
+            val usedMemory = totalMemory - freeMemory
+            val maxMemory = runtime.maxMemory()
+            val memoryUsagePercent = (usedMemory.toDouble() / maxMemory.toDouble()) * 100
+            
+            Log.d(TAG, "Memory after WebView registration: ${memoryUsagePercent.toInt()}% " +
+                    "(${usedMemory / 1024 / 1024}MB / ${maxMemory / 1024 / 1024}MB), " +
+                    "Active WebViews: ${activeWebViews.size}")
+            
+            // If memory usage is getting high, proactively clean up
+            if (memoryUsagePercent > 70.0) {
+                Log.w(TAG, "Memory usage high after WebView registration, performing proactive cleanup")
+                ThreadManager.runOnBackgroundWithDelay(1000) {
+                    performPeriodicMemoryCleanup()
+                }
+            }
+            
+            // If we have too many WebViews, warn about potential issues
+            if (activeWebViews.size > 3) {
+                Log.w(TAG, "High number of active WebViews (${activeWebViews.size}), monitoring memory closely")
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking memory after WebView registration: ${e.message}")
+        }
+    }
+    
+    /**
+     * Check memory usage after a WebView unregistration
+     */
+    private fun checkMemoryAfterWebViewUnregistration() {
+        // Delay the check to allow garbage collection to work
+        ThreadManager.runOnBackgroundWithDelay(2000) {
+            try {
+                val runtime = Runtime.getRuntime()
+                val totalMemory = runtime.totalMemory()
+                val freeMemory = runtime.freeMemory()
+                val usedMemory = totalMemory - freeMemory
+                val maxMemory = runtime.maxMemory()
+                val memoryUsagePercent = (usedMemory.toDouble() / maxMemory.toDouble()) * 100
+                
+                Log.d(TAG, "Memory after WebView unregistration: ${memoryUsagePercent.toInt()}% " +
+                        "(${usedMemory / 1024 / 1024}MB / ${maxMemory / 1024 / 1024}MB), " +
+                        "Active WebViews: ${activeWebViews.size}")
+                
+                // Force garbage collection to help free up memory
+                System.gc()
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error checking memory after WebView unregistration: ${e.message}")
+            }
+        }
+    }
+    
+    companion object {
         const val ACTION_REGISTER_WEBVIEW = "com.tiddlywikibrowser.action.REGISTER_WEBVIEW"
         const val ACTION_UNREGISTER_WEBVIEW = "com.tiddlywikibrowser.action.UNREGISTER_WEBVIEW"
         const val ACTION_STOP_SERVICE = "com.tiddlywikibrowser.action.STOP_SERVICE"
