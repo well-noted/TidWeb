@@ -16,6 +16,7 @@ import android.webkit.WebSettings
 import com.tiddlywikibrowser.MainActivity
 import com.tiddlywikibrowser.R
 import com.tiddlywikibrowser.ThreadManager
+import com.tiddlywikibrowser.utils.MediaPlaybackOptimizer
 
 /**
  * A specialized WebViewClient that prevents TiddlyWiki from reloading unnecessarily.
@@ -212,6 +213,13 @@ class ReloadBlockingWebViewClient(
             } catch (e: Exception) {
                 Log.d(TAG, "Media monitor script not available: ${e.message}")
             }
+        }        // Apply MediaPlaybackOptimizer optimizations when page finishes loading
+        try {
+            MediaPlaybackOptimizer.optimizeWebViewForMedia(view, context)
+            MediaPlaybackOptimizer.injectOptimizedMediaScript(view)
+            Log.d(TAG, "Applied MediaPlaybackOptimizer optimizations")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error applying MediaPlaybackOptimizer: ${e.message}")
         }
 
         // Get the current state of the WebView - is it already marked as loaded?

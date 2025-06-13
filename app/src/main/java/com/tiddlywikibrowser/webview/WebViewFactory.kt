@@ -17,6 +17,7 @@ import com.tiddlywikibrowser.ThreadManager
 import com.tiddlywikibrowser.ScreenUtils
 import com.tiddlywikibrowser.WebViewDownloadManager
 import com.tiddlywikibrowser.media.SimpleMediaManager
+import com.tiddlywikibrowser.utils.MediaPlaybackOptimizer
 
 object WebViewFactory {
     
@@ -37,6 +38,9 @@ object WebViewFactory {
                 // Setup download manager
                 val downloadManager = WebViewDownloadManager(context.applicationContext)
                 downloadManager.setupDownloadListener(webView)
+                
+                // Initialize MediaPlaybackOptimizer to prevent black screen and unresponsiveness
+                MediaPlaybackOptimizer.optimizeWebViewForMedia(webView, context)
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Error creating WebView", e)

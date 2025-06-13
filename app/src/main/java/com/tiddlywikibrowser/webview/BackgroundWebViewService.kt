@@ -22,6 +22,7 @@ import android.util.Log
 import android.webkit.WebView
 import androidx.core.app.NotificationCompat
 import com.tiddlywikibrowser.cache.WebViewCache
+import com.tiddlywikibrowser.utils.MediaPlaybackOptimizer
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -251,7 +252,14 @@ class BackgroundWebViewService : Service() {
                 """.trimIndent(), null)
                 
                 // Enable video background playback
-                enableBackgroundVideoPlayback(webView)
+                enableBackgroundVideoPlayback(webView)                  // Apply MediaPlaybackOptimizer optimizations for background WebViews
+                try {
+                    MediaPlaybackOptimizer.optimizeWebViewForMedia(webView, this@BackgroundWebViewService)
+                    MediaPlaybackOptimizer.injectOptimizedMediaScript(webView)
+                    Log.d(TAG, "Applied MediaPlaybackOptimizer to background WebView")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error applying MediaPlaybackOptimizer to background WebView: ${e.message}")
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Error configuring WebView: ${e.message}")
             }
