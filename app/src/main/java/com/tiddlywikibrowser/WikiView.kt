@@ -31,6 +31,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebSettings
 import com.tiddlywikibrowser.cache.WebViewCache
+import com.tiddlywikibrowser.webview.ReloadBlockingWebViewClient
 
     // Cache for WebViews - increased to handle larger wikis
     private val MAX_WEBVIEW_CACHE = 10
