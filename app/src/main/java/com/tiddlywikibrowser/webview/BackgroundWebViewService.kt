@@ -381,7 +381,7 @@ class BackgroundWebViewService : Service() {
                             }
                         });
                     }
-                }, 500);  // Check more frequently
+                }, 1000);  // Reduced frequency - check every 1 second instead of 500ms
                 
                 // Listen for native pause clicks
                 document.addEventListener('click', function(e) {
@@ -679,7 +679,7 @@ class BackgroundWebViewService : Service() {
                     });
                       // Skip MediaInterface calls - service handles its own notifications
                     console.log('[BackgroundVideo] Periodic check - service will handle notifications');
-                }, 2000);
+                }, 3000); // Reduced frequency - check every 3 seconds instead of 2
                 
                 // Add a helper function to force resume all videos that should be playing
                 window.forceResumeBackgroundVideos = function() {
@@ -1120,9 +1120,8 @@ class BackgroundWebViewService : Service() {
         }
         videoWakeLock = null
     }
-    
-    private fun startVideoCheckLoop() {
-        ThreadManager.runOnBackgroundWithDelay(3000) { // Check frequently for video status
+      private fun startVideoCheckLoop() {
+        ThreadManager.runOnBackgroundWithDelay(5000) { // Reduced frequency - check every 5 seconds
             if (isServiceRunning.get() && hasActiveVideo) {
                 checkForActiveVideo()
                 startVideoCheckLoop() // Continue checking while we have active video

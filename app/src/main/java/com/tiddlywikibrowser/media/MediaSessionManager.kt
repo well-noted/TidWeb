@@ -24,9 +24,9 @@ import com.tiddlywikibrowser.WebViewProvider
 import org.json.JSONObject
 
 class MediaSessionManager private constructor(private val context: Context) {
-    
-    companion object {
+      companion object {
         private const val TAG = "MediaSessionManager"
+        private const val JS_EXECUTION_THROTTLE_MS = 1000L // Throttle JS execution
         
         @Volatile
         private var INSTANCE: MediaSessionManager? = null
@@ -50,6 +50,7 @@ class MediaSessionManager private constructor(private val context: Context) {
     private var mediaStateUpdateHandler = Handler(Looper.getMainLooper())
     private var mediaStateUpdateRunnable: Runnable? = null
     private var backgroundWebViewManager: BackgroundWebViewManager? = null
+    private var lastJsExecutionTime = 0L // Add throttling for JavaScript execution
     
     data class MediaState(
         var title: String? = null,
@@ -63,19 +64,28 @@ class MediaSessionManager private constructor(private val context: Context) {
         initializeMediaSession()
         startPeriodicMediaStateCheck()
     }
-    
-    private fun startPeriodicMediaStateCheck() {
+      private fun startPeriodicMediaStateCheck() {
         mediaStateUpdateRunnable = object : Runnable {
             override fun run() {
-                // Only update if we have active media and WebView is available
-                if (lastKnownMediaState.hasActiveMedia && webViewProvider != null) {
-                    updateMediaStateFromWebView()
+                try {
+                    // Only update if we have active media, WebView is available, and app is not in background
+                    if (lastKnownMediaState.hasActiveMedia && webViewProvider != null && !isAppInBackground) {
+                        updateMediaStateFromWebView()
+                    }
+                    
+                    // Only schedule next update if we still have active media
+                    if (lastKnownMediaState.hasActiveMedia) {
+                        // Increase interval to reduce load - check every 3 seconds instead of 2
+                        mediaStateUpdateHandler.postDelayed(this, 3000)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in periodic media state check", e)
+                    // Don't reschedule if there's an error to prevent further issues
                 }
-                // Schedule next update
-                mediaStateUpdateHandler.postDelayed(this, 2000) // Check every 2 seconds
             }
         }
-        mediaStateUpdateHandler.post(mediaStateUpdateRunnable!!)
+        // Start with a longer initial delay to let everything settle
+        mediaStateUpdateHandler.postDelayed(mediaStateUpdateRunnable!!, 3000)
     }
     
     private fun updateMediaStateFromWebView() {
@@ -233,34 +243,51 @@ class MediaSessionManager private constructor(private val context: Context) {
     }
       /**
      * Execute JavaScript with fallback to background WebView if needed
-     */
-    private fun executeJavaScriptSafely(script: String, resultCallback: ((String?) -> Unit)? = null) {
-        // Try foreground WebView first
-        if (webViewProvider != null && !isAppInBackground) {
-            webViewProvider?.executeJavascript(script, resultCallback)
-        } else {
-            // Fallback: try background WebView service
-            Log.d(TAG, "App in background, attempting to execute JS via background service")
-            
-            // Try to execute via background service
-            if (backgroundWebViewManager?.service != null) {
-                try {
-                    // Get the current WebView from background service
-                    val intent = Intent(context, BackgroundWebViewService::class.java).apply {
-                        action = BackgroundWebViewService.ACTION_EXECUTE_JAVASCRIPT
-                        putExtra(BackgroundWebViewService.EXTRA_JAVASCRIPT_CODE, script)
-                        // Execute on all WebViews since we don't know the specific key
-                        // putExtra(BackgroundWebViewService.EXTRA_WEBVIEW_KEY, webViewKey)
-                    }
-                    context.startService(intent)
-                    Log.d(TAG, "Sent JavaScript execution request to background service")
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to execute JavaScript via background service", e)
-                }
-            } else {
-                Log.w(TAG, "No available WebView context for JavaScript execution")
-            }
+     */    private fun executeJavaScriptSafely(script: String, resultCallback: ((String?) -> Unit)? = null) {
+        // Add throttling to prevent excessive JavaScript execution
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastJsExecutionTime < JS_EXECUTION_THROTTLE_MS) {
+            Log.d(TAG, "JavaScript execution throttled")
+            return
         }
+        lastJsExecutionTime = currentTime
+        
+        // Use a background thread to avoid blocking the UI thread
+        Thread {
+            try {
+                // Try foreground WebView first
+                if (webViewProvider != null && !isAppInBackground) {
+                    webViewProvider?.executeJavascript(script) { result ->
+                        // Execute callback on main thread
+                        mediaStateUpdateHandler.post {
+                            resultCallback?.invoke(result)
+                        }
+                    }
+                } else {
+                    // Fallback: try background WebView service
+                    Log.d(TAG, "App in background, attempting to execute JS via background service")
+                    
+                    // Try to execute via background service
+                    if (backgroundWebViewManager?.service != null) {
+                        try {
+                            // Get the current WebView from background service
+                            val intent = Intent(context, BackgroundWebViewService::class.java).apply {
+                                action = BackgroundWebViewService.ACTION_EXECUTE_JAVASCRIPT
+                                putExtra(BackgroundWebViewService.EXTRA_JAVASCRIPT_CODE, script)
+                            }
+                            context.startService(intent)
+                            Log.d(TAG, "Sent JavaScript execution request to background service")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to execute JavaScript via background service", e)
+                        }
+                    } else {
+                        Log.w(TAG, "No available WebView context for JavaScript execution")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in executeJavaScriptSafely", e)
+            }
+        }.start()
     }
     
     /**
@@ -383,8 +410,7 @@ class MediaSessionManager private constructor(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "Error updating playback state", e)
         }
-    }
-      fun bindToService() {
+    }    fun bindToService() {
         // Only proceed if we don't have an active service connection
         if (serviceConnection != null && isServiceBound) {
             Log.d(TAG, "Service connection already exists and is bound, not binding again")
@@ -395,68 +421,71 @@ class MediaSessionManager private constructor(private val context: Context) {
         
         serviceConnection = object : ServiceConnection {
             override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-                val binder = service as? MediaPlaybackService.LocalBinder
-                mediaPlaybackService = binder?.service
-                isServiceBound = true
-                Log.d(TAG, "Service connected successfully")
-                  // Set callback to receive media commands
-                mediaPlaybackService?.setCallback(object : MediaPlaybackService.MediaPlayerCallback {
-                    override fun onPlay() {
-                        Log.d(TAG, "MediaPlayerCallback: onPlay")
-                        executeJavaScriptSafely("""
-                            (function() {
-                                const media = document.querySelector('audio,video');
-                                if (media) {
-                                    media.play().catch(e => console.log('Play failed:', e));
-                                    return 'play_executed';
-                                }
-                                return 'no_media_found';
-                            })();
-                        """.trimIndent()) { result ->
-                            Log.d(TAG, "Play JavaScript result: $result")
-                            // Update our state immediately
-                            lastKnownMediaState.isPlaying = true
-                        }
-                    }                    override fun onPause() {
-                        android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 MediaPlayerCallback: onPause")
-                        Log.d(TAG, "🎵PAUSEFIX🎵 MediaPlayerCallback: onPause")
-                        Log.d(TAG, "MediaPlayerCallback: onPause")
-                        executeJavaScriptSafely("""
-                            (function() {
-                                console.log('🎵PAUSEFIX🎵 MediaPlayerCallback: Executing direct pause');
-                                console.log('🎵PAUSEFIX🎵 Document visibility state: ' + document.visibilityState);
-                                
-                                // Flag that this is a media session command
-                                window.__mediaSessionCommandInProgress = true;
-                                console.log('🎵PAUSEFIX🎵 Set __mediaSessionCommandInProgress flag');
-                                
-                                const media = document.querySelector('audio,video');
-                                if (media) {
-                                    console.log('🎵PAUSEFIX🎵 Media element found, current paused state: ' + media.paused);
-                                    console.log('🎵PAUSEFIX🎵 Calling media.pause()');
-                                    media.pause();
-                                    console.log('🎵PAUSEFIX🎵 Pause call completed, new paused state: ' + media.paused);
+                try {
+                    val binder = service as? MediaPlaybackService.LocalBinder
+                    mediaPlaybackService = binder?.service
+                    isServiceBound = true
+                    Log.d(TAG, "Service connected successfully")
+                    
+                    // Set callback to receive media commands (non-blocking)
+                    mediaPlaybackService?.setCallback(object : MediaPlaybackService.MediaPlayerCallback {
+                        override fun onPlay() {
+                            Log.d(TAG, "MediaPlayerCallback: onPlay")
+                            executeJavaScriptSafely("""
+                                (function() {
+                                    const media = document.querySelector('audio,video');
+                                    if (media) {
+                                        media.play().catch(e => console.log('Play failed:', e));
+                                        return 'play_executed';
+                                    }
+                                    return 'no_media_found';
+                                })();
+                            """.trimIndent()) { result ->
+                                Log.d(TAG, "Play JavaScript result: $result")
+                                // Update our state immediately
+                                lastKnownMediaState.isPlaying = true
+                            }                        }
+                        
+                        override fun onPause() {
+                            android.util.Log.e("PAUSEFIX_TEST", "🎵PAUSEFIX🎵 MediaPlayerCallback: onPause")
+                            Log.d(TAG, "🎵PAUSEFIX🎵 MediaPlayerCallback: onPause")
+                            Log.d(TAG, "MediaPlayerCallback: onPause")
+                            executeJavaScriptSafely("""
+                                (function() {
+                                    console.log('🎵PAUSEFIX🎵 MediaPlayerCallback: Executing direct pause');
+                                    console.log('🎵PAUSEFIX🎵 Document visibility state: ' + document.visibilityState);
                                     
-                                    // Clear the flag after a delay
-                                    setTimeout(() => { 
-                                        window.__mediaSessionCommandInProgress = false; 
-                                        console.log('🎵PAUSEFIX🎵 Cleared __mediaSessionCommandInProgress flag');
-                                    }, 100);
+                                    // Flag that this is a media session command
+                                    window.__mediaSessionCommandInProgress = true;
+                                    console.log('🎵PAUSEFIX🎵 Set __mediaSessionCommandInProgress flag');
                                     
-                                    return 'pause_executed';
-                                }
-                                
-                                console.log('🎵PAUSEFIX🎵 No media element found');
-                                window.__mediaSessionCommandInProgress = false;
-                                return 'no_media_found';
-                            })();
-                        """.trimIndent()) { result ->
-                            Log.d(TAG, "🎵PAUSEFIX🎵 Pause JavaScript result: $result")
-                            Log.d(TAG, "Pause JavaScript result: $result")
-                            // Update our state immediately
-                            lastKnownMediaState.isPlaying = false
+                                    const media = document.querySelector('audio,video');
+                                    if (media) {
+                                        console.log('🎵PAUSEFIX🎵 Media element found, current paused state: ' + media.paused);
+                                        console.log('🎵PAUSEFIX🎵 Calling media.pause()');
+                                        media.pause();
+                                        console.log('🎵PAUSEFIX🎵 Pause call completed, new paused state: ' + media.paused);
+                                        
+                                        // Clear the flag after a delay
+                                        setTimeout(() => { 
+                                            window.__mediaSessionCommandInProgress = false; 
+                                            console.log('🎵PAUSEFIX🎵 Cleared __mediaSessionCommandInProgress flag');
+                                        }, 100);
+                                        
+                                        return 'pause_executed';
+                                    }
+                                    
+                                    console.log('🎵PAUSEFIX🎵 No media element found');
+                                    window.__mediaSessionCommandInProgress = false;
+                                    return 'no_media_found';
+                                })();
+                            """.trimIndent()) { result ->
+                                Log.d(TAG, "🎵PAUSEFIX🎵 Pause JavaScript result: $result")
+                                Log.d(TAG, "Pause JavaScript result: $result")
+                                // Update our state immediately
+                                lastKnownMediaState.isPlaying = false
+                            }
                         }
-                    }
                     
                     override fun onSeekTo(pos: Long) {
                         Log.d(TAG, "MediaPlayerCallback: onSeekTo $pos")
@@ -537,29 +566,31 @@ class MediaSessionManager private constructor(private val context: Context) {
                     } catch (e: Exception) {
                         Log.e(TAG, "Error setting media session in service", e)
                     }
-                } else {
-                    Log.d(TAG, "No active media session to set in service")
+                } else {                    Log.d(TAG, "No active media session to set in service")
                 }
                 
                 Log.d(TAG, "Connected to MediaPlaybackService")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in onServiceConnected", e)
             }
+        }
             
-            override fun onServiceDisconnected(name: ComponentName?) {
-                mediaPlaybackService = null
-                isServiceBound = false
-                Log.d(TAG, "Disconnected from MediaPlaybackService")
-                
-                // If we still have active media, try to reconnect after a delay
-                if (lastKnownMediaState.hasActiveMedia) {
-                    mediaStateUpdateHandler.postDelayed({
-                        if (!isServiceBound && lastKnownMediaState.hasActiveMedia) {
-                            Log.d(TAG, "Attempting to reconnect to service after disconnection")
-                            bindToService()
-                        }
-                    }, 3000) // Wait 3 seconds before reconnecting
-                }
+        override fun onServiceDisconnected(name: ComponentName?) {
+            mediaPlaybackService = null
+            isServiceBound = false
+            Log.d(TAG, "Disconnected from MediaPlaybackService")
+            
+            // If we still have active media, try to reconnect after a delay
+            if (lastKnownMediaState.hasActiveMedia) {
+                mediaStateUpdateHandler.postDelayed({
+                    if (!isServiceBound && lastKnownMediaState.hasActiveMedia) {
+                        Log.d(TAG, "Attempting to reconnect to service after disconnection")
+                        bindToService()
+                    }
+                }, 3000) // Wait 3 seconds before reconnecting
             }
-        }        
+        }
+    }
         // Only proceed with binding if we have a service connection
         if (serviceConnection != null) {
             try {
