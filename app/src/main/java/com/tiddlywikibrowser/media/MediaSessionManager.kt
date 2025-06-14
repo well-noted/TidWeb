@@ -1,5 +1,6 @@
 package com.tiddlywikibrowser.media
 
+import android.bluetooth.BluetoothDevice
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -19,7 +20,6 @@ import com.tiddlywikibrowser.BackgroundWebViewManager
 import com.tiddlywikibrowser.BackgroundWebViewService
 import com.tiddlywikibrowser.MediaPlaybackService
 import com.tiddlywikibrowser.R
-
 import com.tiddlywikibrowser.WebViewProvider
 import org.json.JSONObject
 
@@ -44,7 +44,11 @@ class MediaSessionManager private constructor(private val context: Context) {
     private var serviceConnection: ServiceConnection? = null
     private var isServiceBound = false
     private var mediaPlaybackService: MediaPlaybackService? = null
-      // Persistent state to maintain across app lifecycle
+    
+    // Bluetooth connection management
+    private var bluetoothConnectionManager: BluetoothConnectionManager? = null
+    
+    // Persistent state to maintain across app lifecycle
     private var lastKnownMediaState = MediaState()
     private var isAppInBackground = false
     private var mediaStateUpdateHandler = Handler(Looper.getMainLooper())
@@ -59,10 +63,10 @@ class MediaSessionManager private constructor(private val context: Context) {
         var position: Long = 0L,
         var isPlaying: Boolean = false,
         var hasActiveMedia: Boolean = false
-    )
-    init {
+    )    init {
         initializeMediaSession()
         startPeriodicMediaStateCheck()
+        initializeBluetoothManager()
     }
       private fun startPeriodicMediaStateCheck() {
         mediaStateUpdateRunnable = object : Runnable {
@@ -243,7 +247,7 @@ class MediaSessionManager private constructor(private val context: Context) {
     }
       /**
      * Execute JavaScript with fallback to background WebView if needed
-     */    private fun executeJavaScriptSafely(script: String, resultCallback: ((String?) -> Unit)? = null) {
+     */    private fun executeJavaScriptSafely(script: String, callback: ((String?) -> Unit)? = null) {
         // Add throttling to prevent excessive JavaScript execution
         val currentTime = System.currentTimeMillis()
         if (currentTime - lastJsExecutionTime < JS_EXECUTION_THROTTLE_MS) {
@@ -257,10 +261,9 @@ class MediaSessionManager private constructor(private val context: Context) {
             try {
                 // Try foreground WebView first
                 if (webViewProvider != null && !isAppInBackground) {
-                    webViewProvider?.executeJavascript(script) { result ->
-                        // Execute callback on main thread
+                    webViewProvider?.executeJavascript(script) { result ->                        // Execute callback on main thread
                         mediaStateUpdateHandler.post {
-                            resultCallback?.invoke(result)
+                            callback?.invoke(result)
                         }
                     }
                 } else {
@@ -287,8 +290,7 @@ class MediaSessionManager private constructor(private val context: Context) {
             } catch (e: Exception) {
                 Log.e(TAG, "Error in executeJavaScriptSafely", e)
             }
-        }.start()
-    }
+        }.start()    }
     
     /**
      * Called when the app goes to background
@@ -660,6 +662,10 @@ class MediaSessionManager private constructor(private val context: Context) {
         return isServiceBound
     }    fun release() {
         try {
+            // Stop Bluetooth monitoring first
+            bluetoothConnectionManager?.stopMonitoring()
+            bluetoothConnectionManager = null
+            
             // Stop periodic updates
             mediaStateUpdateRunnable?.let { runnable ->
                 mediaStateUpdateHandler.removeCallbacks(runnable)
@@ -772,28 +778,77 @@ class MediaSessionManager private constructor(private val context: Context) {
         updatePlaybackState(true, lastKnownMediaState.position)
     }    /**
      * Handle pause command
-     */    private fun handlePause() {
+     */    
+    private fun handlePause() {
         Log.d(TAG, "MediaSessionManager: Handling pause command")
+        Log.d(TAG, "WebView available: ${webView != null}")
+        Log.d(TAG, "WebViewProvider available: ${webViewProvider != null}")
         
-        // Execute pause command directly through WebView
-        webView?.evaluateJavascript("""
-            // Find and pause the audio element
-            const audioElement = document.querySelector('audio');
-            if (audioElement) {
-                audioElement.pause();
-            } else {
-                console.log('No audio element found');
+        // Try multiple approaches to pause media
+        var pauseAttempted = false
+        
+        // Method 1: Direct WebView access
+        webView?.let { wv ->
+            Log.d(TAG, "Attempting pause via direct WebView")
+            wv.evaluateJavascript("""
+                (function() {
+                    console.log('[MediaSessionManager] Attempting to pause media');
+                    const mediaElements = document.querySelectorAll('audio, video');
+                    let pausedCount = 0;
+                    
+                    mediaElements.forEach(media => {
+                        if (!media.paused) {
+                            media.pause();
+                            pausedCount++;
+                            console.log('[MediaSessionManager] Paused media element:', media.src || media.currentSrc);
+                        }
+                    });
+                    
+                    return { method: 'direct_webview', pausedCount: pausedCount, totalElements: mediaElements.length };
+                })();
+            """.trimIndent()) { result ->
+                Log.d(TAG, "Direct WebView pause result: $result")
             }
-        """.trimIndent()) { result ->
-            Log.d(TAG, "Pause command executed, result: $result")
+            pauseAttempted = true
         }
         
-        // Also update our state immediately for responsiveness
+        // Method 2: WebViewProvider access
+        if (!pauseAttempted) {
+            webViewProvider?.let { provider ->
+                Log.d(TAG, "Attempting pause via WebViewProvider")
+                provider.executeJavascript("""
+                    (function() {
+                        console.log('[MediaSessionManager] Attempting to pause media via provider');
+                        const mediaElements = document.querySelectorAll('audio, video');
+                        let pausedCount = 0;
+                        
+                        mediaElements.forEach(media => {
+                            if (!media.paused) {
+                                media.pause();
+                                pausedCount++;
+                                console.log('[MediaSessionManager] Paused media element:', media.src || media.currentSrc);
+                            }
+                        });
+                        
+                        return { method: 'webview_provider', pausedCount: pausedCount, totalElements: mediaElements.length };
+                    })();
+                """.trimIndent()) { result ->
+                    Log.d(TAG, "WebViewProvider pause result: $result")
+                }
+                pauseAttempted = true
+            }
+        }
+        
+        if (!pauseAttempted) {
+            Log.w(TAG, "Could not attempt pause - no WebView or WebViewProvider available")
+        }
+          // Also update our state immediately for responsiveness
         Log.d(TAG, "MediaSessionManager: Updating state to paused")
         lastKnownMediaState.isPlaying = false
         updatePlaybackState(false, lastKnownMediaState.position)
     }
-      /**
+    
+    /**
      * Handle skip forward command
      */
     private fun handleSkipForward() {
@@ -859,12 +914,49 @@ class MediaSessionManager private constructor(private val context: Context) {
                     return 'seek_executed';
                 }
                 return 'no_media_found';
-            })();
-        """.trimIndent()) { result ->
+            })();        """.trimIndent()) { result ->
             Log.d(TAG, "Seek JavaScript result: $result")
             // Update our position immediately
             lastKnownMediaState.position = pos
             updatePlaybackState(lastKnownMediaState.isPlaying, pos)
         }
+    }
+    
+    /**
+     * Initialize Bluetooth connection manager for automatic pause on disconnect
+     */
+    private fun initializeBluetoothManager() {
+        try {
+            bluetoothConnectionManager = BluetoothConnectionManager.getInstance(context)
+            bluetoothConnectionManager?.setMediaSessionManager(this)
+            
+            // Set up listener for Bluetooth events
+            bluetoothConnectionManager?.setConnectionListener(object : BluetoothConnectionManager.BluetoothConnectionListener {
+                override fun onBluetoothDeviceConnected(device: BluetoothDevice) {
+                    Log.d(TAG, "Bluetooth device connected: ${device.address}")
+                }
+                
+                override fun onBluetoothDeviceDisconnected(device: BluetoothDevice) {
+                    Log.d(TAG, "Bluetooth device disconnected: ${device.address}")
+                }
+                
+                override fun onAllBluetoothDevicesDisconnected() {
+                    Log.d(TAG, "All Bluetooth devices disconnected - media should be paused")
+                }
+            })
+            
+            // Start monitoring Bluetooth connections
+            bluetoothConnectionManager?.startMonitoring()
+            
+            Log.d(TAG, "Bluetooth connection manager initialized and monitoring started")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing Bluetooth connection manager", e)
+        }
+    }
+      /**
+     * Public method to handle pause - made accessible for BluetoothConnectionManager
+     */
+    fun pauseMediaPlayback() {
+        handlePause()
     }
 }

@@ -72,6 +72,37 @@ object MediaPlaybackOptimizer {
                     
                     console.log('[MediaOptimizer] Applying media optimizations');
                     
+                    // Add Bluetooth pause handler that can be called from native code
+                    window.BluetoothMediaHandler = {
+                        pauseAllMedia: function() {
+                            try {
+                                console.log('[BluetoothMediaHandler] Pausing all media due to Bluetooth disconnection');
+                                const mediaElements = document.querySelectorAll('audio, video');
+                                let pausedCount = 0;
+                                
+                                mediaElements.forEach(media => {
+                                    if (!media.paused) {
+                                        media.pause();
+                                        pausedCount++;
+                                        console.log('[BluetoothMediaHandler] Paused media:', media.src || media.currentSrc);
+                                    }
+                                });
+                                
+                                // Update any overlay controls to reflect paused state
+                                if (window.AudioControls && typeof window.AudioControls.updateOverlayButton === 'function') {
+                                    mediaElements.forEach(media => {
+                                        window.AudioControls.updateOverlayButton(media, false);
+                                    });
+                                }
+                                
+                                return { success: true, pausedCount: pausedCount };
+                            } catch (e) {
+                                console.error('[BluetoothMediaHandler] Error pausing media:', e);
+                                return { success: false, error: e.message };
+                            }
+                        }
+                    };
+                    
                     // Throttle function to prevent excessive execution
                     function throttle(func, delay) {
                         let timeoutId;
@@ -193,6 +224,37 @@ object MediaPlaybackOptimizer {
             
         } catch (e: Exception) {
             Log.e(TAG, "Error injecting optimized media script", e)
+        }
+    }
+    
+    /**
+     * Pause media playback specifically due to Bluetooth disconnection
+     */
+    fun pauseMediaForBluetoothDisconnect(webView: WebView) {
+        try {
+            val bluetoothPauseScript = """
+                (function() {
+                    if (window.BluetoothMediaHandler && typeof window.BluetoothMediaHandler.pauseAllMedia === 'function') {
+                        return window.BluetoothMediaHandler.pauseAllMedia();
+                    } else {
+                        // Fallback if BluetoothMediaHandler is not available
+                        console.log('[MediaOptimizer] BluetoothMediaHandler not available, using fallback pause');
+                        const media = document.querySelector('audio, video');
+                        if (media && !media.paused) {
+                            media.pause();
+                            return { success: true, fallback: true };
+                        }
+                        return { success: false, reason: 'no_media_found' };
+                    }
+                })();
+            """.trimIndent()
+            
+            webView.evaluateJavascript(bluetoothPauseScript) { result ->
+                Log.d(TAG, "Bluetooth pause command result: $result")
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error pausing media for Bluetooth disconnect", e)
         }
     }
     

@@ -9,6 +9,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.net.ConnectivityManager
@@ -32,6 +33,8 @@ import com.tiddlywikibrowser.WebViewProvider
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -124,6 +127,7 @@ private const val MEMORY_THRESHOLD = 50L * 1024L * 1024L
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
+    
     internal lateinit var mediaSessionManager: MediaSessionManager
     internal lateinit var backgroundWebViewManager: BackgroundWebViewManager
     private val TAG = "MainActivity"
@@ -170,6 +174,7 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
+        private const val BLUETOOTH_PERMISSION_REQUEST_CODE = 1001
         private var viewModelInstance: WikiViewModel? = null
 
         internal fun getViewModel(context: Context): WikiViewModel {
@@ -379,7 +384,11 @@ class MainActivity : ComponentActivity() {
     }    private fun initializeManagers() {
         // Initialize MediaSessionManager
         mediaSessionManager = MediaSessionManager.getInstance(this)
-          // Initialize BackgroundWebViewManager first so we can pass it to MediaSessionManager
+        
+        // Request Bluetooth permissions for media pause functionality
+        requestBluetoothPermissions()
+        
+        // Initialize BackgroundWebViewManager first so we can pass it to MediaSessionManager
         backgroundWebViewManager = BackgroundWebViewManager(applicationContext)
         backgroundWebViewManager.startBackgroundService()
         
@@ -852,9 +861,7 @@ class MainActivity : ComponentActivity() {
         super.onStop()
         lifecycleHandler.onStop(isChangingConfigurations)
     }    override fun onDestroy() {
-        Log.d(TAG, "MainActivity onDestroy: Starting cleanup")
-        
-        // Release media session manager first
+        Log.d(TAG, "MainActivity onDestroy: Starting cleanup")        // Release media session manager first
         try {
             mediaSessionManager.release()
             Log.d(TAG, "MediaSessionManager released from MainActivity onDestroy")
@@ -1203,9 +1210,79 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+            }        } catch (e: Exception) {
+            Log.e("MainActivity", "Error changing content visibility: ${e.message}")
+        }
+    }
+    
+    private fun requestBluetoothPermissions() {
+        val permissions = mutableListOf<String>()
+        
+        // Basic Bluetooth permissions
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH) 
+            != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.BLUETOOTH)
+        }
+        
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADMIN) 
+            != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.BLUETOOTH_ADMIN)
+        }
+        
+        // Android 12+ permissions
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) 
+                != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
+            }
+            
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) 
+                != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.BLUETOOTH_SCAN)
+            }
+        }
+        
+        if (permissions.isNotEmpty()) {
+            Log.d(TAG, "Requesting Bluetooth permissions: ${permissions.joinToString()}")
+            ActivityCompat.requestPermissions(this, permissions.toTypedArray(), BLUETOOTH_PERMISSION_REQUEST_CODE)
+        } else {
+            Log.d(TAG, "All Bluetooth permissions already granted")
+            onBluetoothPermissionsGranted()
+        }
+    }
+    
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        
+        when (requestCode) {
+            BLUETOOTH_PERMISSION_REQUEST_CODE -> {
+                val allGranted = grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }
+                
+                if (allGranted) {
+                    Log.d(TAG, "Bluetooth permissions granted")
+                    onBluetoothPermissionsGranted()
+                } else {
+                    Log.w(TAG, "Bluetooth permissions denied - Bluetooth media pause will not work")
+                    Toast.makeText(this, "Bluetooth permissions are needed for automatic media pause when devices disconnect", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+      private fun onBluetoothPermissionsGranted() {
+        // Restart Bluetooth monitoring now that permissions are granted
+        try {
+            // Get the BluetoothConnectionManager and restart monitoring
+            val bluetoothManagerField = mediaSessionManager.javaClass.getDeclaredField("bluetoothConnectionManager")
+            bluetoothManagerField.isAccessible = true
+            val bluetoothManager = bluetoothManagerField.get(mediaSessionManager)
+            
+            if (bluetoothManager != null) {
+                val restartMonitoringMethod = bluetoothManager.javaClass.getMethod("restartMonitoring")
+                restartMonitoringMethod.invoke(bluetoothManager)
+                Log.d(TAG, "Bluetooth monitoring restarted with permissions")
             }
         } catch (e: Exception) {
-            Log.e("MainActivity", "Error changing content visibility: ${e.message}")
+            Log.e(TAG, "Error restarting Bluetooth monitoring", e)
         }
     }
 }
