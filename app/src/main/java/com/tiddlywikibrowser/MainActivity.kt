@@ -1263,7 +1263,7 @@ class MainActivity : ComponentActivity() {
                     onBluetoothPermissionsGranted()
                 } else {
                     Log.w(TAG, "Bluetooth permissions denied - Bluetooth media pause will not work")
-                    Toast.makeText(this, "Bluetooth permissions are needed for automatic media pause when devices disconnect", Toast.LENGTH_LONG).show()
+//                    Toast.makeText(this, "Bluetooth permissions are needed for automatic media pause when devices disconnect", Toast.LENGTH_LONG).show()
                 }
             }
         }
